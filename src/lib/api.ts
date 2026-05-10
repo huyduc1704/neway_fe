@@ -1,8 +1,13 @@
 import axios from 'axios';
 import { authStorage } from './auth';
 
+let baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+if (baseUrl && !baseUrl.startsWith('http')) {
+    baseUrl = `https://${baseUrl}`;
+}
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+    baseURL: baseUrl,
     headers: { 'Content-Type': 'application/json' },
 });
 
