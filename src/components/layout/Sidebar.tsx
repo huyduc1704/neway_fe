@@ -57,7 +57,15 @@ export default function Sidebar() {
 
     return (
         <Sider width={245} style={{ background: '#fff', minHeight: '100vh' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0' }}>
+            <div
+                style={{
+                    height: 76,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    padding: '0 20px',
+                    borderBottom: '1px solid #f0f0f0'
+                }}>
                 <div style={{ color: '#E8890C', fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>
                     NEWAY
                 </div>

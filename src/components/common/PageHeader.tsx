@@ -8,9 +8,10 @@ interface PageHeaderProps {
     createLabel?: string;
     createPath?: string;
     onCreateClick?: () => void;
+    buttonStyle?: React.CSSProperties; // Thêm prop tuỳ chỉnh style cho button
 }
 
-export default function PageHeader({ title, createLabel, createPath, onCreateClick }: PageHeaderProps) {
+export default function PageHeader({ title, createLabel, createPath, onCreateClick, buttonStyle }: PageHeaderProps) {
     const router = useRouter();
 
     const handleCreate = () => {
@@ -24,7 +25,7 @@ export default function PageHeader({ title, createLabel, createPath, onCreateCli
                 {title}
             </Typography.Title>
             {createLabel && (
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate} style={buttonStyle}>
                     {createLabel}
                 </Button>
             )}

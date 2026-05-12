@@ -91,34 +91,39 @@ export default function DashboardPage() {
 
     return (
         <Spin spinning={loading}>
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col span={6}><StatCard title="Báo cáo doanh thu" value={stats.revenue} trend={2} isCurrency /></Col>
-                <Col span={6}><StatCard title="Báo cáo giao dịch" value={stats.transactions} trend={6} /></Col>
-                <Col span={6}><StatCard title="Giao dịch thành công" value={stats.success} trend={3} /></Col>
-                <Col span={6}><StatCard title="Giao dịch đã huỷ" value={stats.cancelled} trend={-12} /></Col>
-            </Row>
+            <Row gutter={[24, 24]}> {/* Máng xối chia khoảng cách giữa 2 cột chính */}
 
-            <Row gutter={16}>
-                <Col span={14}>
+                {/* =================== CỘT TRÁI (Bên dưới chiếm span 12 hoặc 11 tuỳ ý bạn) =================== */}
+                <Col xs={24} lg={11}>
+                    {/* 1. Lưới 4 Thống kê xếp 2x2 */}
+                    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                        <Col span={12}><StatCard title="Báo cáo doanh thu" value={stats.revenue} trend={2} isCurrency /></Col>
+                        <Col span={12}><StatCard title="Báo cáo giao dịch" value={stats.transactions} trend={6} /></Col>
+                        <Col span={12}><StatCard title="Giao dịch thành công" value={stats.success} trend={3} /></Col>
+                        <Col span={12}><StatCard title="Giao dịch đã huỷ" value={stats.cancelled} trend={-12} /></Col>
+                    </Row>
+
+                    {/* 2. Biểu đồ Top 10 Doanh Thu Cá Nhân */}
                     <Card
                         title={<Title level={5} style={{ margin: 0, color: '#1A2B5A' }}>Top 10 doanh thu cá nhân</Title>}
-                        style={{ borderRadius: 8 }}
+                        style={{ borderRadius: 12 }} // Tăng độ bo góc xíu cho giống hình
                     >
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={320}>
                             <BarChart data={PERSONAL_DATA} layout="vertical" margin={{ left: 8, right: 40 }}>
-                                <XAxis type="number" unit=" triệu" tick={{ fontSize: 12 }} />
-                                <YAxis type="category" dataKey="period" tick={{ fontSize: 12 }} width={110} />
+                                <XAxis type="number" unit=" triệu" tick={{ fontSize: 12 }} hide /> {/* Có thể hide XAxis cho gọn như hình */}
+                                <YAxis type="category" dataKey="period" tick={{ fontSize: 12 }} width={110} axisLine={false} tickLine={false} />
                                 <Tooltip formatter={(v) => [`${v ?? 0} triệu`, 'Doanh thu']} />
                                 <Bar dataKey="value" fill="#E8890C" radius={[0, 4, 4, 0]}
-                                    background={{ fill: '#f5f5f5', radius: 4 }} />
+                                    background={{ fill: '#f5f5f5', radius: 4 }} barSize={12} /> {/* Thu nhỏ thanh bar lại xíu */}
                             </BarChart>
                         </ResponsiveContainer>
                     </Card>
                 </Col>
 
-                <Col span={10}>
+                {/* =================== CỘT PHẢI (Chiếm trọn chiều cao) =================== */}
+                <Col xs={24} lg={13}>
                     <Card
-                        title={<Title level={5} style={{ margin: 0, color: '#1A2B5A' }}>Doanh thu chi nhánh</Title>}
+                        title={<Title level={5} style={{ margin: 0, color: '#1A2B5A', fontSize: 22 }}>Doanh thu chi nhánh</Title>}
                         extra={
                             <DatePicker.RangePicker
                                 size="small"
@@ -131,14 +136,15 @@ export default function DashboardPage() {
                                 }}
                             />
                         }
-                        style={{ borderRadius: 8 }}
+                        style={{ borderRadius: 12, height: '100%' }} // height: '100%' giúp cột này trải dài bằng cột trái
                     >
                         {branchRevenue.length > 0 ? (
                             <>
-                                <ResponsiveContainer width="100%" height={200}>
+                                {/* Phần Biểu đồ tròn */}
+                                <ResponsiveContainer width="100%" height={280}>
                                     <PieChart>
                                         <Pie data={branchRevenue} cx="50%" cy="50%"
-                                            innerRadius={50} outerRadius={88} dataKey="value"
+                                            innerRadius={0} outerRadius={110} dataKey="value" // Xoá innerRadius để thành biểu đồ tròn đặc
                                             label={({ percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
                                             labelLine={false}
                                         >
@@ -150,16 +156,17 @@ export default function DashboardPage() {
                                     </PieChart>
                                 </ResponsiveContainer>
 
-                                <div style={{ marginTop: 8 }}>
+                                {/* Bảng danh sách chi nhánh bên dưới */}
+                                <div style={{ marginTop: 24 }}>
                                     {branchRevenue.map((item, i) => (
-                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f5f5f5' }}>
-                                            <Text style={{ fontSize: 13 }}>
-                                                <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: PIE_COLORS[i % PIE_COLORS.length], marginRight: 8 }} />
-                                                {item.name}
-                                            </Text>
-                                            <Text strong style={{ color: '#1A2B5A', fontSize: 13 }}>
-                                                {formatCurrency(item.value)}
-                                            </Text>
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f5f5f5' }}>
+                                            <Text style={{ fontSize: 14, fontWeight: 500, color: '#333' }}>{item.name}</Text>
+                                            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                                                <Text strong style={{ color: '#1A2B5A', fontSize: 14 }}>
+                                                    {formatCurrency(item.value)}
+                                                </Text>
+                                                <Text type="secondary" style={{ fontSize: 12, color: '#52c41a' }}>~ 2.5%</Text>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

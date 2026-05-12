@@ -24,6 +24,7 @@ const COLORS = ['#E8890C', '#F5B95A', '#FAD99A', '#C8720A', '#FDECC8', '#A0520A'
 const TH = { style: { backgroundColor: '#FFF3E0', color: '#E8890C' } };
 
 export default function DoanhThuDuAnPage() {
+    const [mounted, setMounted] = useState(false);
     const [data, setData] = useState<RevenueRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [branches, setBranches] = useState<Branch[]>([]);
@@ -33,6 +34,10 @@ export default function DoanhThuDuAnPage() {
     const [toDate, setToDate] = useState(dayjs().endOf('year').format('YYYY-MM-DD'));
     const [branchFilter, setBranchFilter] = useState<string | undefined>();
     const [teamFilter, setTeamFilter] = useState<string | undefined>();
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -117,6 +122,8 @@ export default function DoanhThuDuAnPage() {
             onHeaderCell: () => TH,
         },
     ];
+
+    if (!mounted) return null;
 
     return (
         <>

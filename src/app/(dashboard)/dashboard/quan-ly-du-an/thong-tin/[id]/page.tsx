@@ -2,7 +2,7 @@
 import { use, useEffect, useState, useCallback } from 'react';
 import {
     Spin, Card, Descriptions, Tag, Button, Table, Space, Popconfirm,
-    message, Modal, Form, Input, InputNumber, Tooltip,
+    App, Modal, Form, Input, InputNumber, Tooltip,
 } from 'antd';
 import { ArrowLeftOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { TableColumnsType } from 'antd';
@@ -50,6 +50,7 @@ const TH = { style: { backgroundColor: '#FFF3E0', color: '#E8890C' } };
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
+    const { message } = App.useApp();
 
     const [project, setProject] = useState<ProjectDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -229,7 +230,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 onCancel={() => setRoomModal({ open: false })}
                 okText="Lưu" cancelText="Huỷ"
                 confirmLoading={submitting}
-                destroyOnClose
+                destroyOnHidden
             >
                 <Form form={roomForm} layout="vertical" style={{ marginTop: 16 }}>
                     <Form.Item label="Mã phòng" name="roomCode"
