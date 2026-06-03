@@ -1,84 +1,95 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Form, Input, Button, Card, Typography, message } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import { authStorage } from '@/lib/auth';
 
+const { Title, Text } = Typography;
+
 export default function LoginPage() {
-  const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      toast.error('Vui lòng nhập tên đăng nhập và mật khẩu');
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data } = await api.post('/auth/login', { username, password });
-      authStorage.setToken(data.access_token);
-      authStorage.setUser(data.user);
-      toast.success('Đăng nhập thành công');
-      router.push('/dashboard');
-    } catch {
-      toast.error('Sai tên đăng nhập hoặc mật khẩu');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleLogin = async (values: { username: string; password: string }) => {
+        setLoading(true);
+        try {
+            const { data } = await api.post('/auth/login', values);
+            authStorage.setToken(data.access_token);
+            authStorage.setUser(data.user);
+            message.success('Đăng nhập thành công');
+            router.push('/dashboard');
+        } catch {
+            message.error('Sai tên đăng nhập hoặc mật khẩu');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1A2B5A] to-[#2d4a8a] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center pb-2">
-          <div className="mb-3">
-            <div className="text-[#E8890C] font-extrabold text-4xl tracking-wide">NEWAY</div>
-            <div className="text-gray-400 text-sm">Niềm tin mới - Khởi đầu mới</div>
-          </div>
-          <CardTitle className="text-xl">Đăng nhập hệ thống</CardTitle>
-          <CardDescription>Nhập thông tin tài khoản để tiếp tục</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="username">Tên đăng nhập</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input id="username" placeholder="Nhập tên đăng nhập" className="pl-9"
-                  value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input id="password" type={showPassword ? 'text' : 'password'}
-                  placeholder="Nhập mật khẩu" className="pl-9 pr-9"
-                  value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <Button type="submit" className="w-full h-10" disabled={loading}>
-              {loading
-                ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                : 'Đăng nhập'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
+    return (
+        <div style={{
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1A2B5A 0%, #2d4a8a 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+        }}>
+            <Card style={{ width: '100%', maxWidth: 420, borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+                {/* Logo */}
+                <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                    <div style={{ color: '#E8890C', fontWeight: 900, fontSize: 40, letterSpacing: 3, lineHeight: 1 }}>
+                        NEWAY
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Niềm tin mới - Khởi đầu mới</Text>
+                    <div style={{ marginTop: 16 }}>
+                        <Title level={4} style={{ margin: 0 }}>Đăng nhập hệ thống</Title>
+                        <Text type="secondary" style={{ fontSize: 13 }}>Nhập thông tin tài khoản để tiếp tục</Text>
+                    </div>
+                </div>
+
+                <Form layout="vertical" onFinish={handleLogin} requiredMark={false}>
+                    <Form.Item
+                        label="Tên đăng nhập"
+                        name="username"
+                        rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
+                    >
+                        <Input
+                            prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
+                            placeholder="Nhập tên đăng nhập"
+                            size="large"
+                            autoComplete="username"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        label="Mật khẩu"
+                        name="password"
+                        rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+                    >
+                        <Input.Password
+                            prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
+                            placeholder="Nhập mật khẩu"
+                            size="large"
+                            autoComplete="current-password"
+                        />
+                    </Form.Item>
+
+                    <Form.Item style={{ marginBottom: 0 }}>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            size="large"
+                            loading={loading}
+                            block
+                            style={{ background: '#E8890C', borderColor: '#E8890C', height: 44, fontWeight: 600 }}
+                        >
+                            Đăng nhập
+                        </Button>
+                    </Form.Item>
+                </Form>
+            </Card>
+        </div>
+    );
 }
