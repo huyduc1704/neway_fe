@@ -23,14 +23,14 @@ interface Team {
 }
 
 const STATUS_OPTIONS = [
-    { value: 'ACTIVE',     label: 'Đang hoạt động' },
-    { value: 'SUSPENDED',  label: 'Tạm ngưng' },
-    { value: 'RESIGNED',   label: 'Đã nghỉ' },
+    { value: 'ACTIVE', label: 'Đang hoạt động' },
+    { value: 'SUSPENDED', label: 'Tạm ngưng' },
+    { value: 'RESIGNED', label: 'Đã nghỉ' },
 ];
 const GENDER_OPTIONS = [
-    { value: 'MALE',   label: 'Nam' },
+    { value: 'MALE', label: 'Nam' },
     { value: 'FEMALE', label: 'Nữ' },
-    { value: 'OTHER',  label: 'Khác' },
+    { value: 'OTHER', label: 'Khác' },
 ];
 
 const fmt = (v: string | null) =>
@@ -41,13 +41,13 @@ interface Props { mode: 'create' | 'edit'; userId?: string; }
 export default function EmployeeForm({ mode, userId }: Props) {
     const router = useRouter();
     const [form] = Form.useForm();
-    const [loading, setLoading]       = useState(false);
+    const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    const [roles, setRoles]   = useState<Role[]>([]);
-    const [teams, setTeams]   = useState<Team[]>([]);
-    const [avatarUrl, setAvatarUrl]         = useState<string | null>(null);
-    const [avatarFile, setAvatarFile]       = useState<File | null>(null);
+    const [roles, setRoles] = useState<Role[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     // derived from selected role / team
@@ -59,10 +59,10 @@ export default function EmployeeForm({ mode, userId }: Props) {
     useEffect(() => {
         api.get('/roles', { params: { limit: 100 } })
             .then(({ data }) => setRoles(data.data))
-            .catch(() => {});
+            .catch(() => { });
         api.get('/teams', { params: { limit: 200 } })
             .then(({ data }) => setTeams(data.data))
-            .catch(() => {});
+            .catch(() => { });
     }, []);
 
     // load employee for edit
@@ -74,20 +74,20 @@ export default function EmployeeForm({ mode, userId }: Props) {
                 const prof = data.employeeProfile;
                 const role = data.roles?.[0]?.role;
                 form.setFieldsValue({
-                    employeeCode:   prof?.employeeCode ?? '',
-                    fullName:       data.fullName ?? '',
-                    username:       data.username ?? '',
-                    roleCode:       role?.code ?? undefined,
-                    teamId:         prof?.team?.id ?? undefined,
+                    employeeCode: prof?.employeeCode ?? '',
+                    fullName: data.fullName ?? '',
+                    username: data.username ?? '',
+                    roleCode: role?.code ?? undefined,
+                    teamId: prof?.team?.id ?? undefined,
                     employeeStatus: prof?.employeeStatus ?? 'ACTIVE',
-                    gender:         prof?.gender ?? undefined,
-                    dateOfBirth:    prof?.dateOfBirth ? dayjs(prof.dateOfBirth) : undefined,
-                    score:          prof?.score != null ? Number(prof.score) : undefined,
-                    joinedAt:       prof?.joinedAt ? dayjs(prof.joinedAt) : undefined,
-                    bankAccount:    prof?.bankAccount ?? '',
-                    hasContract:    prof?.hasContract ?? false,
+                    gender: prof?.gender ?? undefined,
+                    dateOfBirth: prof?.dateOfBirth ? dayjs(prof.dateOfBirth) : undefined,
+                    score: prof?.score != null ? Number(prof.score) : undefined,
+                    joinedAt: prof?.joinedAt ? dayjs(prof.joinedAt) : undefined,
+                    bankAccount: prof?.bankAccount ?? '',
+                    hasContract: prof?.hasContract ?? false,
                     socialInsurance: prof?.socialInsurance ?? '',
-                    note:           prof?.note ?? '',
+                    note: prof?.note ?? '',
                 });
                 setHasSocialInsurance(!!prof?.socialInsurance);
                 if (role) setSelectedRole(roles.find(r => r.code === role.code) ?? {
@@ -135,39 +135,39 @@ export default function EmployeeForm({ mode, userId }: Props) {
         try {
             if (mode === 'create') {
                 const payload = {
-                    employeeCode:    values.employeeCode,
-                    fullName:        values.fullName,
-                    username:        values.username,
-                    password:        values.password,
-                    roleCodes:       [values.roleCode],
-                    teamId:          values.teamId || undefined,
-                    employeeStatus:  values.employeeStatus || 'ACTIVE',
-                    gender:          values.gender || undefined,
-                    dateOfBirth:     values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
-                    score:           values.score != null ? Number(values.score) : undefined,
-                    joinedAt:        values.joinedAt ? values.joinedAt.toISOString() : undefined,
-                    bankAccount:     values.bankAccount || undefined,
-                    hasContract:     values.hasContract ?? false,
+                    employeeCode: values.employeeCode,
+                    fullName: values.fullName,
+                    username: values.username,
+                    password: values.password,
+                    roleCodes: [values.roleCode],
+                    teamId: values.teamId || undefined,
+                    employeeStatus: values.employeeStatus || 'ACTIVE',
+                    gender: values.gender || undefined,
+                    dateOfBirth: values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
+                    score: values.score != null ? Number(values.score) : undefined,
+                    joinedAt: values.joinedAt ? values.joinedAt.toISOString() : undefined,
+                    bankAccount: values.bankAccount || undefined,
+                    hasContract: values.hasContract ?? false,
                     socialInsurance: values.socialInsurance || undefined,
-                    note:            values.note || undefined,
+                    note: values.note || undefined,
                 };
                 const { data } = await api.post('/employees', payload);
                 if (avatarFile) await uploadAvatar(data.id, avatarFile);
                 message.success('Tạo nhân sự thành công');
             } else {
                 const payload = {
-                    fullName:        values.fullName,
-                    roleCode:        values.roleCode,
-                    teamId:          values.teamId || undefined,
-                    employeeStatus:  values.employeeStatus,
-                    gender:          values.gender || undefined,
-                    dateOfBirth:     values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
-                    score:           values.score != null ? Number(values.score) : undefined,
-                    joinedAt:        values.joinedAt ? values.joinedAt.toISOString() : undefined,
-                    bankAccount:     values.bankAccount || undefined,
-                    hasContract:     values.hasContract ?? false,
+                    fullName: values.fullName,
+                    roleCode: values.roleCode,
+                    teamId: values.teamId || undefined,
+                    employeeStatus: values.employeeStatus,
+                    gender: values.gender || undefined,
+                    dateOfBirth: values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
+                    score: values.score != null ? Number(values.score) : undefined,
+                    joinedAt: values.joinedAt ? values.joinedAt.toISOString() : undefined,
+                    bankAccount: values.bankAccount || undefined,
+                    hasContract: values.hasContract ?? false,
                     socialInsurance: values.socialInsurance || undefined,
-                    note:            values.note || undefined,
+                    note: values.note || undefined,
                 };
                 await api.patch(`/employees/${userId}/profile`, payload);
                 if (avatarFile) await uploadAvatar(userId!, avatarFile);
@@ -259,8 +259,12 @@ export default function EmployeeForm({ mode, userId }: Props) {
                         <Col span={8}>
                             <Form.Item name="roleCode" label="Vai trò"
                                 rules={[{ required: true, message: 'Chọn vai trò' }]}>
-                                <Select placeholder="Chọn vai trò" onChange={handleRoleChange}
-                                    options={roles.map(r => ({ value: r.code, label: r.name }))} />
+                                <Select
+                                    showSearch={{ optionFilterProp: 'label' }}
+                                    placeholder="Chọn vai trò"
+                                    onChange={handleRoleChange}
+                                    options={roles.map(r => ({ value: r.code, label: r.name }))}
+                                />
                             </Form.Item>
                             {selectedRole && (
                                 <div style={{ marginTop: -12, marginBottom: 16, padding: '8px 12px', background: '#fff7ed', borderRadius: 6, border: '1px solid #fed7aa', display: 'flex', gap: 24 }}>
@@ -275,8 +279,13 @@ export default function EmployeeForm({ mode, userId }: Props) {
                         </Col>
                         <Col span={8}>
                             <Form.Item name="teamId" label="Team">
-                                <Select placeholder="Chọn team" allowClear onChange={handleTeamChange}
-                                    options={teams.map(t => ({ value: t.id, label: t.name }))} />
+                                <Select
+                                    showSearch={{ optionFilterProp: 'label' }}
+                                    placeholder="Chọn team"
+                                    allowClear
+                                    onChange={handleTeamChange}
+                                    options={teams.map(t => ({ value: t.id, label: t.name }))}
+                                />
                             </Form.Item>
                             {selectedTeam && (
                                 <div style={{ marginTop: -12, marginBottom: 16, padding: '8px 12px', background: '#eff6ff', borderRadius: 6, border: '1px solid #bfdbfe', display: 'flex', gap: 24 }}>
@@ -337,11 +346,21 @@ export default function EmployeeForm({ mode, userId }: Props) {
                                 <Input placeholder="Nhập số tài khoản ngân hàng" />
                             </Form.Item>
                         </Col>
+                        <Col span={8}>
+                            {hasSocialInsurance && (
+                                <Form.Item name="socialInsurance"
+                                    rules={[{ required: true, message: 'Vui lòng nhập số BHXH' }]}
+                                    label="Mã số BHXH"
+                                >
+                                    <Input placeholder="Nhập mã số BHXH" />
+                                </Form.Item>
+                            )}
+                        </Col>
                     </Row>
                     <Row gutter={24}>
-                        <Col span={4}>
+                        <Col span={8}>
                             <Form.Item name="hasContract" valuePropName="checked" label=" ">
-                                <Checkbox>Hợp đồng / Cam kết</Checkbox>
+                                <Checkbox style={{ whiteSpace: 'nowrap' }}>Hợp đồng / Cam kết</Checkbox>
                             </Form.Item>
                         </Col>
                         <Col span={8}>
@@ -356,17 +375,11 @@ export default function EmployeeForm({ mode, userId }: Props) {
                                     Bảo hiểm xã hội
                                 </Checkbox>
                             </Form.Item>
-                            {hasSocialInsurance && (
-                                <Form.Item name="socialInsurance"
-                                    rules={[{ required: true, message: 'Vui lòng nhập số BHXH' }]}
-                                    style={{ marginTop: -16 }}>
-                                    <Input placeholder="Nhập mã số BHXH" />
-                                </Form.Item>
-                            )}
                         </Col>
-                        <Col span={20}>
+
+                        <Col span={24}>
                             <Form.Item name="note" label="Ghi chú">
-                                <Input.TextArea rows={2} placeholder="Ghi chú thêm..." />
+                                <Input.TextArea rows={4} placeholder="Ghi chú thêm..." />
                             </Form.Item>
                         </Col>
                     </Row>

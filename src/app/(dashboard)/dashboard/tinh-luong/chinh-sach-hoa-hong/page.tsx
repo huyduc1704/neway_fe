@@ -147,7 +147,7 @@ export default function ChinhSachHoaHongPage() {
 
     const columns: ColumnsType<Policy> = [
         { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
-        { title: 'Mã policy', key: 'code', width: 130, render: (_, r) => <Tag>{r.code}</Tag> },
+        { title: 'Mã chính sách', key: 'code', width: 140, render: (_, r) => <Tag>{r.code}</Tag> },
         { title: 'Tên chính sách', key: 'name', render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{r.name}</span> },
         { title: 'Vai trò', key: 'role', width: 140, render: (_, r) => <Tag color="default">{r.role.name}</Tag> },
         { title: 'Áp dụng cho', key: 'scope', width: 200, render: (_, r) => formatScope(r) },
