@@ -1,11 +1,13 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { Table, Input, Button, Tag, Space, Popconfirm, message, Tooltip, Select } from 'antd';
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { Pencil, Trash2, Search } from 'lucide-react';
 import api from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
+import { DataTable, Column } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import dayjs from 'dayjs';
 
 interface Project {
@@ -23,15 +25,13 @@ interface Project {
 
 interface Branch { id: string; name: string; }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-    DRAFT:     { label: 'Nháp',        color: 'default' },
-    ACTIVE:    { label: 'Đang hoạt động', color: 'success' },
-    ON_HOLD:   { label: 'Tạm dừng',    color: 'warning' },
-    CLOSED:    { label: 'Đã đóng',     color: 'error' },
-    CANCELLED: { label: 'Đã huỷ',      color: 'default' },
+const STATUS_MAP: Record<string, { label: string; variant: 'secondary' | 'success' | 'warning' | 'destructive' }> = {
+    DRAFT:     { label: 'Nháp',           variant: 'secondary' },
+    ACTIVE:    { label: 'Đang hoạt động', variant: 'success' },
+    ON_HOLD:   { label: 'Tạm dừng',       variant: 'warning' },
+    CLOSED:    { label: 'Đã đóng',        variant: 'destructive' },
+    CANCELLED: { label: 'Đã huỷ',         variant: 'secondary' },
 };
-
-const TH = { style: { backgroundColor: '#FFF3E0', color: '#E8890C' } };
 
 export default function DanhMucDuAnPage() {
     const router = useRouter();
@@ -39,8 +39,9 @@ export default function DanhMucDuAnPage() {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [branchFilter, setBranchFilter] = useState<string | undefined>();
-    const [statusFilter, setStatusFilter] = useState<string | undefined>();
+    const [searchInput, setSearchInput] = useState('');
+    const [branchFilter, setBranchFilter] = useState<string>('');
+    const [statusFilter, setStatusFilter] = useState<string>('');
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
 
     const fetchProjects = useCallback(async () => {
@@ -48,17 +49,16 @@ export default function DanhMucDuAnPage() {
         try {
             const { data } = await api.get('/projects', {
                 params: {
-                    page: pagination.page,
-                    limit: pagination.limit,
+                    page: pagination.page, limit: pagination.limit,
                     search: search || undefined,
-                    branchId: branchFilter,
-                    status: statusFilter,
+                    branchId: branchFilter || undefined,
+                    status: statusFilter || undefined,
                 },
             });
             setProjects(data.data);
             setPagination((p) => ({ ...p, total: data.meta.total }));
         } catch {
-            message.error('Không thể tải danh sách dự án');
+            toast.error('Không thể tải danh sách dự án');
         } finally {
             setLoading(false);
         }
@@ -67,96 +67,85 @@ export default function DanhMucDuAnPage() {
     useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
     useEffect(() => {
-        api.get('/branches', { params: { limit: 100 } })
-            .then(({ data }) => setBranches(data.data))
-            .catch(() => {});
+        api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => {});
     }, []);
 
     const handleDelete = async (id: string) => {
+        if (!window.confirm('Xoá dự án này?')) return;
         try {
             await api.delete(`/projects/${id}`);
-            message.success('Đã xoá dự án');
+            toast.success('Đã xoá dự án');
             fetchProjects();
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
+            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
-    const columns: TableColumnsType<Project> = [
+    const columns: Column<Project>[] = [
         {
-            title: 'STT', width: 60, align: 'center',
+            key: 'stt', title: 'STT', width: 60, align: 'center',
             render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1,
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Mã dự án', dataIndex: 'code', width: 120,
-            render: (v) => <Tag color="orange">{v}</Tag>,
-            onHeaderCell: () => TH,
+            key: 'code', title: 'Mã dự án', width: 120,
+            render: (_, r) => <Badge variant="warning">{r.code}</Badge>,
         },
         {
-            title: 'Khu vực / Phường xã',
+            key: 'area', title: 'Khu vực / Phường xã',
             render: (_, r) => (
                 <div>
-                    <div style={{ fontWeight: 500 }}>{r.area}</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>{r.ward}</div>
+                    <div className="font-medium">{r.area}</div>
+                    <div className="text-xs text-gray-400">{r.ward}</div>
                 </div>
             ),
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Chi nhánh', width: 160,
+            key: 'branch', title: 'Chi nhánh', width: 160,
             render: (_, r) => r.managedBranch?.name || '—',
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Team', width: 140,
+            key: 'team', title: 'Team', width: 140,
             render: (_, r) => r.team?.name || '—',
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Thời gian thuê', width: 190,
+            key: 'rental', title: 'Thời gian thuê', width: 190,
             render: (_, r) => {
                 if (!r.rentalStartAt) return '—';
                 const start = dayjs(r.rentalStartAt).format('DD/MM/YYYY');
                 const end = r.rentalEndAt ? dayjs(r.rentalEndAt).format('DD/MM/YYYY') : '...';
                 return `${start} → ${end}`;
             },
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Số phòng', width: 100, align: 'center',
+            key: 'rooms', title: 'Số phòng', width: 100, align: 'center',
             render: (_, r) => r._count?.rooms ?? 0,
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Trạng thái', width: 150, align: 'center',
+            key: 'status', title: 'Trạng thái', width: 150, align: 'center',
             render: (_, r) => {
-                const s = STATUS_MAP[r.status] ?? { label: r.status, color: 'default' };
-                return <Tag color={s.color}>{s.label}</Tag>;
+                const s = STATUS_MAP[r.status] ?? { label: r.status, variant: 'secondary' as const };
+                return <Badge variant={s.variant}>{s.label}</Badge>;
             },
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Thao tác', width: 100, align: 'center',
-            onHeaderCell: () => TH,
+            key: 'actions', title: 'Thao tác', width: 100, align: 'center',
             render: (_, r) => (
-                <Space>
-                    <Tooltip title="Chỉnh sửa">
-                        <Button
-                            type="text" icon={<EditOutlined />}
-                            onClick={() => router.push(`/dashboard/he-thong/danh-muc-du-an/${r.id}` as any)}
-                        />
-                    </Tooltip>
-                    <Tooltip title="Xoá">
-                        <Popconfirm
-                            title="Xoá dự án này?"
-                            okText="Xác nhận" cancelText="Huỷ"
-                            onConfirm={() => handleDelete(r.id)}
-                        >
-                            <Button type="text" danger icon={<DeleteOutlined />} />
-                        </Popconfirm>
-                    </Tooltip>
-                </Space>
+                <div className="flex items-center justify-center gap-1">
+                    <button
+                        title="Chỉnh sửa"
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-[#E8890C] transition-colors"
+                        onClick={() => router.push(`/dashboard/he-thong/danh-muc-du-an/${r.id}` as any)}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                        title="Xoá"
+                        className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors"
+                        onClick={() => handleDelete(r.id)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
             ),
         },
     ];
@@ -169,45 +158,53 @@ export default function DanhMucDuAnPage() {
                 createPath="/dashboard/he-thong/danh-muc-du-an/tao-moi"
             />
 
-            <div style={{ background: '#fff', borderRadius: 8, padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
-                    <Space wrap>
-                        <Select
-                            allowClear placeholder="Chi nhánh" style={{ width: 180 }}
-                            onChange={(v) => { setBranchFilter(v); setPagination((p) => ({ ...p, page: 1 })); }}
-                            options={branches.map((b) => ({ value: b.id, label: b.name }))}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+                    <div className="flex items-center gap-2">
+                        <Select value={branchFilter} onValueChange={(v) => { setBranchFilter(v); setPagination((p) => ({ ...p, page: 1 })); }}>
+                            <SelectTrigger className="w-44"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">Tất cả chi nhánh</SelectItem>
+                                {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPagination((p) => ({ ...p, page: 1 })); }}>
+                            <SelectTrigger className="w-40"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">Tất cả</SelectItem>
+                                {Object.entries(STATUS_MAP).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex items-center gap-1 rounded-md border border-gray-200 px-3 h-9">
+                        <Search className="h-4 w-4 text-gray-400" />
+                        <input
+                            className="outline-none text-sm w-52 bg-transparent placeholder-gray-400"
+                            placeholder="Tìm theo mã dự án..."
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    setSearch(searchInput);
+                                    setPagination((p) => ({ ...p, page: 1 }));
+                                }
+                            }}
                         />
-                        <Select
-                            allowClear placeholder="Trạng thái" style={{ width: 160 }}
-                            onChange={(v) => { setStatusFilter(v); setPagination((p) => ({ ...p, page: 1 })); }}
-                            options={Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))}
-                        />
-                    </Space>
-                    <Input.Search
-                        placeholder="Tìm theo mã dự án..."
-                        allowClear style={{ width: 260 }}
-                        onSearch={(v) => { setSearch(v); setPagination((p) => ({ ...p, page: 1 })); }}
-                    />
+                    </div>
                 </div>
 
-                <Table
-                    rowKey="id"
-                    columns={columns}
-                    dataSource={projects}
-                    loading={loading}
-                    pagination={{
-                        current: pagination.page,
-                        pageSize: pagination.limit,
-                        total: pagination.total,
-                        showSizeChanger: false,
-                        onChange: (page) => setPagination((p) => ({ ...p, page })),
-                        itemRender: (_, type, el) => {
-                            if (type === 'prev') return <a>Trước</a>;
-                            if (type === 'next') return <a>Sau</a>;
-                            return el;
-                        },
-                    }}
-                />
+                <DataTable columns={columns} data={projects} rowKey="id" loading={loading} pageSize={pagination.limit} />
+
+                {pagination.total > pagination.limit && (
+                    <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
+                        <span>Tổng: {pagination.total} dự án</span>
+                        <div className="flex items-center gap-1">
+                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page === 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Trước</button>
+                            <span className="px-3 py-1">{pagination.page}</span>
+                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page * pagination.limit >= pagination.total} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Sau</button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

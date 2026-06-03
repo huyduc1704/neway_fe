@@ -1,355 +1,514 @@
 'use client';
 import { use, useEffect, useState, useCallback } from 'react';
-import {
-    Spin, Card, Descriptions, Tag, Button, Table, Space, message,
-    Modal, Form, Select, InputNumber, Divider,
-} from 'antd';
-import { ArrowLeftOutlined, UserAddOutlined } from '@ant-design/icons';
-import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft, CheckCircle, Upload, ExternalLink, AlertTriangle } from 'lucide-react';
 import api from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import dayjs from 'dayjs';
 
-interface Assignment {
-    id: string;
-    roleInProject: string;
-    sharePercent: number | null;
-    note: string | null;
-    employee: { id: string; employeeCode: string; user: { fullName: string } };
-}
-
-interface Commission {
-    id: string;
-    amount: number;
-    percentApplied: number | null;
-    sourceType: string;
-    employee: { employeeCode: string; user: { fullName: string } };
-    role: { name: string };
-}
-
+/* ─── Types ──────────────────────────────────────────────── */
 interface TransactionDetail {
     id: string;
     transactionCode: string;
-    actualValue: number;
-    expectedRevenue: number | null;
     status: string;
+    collectionStatus: string;
+    accountantConfirmed: boolean;
+    accountantConfirmedAt: string | null;
+    accountantConfirmedBy: { fullName: string } | null;
+    isMatched: boolean | null;
+    hasFullDeposit: boolean;
+    supplementDeposit2: number | null;
+    totalDeposit: number | null;
+    expectedRevenue: number | null;
+    actualRevenue: number | null;
+    actualCommissionPercent: number | null;
+    revenueDiff: number | null;
+    transactionImageUrl: string | null;
     transactedAt: string;
     note: string | null;
-    project: { id: string; code: string; ward: string; area: string } | null;
+    project: {
+        id: string; code: string;
+        deposit1: number | null;
+        deposit2: number | null;
+        deposit2Date: string | null;
+        checkInDate: string | null;
+        rentalPrice: number | null;
+        customerSupport: number | null;
+        estimatedRevenue: number | null;
+    } | null;
     room: { id: string; roomCode: string; rentalPrice: number | null } | null;
     customer: { id: string; fullName: string; phone: string } | null;
     branch: { id: string; name: string } | null;
     team: { id: string; name: string } | null;
-    createdBy: { fullName: string } | null;
-    assignments: Assignment[];
-    commissions: Commission[];
+    commissions: Array<{ role: { name: string }; amount: number }>;
 }
 
-interface EmployeeOption { id: string; employeeCode: string; fullName: string; }
-
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-    PENDING:   { label: 'Đang xử lý', color: 'processing' },
-    SUCCESS:   { label: 'Thành công', color: 'success' },
-    CANCELLED: { label: 'Đã huỷ',    color: 'default' },
-    FAILED:    { label: 'Thất bại',   color: 'error' },
-};
-
-const ROLE_OPTIONS = [
-    { value: 'MARKETING', label: 'Marketing' },
-    { value: 'SALES',     label: 'Sales' },
+/* ─── Constants ──────────────────────────────────────────── */
+const STATUS_OPTIONS = [
+    { value: 'SUCCESS',   label: 'Thành công' },
+    { value: 'CANCELLED', label: 'Huỷ cọc - Hoàn cọc' },
+    { value: 'FAILED',    label: 'Thất bại' },
 ];
 
-const formatCurrency = (v: number | null) =>
+const fmtCurrency = (v: number | null | undefined) =>
     v != null ? new Intl.NumberFormat('vi-VN').format(v) + 'đ' : '—';
+const fmtDate = (v: string | null | undefined) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '—';
 
-const TH = { style: { backgroundColor: '#FFF3E0', color: '#E8890C' } };
+/* ─── Info row ───────────────────────────────────────────── */
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div className="flex">
+            <span className="w-52 shrink-0 text-sm font-medium text-[#E8890C] bg-orange-50 px-4 py-2.5">{label}</span>
+            <span className="px-4 py-2.5 text-sm flex-1">{children}</span>
+        </div>
+    );
+}
 
+/* ─── Main component ─────────────────────────────────────── */
 export default function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
-
-    const [transaction, setTransaction] = useState<TransactionDetail | null>(null);
+    const [tx, setTx]           = useState<TransactionDetail | null>(null);
     const [loading, setLoading] = useState(true);
-    const [statusModal, setStatusModal] = useState(false);
-    const [assignModal, setAssignModal] = useState(false);
-    const [statusForm] = Form.useForm();
-    const [assignForm] = Form.useForm();
-    const [submitting, setSubmitting] = useState(false);
-    const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+    const [saving, setSaving]   = useState(false);
+    const [confirming, setConfirming] = useState(false);
+    const [uploadingImg, setUploadingImg] = useState(false);
 
-    const fetchTransaction = useCallback(async () => {
+    /* form state */
+    const [status,                   setStatus]                   = useState('');
+    const [hasFullDeposit,           setHasFullDeposit]           = useState(false);
+    const [addDeposit2,              setAddDeposit2]              = useState(false);
+    const [supplementDeposit2,       setSupplementDeposit2]       = useState('');
+    const [transactedAt,             setTransactedAt]             = useState('');
+    const [actualCommissionPercent,  setActualCommissionPercent]  = useState('');
+    const [manualActualRevenue,      setManualActualRevenue]      = useState('');
+    const [collectionStatus,         setCollectionStatus]         = useState('NOT_COLLECTED');
+    const [note,                     setNote]                     = useState('');
+
+    /* ── Fetch ── */
+    const fetchTx = useCallback(async () => {
         setLoading(true);
         try {
             const { data } = await api.get(`/transactions/${id}`);
-            setTransaction(data);
+            setTx(data);
+            setStatus(data.status ?? '');
+            setHasFullDeposit(data.hasFullDeposit ?? false);
+            setAddDeposit2(!!data.supplementDeposit2);
+            setSupplementDeposit2(data.supplementDeposit2 ? String(data.supplementDeposit2) : '');
+            setTransactedAt(data.transactedAt ? dayjs(data.transactedAt).format('YYYY-MM-DDTHH:mm') : '');
+            setActualCommissionPercent(data.actualCommissionPercent != null ? String(data.actualCommissionPercent) : '');
+            setManualActualRevenue(data.actualRevenue != null ? String(data.actualRevenue) : '');
+            setCollectionStatus(data.collectionStatus ?? 'NOT_COLLECTED');
+            setNote(data.note ?? '');
         } catch {
-            message.error('Không thể tải thông tin giao dịch');
+            toast.error('Không thể tải thông tin giao dịch');
         } finally {
             setLoading(false);
         }
     }, [id]);
 
-    useEffect(() => { fetchTransaction(); }, [fetchTransaction]);
+    useEffect(() => { fetchTx(); }, [fetchTx]);
 
-    const openAssign = async () => {
-        assignForm.resetFields();
-        assignForm.setFieldsValue({ assignments: [{}] });
-        try {
-            const { data } = await api.get('/employees', { params: { limit: 200 } });
-            setEmployees(data.data.map((e: any) => ({
-                id: e.employeeProfile?.id,
-                employeeCode: e.employeeProfile?.employeeCode,
-                fullName: e.fullName,
-            })).filter((e: any) => e.id));
-        } catch { /* ignore */ }
-        setAssignModal(true);
-    };
+    /* ── Computed values ── */
+    const rentalPrice = tx?.room?.rentalPrice ?? tx?.project?.rentalPrice ?? 0;
+    const deposit1    = tx?.project?.deposit1 ?? 0;
+    const deposit2    = tx?.project?.deposit2 ?? 0;
+    const customerSupport = tx?.project?.customerSupport ?? 0;
 
-    const handleStatusUpdate = async () => {
-        const values = await statusForm.validateFields();
-        setSubmitting(true);
+    // tổng tiền cọc
+    const totalDeposit = (() => {
+        if (hasFullDeposit) return deposit1 + deposit2;
+        if (addDeposit2 && supplementDeposit2) return deposit1 + Number(supplementDeposit2);
+        return deposit1;
+    })();
+
+    // doanh thu thực tế (auto-calc khi SUCCESS)
+    const autoActualRevenue = (() => {
+        if (status !== 'SUCCESS') return null;
+        const pct = parseFloat(actualCommissionPercent) || 0;
+        if (!pct || !rentalPrice) return null;
+        return rentalPrice * (pct / 100) - customerSupport;
+    })();
+    const displayActualRevenue = status === 'CANCELLED'
+        ? (manualActualRevenue ? Number(manualActualRevenue) : null)
+        : autoActualRevenue;
+
+    // chênh lệch
+    const revenueDiff = displayActualRevenue != null && tx?.project?.estimatedRevenue != null
+        ? displayActualRevenue - tx.project.estimatedRevenue
+        : null;
+
+    // khớp lệnh
+    const isMatched = (() => {
+        if (!transactedAt || !tx?.project?.checkInDate) return null;
+        return dayjs(transactedAt).isBefore(dayjs(tx.project.checkInDate).add(1, 'day'))
+            || dayjs(transactedAt).isSame(dayjs(tx.project.checkInDate), 'day');
+    })();
+
+    /* ── Save ── */
+    const handleSave = async () => {
+        setSaving(true);
         try {
-            await api.patch(`/transactions/${id}/status`, values);
-            message.success('Cập nhật trạng thái thành công');
-            setStatusModal(false);
-            fetchTransaction();
+            const payload: Record<string, unknown> = {
+                status,
+                hasFullDeposit,
+                supplementDeposit2: addDeposit2 && supplementDeposit2 ? Number(supplementDeposit2) : undefined,
+                transactedAt: transactedAt ? new Date(transactedAt).toISOString() : undefined,
+                actualCommissionPercent: actualCommissionPercent ? Number(actualCommissionPercent) : undefined,
+                actualRevenue: status === 'CANCELLED' && manualActualRevenue ? Number(manualActualRevenue) : undefined,
+                collectionStatus,
+                note: note || undefined,
+            };
+            await api.patch(`/transactions/${id}`, payload);
+            toast.success('Cập nhật giao dịch thành công');
+            fetchTx();
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
+            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally {
-            setSubmitting(false);
+            setSaving(false);
         }
     };
 
-    const handleAssignStaff = async () => {
-        const values = await assignForm.validateFields();
-        setSubmitting(true);
+    /* ── Kế toán xác nhận ── */
+    const handleConfirm = async () => {
+        if (!window.confirm('Xác nhận giao dịch này với tư cách kế toán?')) return;
+        setConfirming(true);
         try {
-            await api.post(`/transactions/${id}/assignments`, values);
-            message.success('Gán nhân sự thành công');
-            setAssignModal(false);
-            fetchTransaction();
+            await api.patch(`/transactions/${id}/confirm`);
+            toast.success('Đã xác nhận giao dịch');
+            fetchTx();
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
+            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally {
-            setSubmitting(false);
+            setConfirming(false);
         }
     };
 
-    const assignColumns: TableColumnsType<Assignment> = [
-        {
-            title: 'Nhân viên', render: (_, r) => (
-                <span>{r.employee.user.fullName} <span style={{ color: '#888', fontSize: 12 }}>({r.employee.employeeCode})</span></span>
-            ), onHeaderCell: () => TH,
-        },
-        {
-            title: 'Vai trò', width: 130, render: (_, r) => (
-                <Tag color={r.roleInProject === 'LEADER' ? 'purple' : r.roleInProject === 'SALES' ? 'blue' : 'green'}>
-                    {r.roleInProject}
-                </Tag>
-            ), onHeaderCell: () => TH,
-        },
-        {
-            title: '% Hoa hồng', width: 120, align: 'center',
-            render: (_, r) => r.sharePercent != null ? `${r.sharePercent}%` : '—',
-            onHeaderCell: () => TH,
-        },
-        {
-            title: 'Ghi chú', dataIndex: 'note', render: (v) => v || '—', onHeaderCell: () => TH,
-        },
-    ];
+    /* ── Upload ảnh ── */
+    const handleImageUpload = async (file: File) => {
+        setUploadingImg(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            await api.patch(`/transactions/${id}/image`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            toast.success('Upload ảnh thành công');
+            fetchTx();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Upload thất bại');
+        } finally {
+            setUploadingImg(false);
+        }
+    };
 
-    const commissionColumns: TableColumnsType<Commission> = [
-        {
-            title: 'Nhân viên', render: (_, r) => (
-                <span>{r.employee.user.fullName} <span style={{ color: '#888', fontSize: 12 }}>({r.employee.employeeCode})</span></span>
-            ), onHeaderCell: () => TH,
-        },
-        { title: 'Vai trò', width: 160, render: (_, r) => r.role.name, onHeaderCell: () => TH },
-        {
-            title: '% Áp dụng', width: 110, align: 'center',
-            render: (_, r) => r.percentApplied != null ? `${r.percentApplied}%` : '—',
-            onHeaderCell: () => TH,
-        },
-        {
-            title: 'Số tiền hoa hồng', width: 160, align: 'right',
-            render: (_, r) => <span style={{ fontWeight: 600, color: '#E8890C' }}>{formatCurrency(r.amount)}</span>,
-            onHeaderCell: () => TH,
-        },
-    ];
+    /* ── Render ── */
+    if (loading) return (
+        <div className="flex items-center justify-center py-24">
+            <div className="h-6 w-6 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
+        </div>
+    );
+    if (!tx) return null;
 
-    const status = transaction ? (STATUS_MAP[transaction.status] ?? { label: transaction.status, color: 'default' }) : null;
-    const isLocked = transaction?.status === 'SUCCESS' || transaction?.status === 'CANCELLED';
+    const isLocked = tx.accountantConfirmed || tx.status === 'SUCCESS';
 
     return (
-        <Spin spinning={loading}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()}>Quay lại</Button>
-                    <span style={{ fontSize: 18, fontWeight: 600, color: '#1A2B5A' }}>
-                        Chi tiết giao dịch {transaction ? `— ${transaction.transactionCode}` : ''}
+        <div className="space-y-4 pb-8">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <button className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 text-sm" onClick={() => router.back()}>
+                        <ArrowLeft className="h-4 w-4" /> Quay lại
+                    </button>
+                    <span className="text-lg font-semibold text-[#1A2B5A]">
+                        Giao dịch — <Badge variant="warning">{tx.transactionCode}</Badge>
                     </span>
                 </div>
-                {transaction && !isLocked && (
-                    <Space>
-                        <Button icon={<UserAddOutlined />} onClick={openAssign}>Gán nhân sự</Button>
-                        <Button type="primary" onClick={() => { statusForm.resetFields(); setStatusModal(true); }}>
-                            Cập nhật trạng thái
+                <div className="flex items-center gap-2">
+                    {!tx.accountantConfirmed && (
+                        <Button
+                            variant="outline"
+                            className="border-green-500 text-green-700 hover:bg-green-50"
+                            onClick={handleConfirm}
+                            disabled={confirming}
+                        >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            {confirming ? 'Đang xác nhận...' : 'Kế toán xác nhận'}
                         </Button>
-                    </Space>
-                )}
+                    )}
+                    {tx.accountantConfirmed && (
+                        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-1.5">
+                            <CheckCircle className="h-4 w-4" />
+                            KT đã xác nhận — {fmtDate(tx.accountantConfirmedAt)}
+                            {tx.accountantConfirmedBy && ` (${tx.accountantConfirmedBy.fullName})`}
+                        </div>
+                    )}
+                    <Button onClick={handleSave} disabled={saving} className="bg-[#E8890C] hover:bg-[#C8720A]">
+                        {saving && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
+                        Lưu thay đổi
+                    </Button>
+                </div>
             </div>
 
-            {transaction && (
-                <>
-                    <Card style={{ borderRadius: 8, marginBottom: 16 }}>
-                        <Descriptions column={3} bordered size="small"
-                            labelStyle={{ backgroundColor: '#FFF3E0', color: '#E8890C', fontWeight: 500 }}>
-                            <Descriptions.Item label="Mã giao dịch">
-                                <Tag color="orange">{transaction.transactionCode}</Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Trạng thái">
-                                {status && <Tag color={status.color}>{status.label}</Tag>}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Ngày giao dịch">
-                                {dayjs(transaction.transactedAt).format('DD/MM/YYYY')}
-                            </Descriptions.Item>
+            <div className="grid grid-cols-2 gap-4">
+                {/* ── Cột trái: Thông tin giao dịch ── */}
+                <div className="space-y-4">
 
-                            <Descriptions.Item label="Dự án">
-                                {transaction.project ? `${transaction.project.code} — ${transaction.project.area}` : '—'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Phòng">
-                                {transaction.room?.roomCode || '—'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Khách hàng">
-                                {transaction.customer
-                                    ? `${transaction.customer.fullName} (${transaction.customer.phone})`
-                                    : '—'}
-                            </Descriptions.Item>
+                    {/* Thông tin cơ bản */}
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
+                            <h3 className="text-sm font-semibold text-[#E8890C]">Thông tin cơ bản</h3>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                            <InfoRow label="Mã giao dịch">{tx.transactionCode}</InfoRow>
+                            <InfoRow label="Dự án">{tx.project?.code || '—'}</InfoRow>
+                            <InfoRow label="Phòng">{tx.room?.roomCode || '—'}</InfoRow>
+                            <InfoRow label="Khách hàng">
+                                <div>
+                                    <div>{tx.customer?.fullName || '—'}</div>
+                                    {tx.customer?.phone && <div className="text-xs text-gray-400">{tx.customer.phone}</div>}
+                                </div>
+                            </InfoRow>
+                            <InfoRow label="Chi nhánh">{tx.branch?.name || '—'}</InfoRow>
+                            <InfoRow label="Khu vực">{tx.team?.name || '—'}</InfoRow>
+                        </div>
+                    </div>
 
-                            <Descriptions.Item label="Giá trị giao dịch">
-                                <span style={{ fontWeight: 600, color: '#1A2B5A' }}>
-                                    {formatCurrency(transaction.actualValue)}
+                    {/* Tiền cọc */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                        <h3 className="text-sm font-semibold text-[#E8890C]">Tiền cọc</h3>
+
+                        <div className="flex items-center gap-3 text-sm">
+                            <span className="text-gray-600 w-36">Tiền cọc lần 1</span>
+                            <span className="font-medium">{fmtCurrency(deposit1 || null)}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                <input
+                                    type="checkbox"
+                                    className="h-4 w-4 accent-[#E8890C]"
+                                    checked={hasFullDeposit}
+                                    onChange={e => { setHasFullDeposit(e.target.checked); if (e.target.checked) setAddDeposit2(false); }}
+                                />
+                                <span>Đã bổ sung cọc đủ</span>
+                            </label>
+                            {hasFullDeposit && deposit2 > 0 && (
+                                <span className="text-xs text-gray-500">
+                                    (+ {fmtCurrency(deposit2 || null)} bổ sung)
                                 </span>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Doanh thu ước tính">
-                                {formatCurrency(transaction.expectedRevenue)}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Chi nhánh / Team">
-                                {transaction.branch?.name || '—'} / {transaction.team?.name || '—'}
-                            </Descriptions.Item>
-
-                            {transaction.note && (
-                                <Descriptions.Item label="Ghi chú" span={3}>{transaction.note}</Descriptions.Item>
                             )}
-                        </Descriptions>
-                    </Card>
+                        </div>
 
-                    <Card
-                        title={<span style={{ color: '#1A2B5A', fontWeight: 600 }}>Nhân sự phụ trách ({transaction.assignments.length})</span>}
-                        style={{ borderRadius: 8, marginBottom: 16 }}
-                    >
-                        <Table rowKey="id" columns={assignColumns} dataSource={transaction.assignments} pagination={false} size="small" />
-                    </Card>
-
-                    <Card
-                        title={<span style={{ color: '#1A2B5A', fontWeight: 600 }}>Hoa hồng ({transaction.commissions.length})</span>}
-                        style={{ borderRadius: 8 }}
-                    >
-                        {transaction.commissions.length === 0
-                            ? <div style={{ textAlign: 'center', color: '#bbb', padding: '24px 0' }}>
-                                Hoa hồng được tính tự động khi giao dịch chuyển sang Thành công
-                              </div>
-                            : <Table rowKey="id" columns={commissionColumns} dataSource={transaction.commissions} pagination={false} size="small" />
-                        }
-                    </Card>
-                </>
-            )}
-
-            {/* Modal đổi trạng thái */}
-            <Modal
-                title="Cập nhật trạng thái giao dịch"
-                open={statusModal}
-                onOk={handleStatusUpdate}
-                onCancel={() => setStatusModal(false)}
-                okText="Xác nhận" cancelText="Huỷ"
-                confirmLoading={submitting}
-                destroyOnClose
-            >
-                <Form form={statusForm} layout="vertical" style={{ marginTop: 16 }}>
-                    <Form.Item label="Trạng thái mới" name="status"
-                        rules={[{ required: true, message: 'Chọn trạng thái' }]}>
-                        <Select
-                            placeholder="Chọn trạng thái"
-                            options={[
-                                { value: 'SUCCESS',   label: 'Thành công — tự động tính hoa hồng' },
-                                { value: 'CANCELLED', label: 'Đã huỷ' },
-                                { value: 'FAILED',    label: 'Thất bại' },
-                            ]}
-                        />
-                    </Form.Item>
-                </Form>
-            </Modal>
-
-            {/* Modal gán nhân sự */}
-            <Modal
-                title="Gán nhân sự vào giao dịch"
-                open={assignModal}
-                onOk={handleAssignStaff}
-                onCancel={() => setAssignModal(false)}
-                okText="Lưu" cancelText="Huỷ"
-                confirmLoading={submitting}
-                width={640}
-                destroyOnClose
-            >
-                <Form form={assignForm} layout="vertical" style={{ marginTop: 16 }}>
-                    <Form.List name="assignments">
-                        {(fields, { add, remove }) => (
-                            <>
-                                {fields.map((field, index) => (
-                                    <div key={field.key} style={{ background: '#fafafa', padding: 12, borderRadius: 6, marginBottom: 12 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                            <span style={{ fontWeight: 500 }}>Nhân sự #{index + 1}</span>
-                                            {fields.length > 1 && (
-                                                <Button type="text" danger size="small" onClick={() => remove(field.name)}>Xoá</Button>
-                                            )}
-                                        </div>
-                                        <Form.Item label="Nhân viên" name={[field.name, 'employeeId']}
-                                            rules={[{ required: true, message: 'Chọn nhân viên' }]}>
-                                            <Select
-                                                showSearch placeholder="Chọn nhân viên"
-                                                filterOption={(input, opt) =>
-                                                    (opt?.label as string)?.toLowerCase().includes(input.toLowerCase())
-                                                }
-                                                options={employees.map((e) => ({
-                                                    value: e.id,
-                                                    label: `${e.fullName} (${e.employeeCode})`,
-                                                }))}
-                                            />
-                                        </Form.Item>
-                                        <div style={{ display: 'flex', gap: 12 }}>
-                                            <Form.Item label="Vai trò" name={[field.name, 'role']}
-                                                rules={[{ required: true, message: 'Chọn vai trò' }]}
-                                                style={{ flex: 1 }}>
-                                                <Select placeholder="Chọn vai trò" options={ROLE_OPTIONS} />
-                                            </Form.Item>
-                                            <Form.Item label="% Hoa hồng" name={[field.name, 'sharePercent']} style={{ flex: 1 }}>
-                                                <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="VD: 50" />
-                                            </Form.Item>
-                                        </div>
+                        {!hasFullDeposit && (
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                    <input
+                                        type="checkbox"
+                                        className="h-4 w-4 accent-[#E8890C]"
+                                        checked={addDeposit2}
+                                        onChange={e => { setAddDeposit2(e.target.checked); if (!e.target.checked) setSupplementDeposit2(''); }}
+                                    />
+                                    <span>Bổ sung cọc lần 2</span>
+                                </label>
+                                {addDeposit2 && (
+                                    <div>
+                                        <Label className="text-xs">Số tiền bổ sung (VNĐ)</Label>
+                                        <Input
+                                            type="number" className="mt-1 h-8" min={0}
+                                            placeholder="Nhập số tiền"
+                                            value={supplementDeposit2}
+                                            onChange={e => setSupplementDeposit2(e.target.value)}
+                                        />
                                     </div>
-                                ))}
-                                {fields.length < 4 && (
-                                    <Button type="dashed" block onClick={() => add()}>+ Thêm nhân sự</Button>
                                 )}
-                                <Divider style={{ margin: '12px 0 0' }} />
-                                <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
-                                    Leader được tự động xác định từ trưởng nhóm của nhân viên Sales.
-                                </p>
-                            </>
+                            </div>
                         )}
-                    </Form.List>
-                </Form>
-            </Modal>
-        </Spin>
+
+                        <div className="flex items-center gap-3 pt-1 border-t border-gray-100 text-sm font-semibold">
+                            <span className="text-gray-600 w-36">Tổng tiền cọc</span>
+                            <span className="text-[#E8890C]">{fmtCurrency(totalDeposit || null)}</span>
+                        </div>
+                    </div>
+
+                    {/* Ảnh giao dịch */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-4">
+                        <h3 className="text-sm font-semibold text-[#E8890C] mb-3">Ảnh giao dịch</h3>
+                        <div className="flex items-center gap-3">
+                            {tx.transactionImageUrl ? (
+                                <a href={tx.transactionImageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                                    <ExternalLink className="h-4 w-4" /> Xem ảnh
+                                </a>
+                            ) : (
+                                <span className="text-sm text-gray-400">Chưa có ảnh</span>
+                            )}
+                            <label className={`flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs cursor-pointer ${uploadingImg ? 'opacity-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                <Upload className="h-3.5 w-3.5" />
+                                {uploadingImg ? 'Đang upload...' : (tx.transactionImageUrl ? 'Thay ảnh' : 'Upload ảnh')}
+                                <input type="file" accept="image/*" className="hidden" disabled={uploadingImg}
+                                    onChange={e => e.target.files?.[0] && handleImageUpload(e.target.files[0])} />
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Cột phải: Nghiệp vụ ── */}
+                <div className="space-y-4">
+
+                    {/* Tình trạng & Ngày GD */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+                        <h3 className="text-sm font-semibold text-[#E8890C]">Tình trạng giao dịch</h3>
+
+                        <div>
+                            <Label className="text-sm">Tình trạng</Label>
+                            <Select value={status} onValueChange={setStatus} disabled={isLocked}>
+                                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label className="text-sm">Ngày GDTC / GDHC</Label>
+                            <input
+                                type="datetime-local"
+                                className="mt-1 h-9 w-full px-3 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none disabled:bg-gray-50"
+                                value={transactedAt}
+                                onChange={e => setTransactedAt(e.target.value)}
+                                disabled={isLocked}
+                            />
+                        </div>
+
+                        {/* Khớp lệnh */}
+                        <div className="flex items-center gap-3 p-3 rounded-md border border-gray-200 bg-gray-50">
+                            <span className="text-sm text-gray-600 w-24 shrink-0">Khớp lệnh</span>
+                            {!transactedAt || !tx.project?.checkInDate ? (
+                                <span className="text-xs text-gray-400">— (chưa đủ dữ liệu)</span>
+                            ) : isMatched ? (
+                                <Badge variant="success">Khớp</Badge>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="destructive">Không khớp</Badge>
+                                    <span className="text-xs text-gray-400">
+                                        Ngày nhận phòng: {dayjs(tx.project.checkInDate).format('DD/MM/YYYY')}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <Label className="text-sm">Trạng thái thu</Label>
+                            <Select value={collectionStatus} onValueChange={setCollectionStatus}>
+                                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="NOT_COLLECTED">Chưa thu</SelectItem>
+                                    <SelectItem value="COLLECTED">Đã thu</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* Doanh thu */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+                        <h3 className="text-sm font-semibold text-[#E8890C]">Doanh thu</h3>
+
+                        <div className="flex items-center gap-3 text-sm">
+                            <span className="text-gray-600 w-44 shrink-0">Doanh thu ước tính</span>
+                            <span className="font-medium">{fmtCurrency(tx.project?.estimatedRevenue ?? null)}</span>
+                        </div>
+
+                        {status === 'SUCCESS' && (
+                            <div>
+                                <Label className="text-sm">Hoa hồng thực tế (%)</Label>
+                                <Input
+                                    type="number" className="mt-1 h-9" min={0} max={100} step={0.01}
+                                    placeholder="VD: 5"
+                                    value={actualCommissionPercent}
+                                    onChange={e => setActualCommissionPercent(e.target.value)}
+                                    disabled={isLocked}
+                                />
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Doanh thu TT = Giá phòng × Hoa hồng% − Hỗ trợ khách
+                                </p>
+                            </div>
+                        )}
+
+                        {status === 'CANCELLED' && (
+                            <div>
+                                <Label className="text-sm">Doanh thu thực tế (VNĐ)</Label>
+                                <Input
+                                    type="number" className="mt-1 h-9" min={0}
+                                    placeholder="Nhập doanh thu thực tế"
+                                    value={manualActualRevenue}
+                                    onChange={e => setManualActualRevenue(e.target.value)}
+                                />
+                            </div>
+                        )}
+
+                        <div className="pt-2 border-t border-gray-100 space-y-2">
+                            <div className="flex items-center gap-3 text-sm">
+                                <span className="text-gray-600 w-44 shrink-0">Doanh thu thực tế</span>
+                                <span className={`font-semibold ${displayActualRevenue != null ? 'text-[#E8890C]' : 'text-gray-400'}`}>
+                                    {fmtCurrency(displayActualRevenue ?? null)}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                                <span className="text-gray-600 w-44 shrink-0">Chênh lệch</span>
+                                {revenueDiff != null ? (
+                                    <span className={`font-semibold ${revenueDiff >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {revenueDiff >= 0 ? '+' : ''}{fmtCurrency(revenueDiff)}
+                                        {revenueDiff < 0 && (
+                                            <AlertTriangle className="inline h-4 w-4 ml-1 text-red-400" />
+                                        )}
+                                    </span>
+                                ) : (
+                                    <span className="text-gray-400">—</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Hoa hồng theo vai trò */}
+                    {tx.commissions?.length > 0 && (
+                        <div className="bg-white rounded-lg border border-gray-200 p-4">
+                            <h3 className="text-sm font-semibold text-[#E8890C] mb-3">Hoa hồng theo vai trò</h3>
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50 text-gray-600">
+                                        <th className="text-left px-3 py-2">Vai trò</th>
+                                        <th className="text-right px-3 py-2">Số tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {tx.commissions.map((c, i) => (
+                                        <tr key={i}>
+                                            <td className="px-3 py-2">{c.role.name}</td>
+                                            <td className="px-3 py-2 text-right font-medium text-[#1A2B5A]">{fmtCurrency(c.amount)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Ghi chú */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-4">
+                        <Label className="text-sm font-semibold text-[#E8890C]">Ghi chú</Label>
+                        <textarea
+                            className="mt-2 w-full h-20 px-3 py-2 rounded-md border border-gray-200 text-sm resize-none focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
+                            placeholder="Ghi chú thêm..."
+                            value={note}
+                            onChange={e => setNote(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }

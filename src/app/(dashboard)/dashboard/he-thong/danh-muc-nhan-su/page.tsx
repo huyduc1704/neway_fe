@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { Table, Input, Button, Tag, Space, Popconfirm, message, Tooltip } from 'antd';
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { Pencil, Trash2, Search } from 'lucide-react';
 import api from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
+import { DataTable, Column } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
 import dayjs from 'dayjs';
 
 interface Employee {
@@ -24,13 +25,12 @@ interface Employee {
     } | null;
 }
 
-const TH = { style: { backgroundColor: '#FFF3E0', color: '#E8890C' } };
-
 export default function DanhMucNhanSuPage() {
     const router = useRouter();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
 
     const fetchEmployees = useCallback(async () => {
@@ -42,7 +42,7 @@ export default function DanhMucNhanSuPage() {
             setEmployees(data.data);
             setPagination((p) => ({ ...p, total: data.meta.total }));
         } catch {
-            message.error('Không thể tải danh sách nhân sự');
+            toast.error('Không thể tải danh sách nhân sự');
         } finally {
             setLoading(false);
         }
@@ -51,83 +51,74 @@ export default function DanhMucNhanSuPage() {
     useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
 
     const handleDelete = async (id: string) => {
+        if (!window.confirm('Xoá nhân viên này?')) return;
         try {
             await api.delete(`/employees/${id}`);
-            message.success('Đã xoá nhân viên');
+            toast.success('Đã xoá nhân viên');
             fetchEmployees();
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
+            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
-    const columns: TableColumnsType<Employee> = [
+    const columns: Column<Employee>[] = [
         {
-            title: 'STT', width: 60, align: 'center',
+            key: 'stt', title: 'STT', width: 60, align: 'center',
             render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1,
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Mã NV', width: 110,
-            render: (_, r) => <Tag color="orange">{r.employeeProfile?.employeeCode || '—'}</Tag>,
-            onHeaderCell: () => TH,
+            key: 'code', title: 'Mã NV', width: 110,
+            render: (_, r) => <Badge variant="warning">{r.employeeProfile?.employeeCode || '—'}</Badge>,
         },
         {
-            title: 'Họ tên', dataIndex: 'fullName',
-            render: (v) => <span style={{ fontWeight: 500 }}>{v}</span>,
-            onHeaderCell: () => TH,
+            key: 'fullName', title: 'Họ tên',
+            render: (_, r) => <span className="font-medium">{r.fullName}</span>,
         },
         {
-            title: 'Vai trò', width: 160,
+            key: 'role', title: 'Vai trò', width: 160,
             render: (_, r) => r.roles?.[0]?.role?.name || '—',
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Chi nhánh', width: 160,
+            key: 'branch', title: 'Chi nhánh', width: 160,
             render: (_, r) => r.employeeProfile?.branch?.name || '—',
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Team', width: 140,
+            key: 'team', title: 'Team', width: 140,
             render: (_, r) => r.employeeProfile?.team?.name || '—',
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Ngày vào làm', width: 130, align: 'center',
+            key: 'joinedAt', title: 'Ngày vào làm', width: 130, align: 'center',
             render: (_, r) => r.employeeProfile?.joinedAt
                 ? dayjs(r.employeeProfile.joinedAt).format('DD/MM/YYYY')
                 : '—',
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Trạng thái', width: 140, align: 'center',
+            key: 'status', title: 'Trạng thái', width: 140, align: 'center',
             render: (_, r) => (
-                <Tag color={r.employeeProfile?.isActive ? 'success' : 'default'}>
+                <Badge variant={r.employeeProfile?.isActive ? 'success' : 'secondary'}>
                     {r.employeeProfile?.isActive ? 'Đang làm' : 'Đã nghỉ'}
-                </Tag>
+                </Badge>
             ),
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Thao tác', width: 100, align: 'center',
-            onHeaderCell: () => TH,
+            key: 'actions', title: 'Thao tác', width: 100, align: 'center',
             render: (_, r) => (
-                <Space>
-                    <Tooltip title="Chỉnh sửa">
-                        <Button
-                            type="text" icon={<EditOutlined />}
-                            onClick={() => router.push(`/dashboard/he-thong/danh-muc-nhan-su/${r.id}` as any)}
-                        />
-                    </Tooltip>
-                    <Tooltip title="Xoá">
-                        <Popconfirm
-                            title="Xoá nhân viên này?"
-                            okText="Xác nhận" cancelText="Huỷ"
-                            onConfirm={() => handleDelete(r.id)}
-                        >
-                            <Button type="text" danger icon={<DeleteOutlined />} />
-                        </Popconfirm>
-                    </Tooltip>
-                </Space>
+                <div className="flex items-center justify-center gap-1">
+                    <button
+                        title="Chỉnh sửa"
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-[#E8890C] transition-colors"
+                        onClick={() => router.push(`/dashboard/he-thong/danh-muc-nhan-su/${r.id}` as any)}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                        title="Xoá"
+                        className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors"
+                        onClick={() => handleDelete(r.id)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
             ),
         },
     ];
@@ -140,33 +131,37 @@ export default function DanhMucNhanSuPage() {
                 createPath="/dashboard/he-thong/danh-muc-nhan-su/tao-moi"
             />
 
-            <div style={{ background: '#fff', borderRadius: 8, padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                    <Input.Search
-                        placeholder="Tìm theo mã hoặc họ tên..."
-                        allowClear style={{ width: 300 }}
-                        onSearch={(v) => { setSearch(v); setPagination((p) => ({ ...p, page: 1 })); }}
-                    />
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex justify-end mb-4">
+                    <div className="flex items-center gap-1 rounded-md border border-gray-200 px-3 h-9">
+                        <Search className="h-4 w-4 text-gray-400" />
+                        <input
+                            className="outline-none text-sm w-64 bg-transparent placeholder-gray-400"
+                            placeholder="Tìm theo mã hoặc họ tên..."
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    setSearch(searchInput);
+                                    setPagination((p) => ({ ...p, page: 1 }));
+                                }
+                            }}
+                        />
+                    </div>
                 </div>
 
-                <Table
-                    rowKey="id"
-                    columns={columns}
-                    dataSource={employees}
-                    loading={loading}
-                    pagination={{
-                        current: pagination.page,
-                        pageSize: pagination.limit,
-                        total: pagination.total,
-                        showSizeChanger: false,
-                        onChange: (page) => setPagination((p) => ({ ...p, page })),
-                        itemRender: (_, type, el) => {
-                            if (type === 'prev') return <a>Trước</a>;
-                            if (type === 'next') return <a>Sau</a>;
-                            return el;
-                        },
-                    }}
-                />
+                <DataTable columns={columns} data={employees} rowKey="id" loading={loading} pageSize={pagination.limit} />
+
+                {pagination.total > pagination.limit && (
+                    <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
+                        <span>Tổng: {pagination.total} nhân viên</span>
+                        <div className="flex items-center gap-1">
+                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page === 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Trước</button>
+                            <span className="px-3 py-1">{pagination.page}</span>
+                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page * pagination.limit >= pagination.total} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Sau</button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

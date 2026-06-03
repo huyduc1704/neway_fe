@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { Table, Input, Button, Tag, Space, Popconfirm, message, Tooltip } from 'antd';
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import type { TableColumnsType } from 'antd';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { Pencil, Trash2, Search } from 'lucide-react';
 import api from '@/lib/api';
 import PageHeader from '@/components/common/PageHeader';
+import { DataTable, Column } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
 
 interface Role {
     id: string;
@@ -17,13 +18,12 @@ interface Role {
     _count: { users: number };
 }
 
-const TH = { style: { backgroundColor: '#FFF3E0', color: '#E8890C' } };
-
 export default function VaiTroPage() {
     const router = useRouter();
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
 
     const fetchRoles = useCallback(async () => {
@@ -35,7 +35,7 @@ export default function VaiTroPage() {
             setRoles(data.data);
             setPagination((p) => ({ ...p, total: data.meta.total }));
         } catch {
-            message.error('Không thể tải danh sách vai trò');
+            toast.error('Không thể tải danh sách vai trò');
         } finally {
             setLoading(false);
         }
@@ -43,78 +43,69 @@ export default function VaiTroPage() {
 
     useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (id: string, userCount: number) => {
+        if (userCount > 0) {
+            toast.error(`Vai trò đang được gán cho ${userCount} người dùng, không thể xoá`);
+            return;
+        }
+        if (!window.confirm('Xoá vai trò này?')) return;
         try {
             await api.delete(`/roles/${id}`);
-            message.success('Đã xoá vai trò');
+            toast.success('Đã xoá vai trò');
             fetchRoles();
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
+            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
-    const columns: TableColumnsType<Role> = [
+    const columns: Column<Role>[] = [
         {
-            title: 'STT', width: 60, align: 'center',
+            key: 'stt', title: 'STT', width: 60, align: 'center',
             render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1,
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Mã vai trò', dataIndex: 'code', width: 140,
-            render: (v) => <Tag color="orange">{v}</Tag>,
-            onHeaderCell: () => TH,
+            key: 'code', title: 'Mã vai trò', width: 140,
+            render: (_, r) => <Badge variant="warning">{r.code}</Badge>,
         },
         {
-            title: 'Tên vai trò', dataIndex: 'name',
-            render: (v) => <span style={{ fontWeight: 500 }}>{v}</span>,
-            onHeaderCell: () => TH,
+            key: 'name', title: 'Tên vai trò',
+            render: (_, r) => <span className="font-medium">{r.name}</span>,
         },
         {
-            title: 'Mô tả', dataIndex: 'description',
-            render: (v) => v || '—',
-            onHeaderCell: () => TH,
+            key: 'description', title: 'Mô tả',
+            render: (_, r) => r.description || '—',
         },
         {
-            title: 'Số người dùng', width: 130, align: 'center',
+            key: 'userCount', title: 'Số người dùng', width: 130, align: 'center',
             render: (_, r) => r._count?.users ?? 0,
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Trạng thái', width: 140, align: 'center',
+            key: 'status', title: 'Trạng thái', width: 140, align: 'center',
             render: (_, r) => (
-                <Tag color={r.isActive ? 'success' : 'default'}>
+                <Badge variant={r.isActive ? 'success' : 'secondary'}>
                     {r.isActive ? 'Hoạt động' : 'Không hoạt động'}
-                </Tag>
+                </Badge>
             ),
-            onHeaderCell: () => TH,
         },
         {
-            title: 'Thao tác', width: 100, align: 'center',
-            onHeaderCell: () => TH,
+            key: 'actions', title: 'Thao tác', width: 100, align: 'center',
             render: (_, r) => (
-                <Space>
-                    <Tooltip title="Chỉnh sửa">
-                        <Button
-                            type="text" icon={<EditOutlined />}
-                            onClick={() => router.push(`/dashboard/he-thong/vai-tro/${r.id}` as any)}
-                        />
-                    </Tooltip>
-                    <Tooltip title="Xoá">
-                        <Popconfirm
-                            title={r._count?.users > 0
-                                ? `Vai trò đang được gán cho ${r._count.users} người dùng, không thể xoá`
-                                : 'Xoá vai trò này?'}
-                            okText="Xác nhận" cancelText="Huỷ"
-                            onConfirm={() => handleDelete(r.id)}
-                            disabled={r._count?.users > 0}
-                        >
-                            <Button
-                                type="text" danger icon={<DeleteOutlined />}
-                                disabled={r._count?.users > 0}
-                            />
-                        </Popconfirm>
-                    </Tooltip>
-                </Space>
+                <div className="flex items-center justify-center gap-1">
+                    <button
+                        title="Chỉnh sửa"
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-[#E8890C] transition-colors"
+                        onClick={() => router.push(`/dashboard/he-thong/vai-tro/${r.id}` as any)}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                        title="Xoá"
+                        className={`p-1.5 rounded transition-colors ${r._count?.users > 0 ? 'opacity-40 cursor-not-allowed text-gray-300' : 'hover:bg-red-50 text-gray-500 hover:text-red-500'}`}
+                        onClick={() => handleDelete(r.id, r._count?.users ?? 0)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
             ),
         },
     ];
@@ -127,34 +118,51 @@ export default function VaiTroPage() {
                 createPath="/dashboard/he-thong/vai-tro/tao-moi"
             />
 
-            <div style={{ background: '#fff', borderRadius: 8, padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                    <Input.Search
-                        placeholder="Tìm kiếm mã hoặc tên vai trò..."
-                        allowClear
-                        style={{ width: 300 }}
-                        onSearch={(v) => { setSearch(v); setPagination((p) => ({ ...p, page: 1 })); }}
-                    />
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex justify-end mb-4">
+                    <div className="flex items-center gap-1 rounded-md border border-gray-200 px-3 h-9">
+                        <Search className="h-4 w-4 text-gray-400" />
+                        <input
+                            className="outline-none text-sm w-64 bg-transparent placeholder-gray-400"
+                            placeholder="Tìm kiếm mã hoặc tên vai trò..."
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    setSearch(searchInput);
+                                    setPagination((p) => ({ ...p, page: 1 }));
+                                }
+                            }}
+                        />
+                    </div>
                 </div>
 
-                <Table
-                    rowKey="id"
+                <DataTable
                     columns={columns}
-                    dataSource={roles}
+                    data={roles}
+                    rowKey="id"
                     loading={loading}
-                    pagination={{
-                        current: pagination.page,
-                        pageSize: pagination.limit,
-                        total: pagination.total,
-                        showSizeChanger: false,
-                        onChange: (page) => setPagination((p) => ({ ...p, page })),
-                        itemRender: (_, type, el) => {
-                            if (type === 'prev') return <a>Trước</a>;
-                            if (type === 'next') return <a>Sau</a>;
-                            return el;
-                        },
-                    }}
+                    pageSize={pagination.limit}
                 />
+
+                {pagination.total > pagination.limit && (
+                    <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
+                        <span>Tổng: {pagination.total} vai trò</span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
+                                disabled={pagination.page === 1}
+                                onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
+                            >Trước</button>
+                            <span className="px-3 py-1">{pagination.page}</span>
+                            <button
+                                className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
+                                disabled={pagination.page * pagination.limit >= pagination.total}
+                                onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
+                            >Sau</button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

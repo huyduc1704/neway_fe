@@ -1,34 +1,39 @@
-'use client';
-import { Typography, Button } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface PageHeaderProps {
-    title: string;
-    createLabel?: string;
-    createPath?: string;
-    onCreateClick?: () => void;
-    buttonStyle?: React.CSSProperties; // Thêm prop tuỳ chỉnh style cho button
+  title: string;
+  description?: string;
+  createLabel?: string;
+  createPath?: string;
+  onCreateClick?: () => void;
+  actions?: React.ReactNode;
 }
 
-export default function PageHeader({ title, createLabel, createPath, onCreateClick, buttonStyle }: PageHeaderProps) {
-    const router = useRouter();
+export default function PageHeader({ title, description, createLabel, createPath, onCreateClick, actions }: PageHeaderProps) {
+  const router = useRouter();
 
-    const handleCreate = () => {
-        if (onCreateClick) { onCreateClick(); return; }
-        if (createPath) router.push(createPath as any);
-    };
+  const handleCreate = () => {
+    if (onCreateClick) { onCreateClick(); return; }
+    if (createPath) router.push(createPath as any);
+  };
 
-    return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <Typography.Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>
-                {title}
-            </Typography.Title>
-            {createLabel && (
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate} style={buttonStyle}>
-                    {createLabel}
-                </Button>
-            )}
-        </div>
-    );
+  return (
+    <div className="flex items-start justify-between mb-5">
+      <div>
+        <h1 className="text-xl font-bold text-[#1A2B5A]">{title}</h1>
+        {description && <p className="text-sm text-gray-500 mt-0.5">{description}</p>}
+      </div>
+      <div className="flex items-center gap-2">
+        {actions}
+        {createLabel && (
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4" />
+            {createLabel}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 }

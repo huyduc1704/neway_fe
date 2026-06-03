@@ -1,244 +1,127 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
-import { Table, Card, DatePicker, Select, Space, message, Statistic, Row, Col, Tag } from 'antd';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import type { TableColumnsType } from 'antd';
-import api from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Eye, Search, Filter, List } from 'lucide-react';
 import PageHeader from '@/components/common/PageHeader';
-import dayjs from 'dayjs';
+import { DataTable, Column } from '@/components/ui/data-table';
 
-interface RevenueRow {
-    group: { id: string; code: string; ward: string; area: string } | null;
-    totalRevenue: number;
-    transactionCount: number;
+interface RevenueEstimate {
+    id: string;
+    projectCode: string;
+    estimatedList: number;
+    estimatedTxRevenue: number;
+    status: string;
+    personnelCommission: number;
 }
-
-interface Branch { id: string; name: string; }
-interface Team { id: string; name: string; }
 
 const formatCurrency = (v: number) =>
     new Intl.NumberFormat('vi-VN').format(v) + 'đ';
 
-const COLORS = ['#E8890C', '#F5B95A', '#FAD99A', '#C8720A', '#FDECC8', '#A0520A'];
+const getStatusColor = (status: string) => {
+    if (status === 'Hoàn thành') return 'text-red-600';
+    if (status === 'Đang giao dịch') return 'text-teal-500';
+    if (status === 'Chờ') return 'text-[#E8890C]';
+    if (status === 'Đang xem xét') return 'text-red-500';
+    if (status === 'Đang xử lý') return 'text-[#E8890C]';
+    if (status === 'Chờ xác nhận') return 'text-red-500';
+    if (status === 'Tạm ngừng') return 'text-teal-500';
+    if (status === 'Hoàn thành một phần') return 'text-red-500';
+    if (status === 'Đang giao hàng') return 'text-[#E8890C]';
+    return 'text-gray-700';
+};
 
-const TH = { style: { backgroundColor: '#FFF3E0', color: '#E8890C' } };
+const dataSource: RevenueEstimate[] = [
+    { id: '1', projectCode: '10195653', estimatedList: 536, estimatedTxRevenue: 877, status: 'Đang giao dịch', personnelCommission: 18000000 },
+    { id: '2', projectCode: '10195662', estimatedList: 492, estimatedTxRevenue: 492, status: 'Hoàn thành', personnelCommission: 20500000 },
+    { id: '3', projectCode: '10195659', estimatedList: 703, estimatedTxRevenue: 536, status: 'Chờ', personnelCommission: 21000000 },
+    { id: '4', projectCode: '10195659', estimatedList: 994, estimatedTxRevenue: 826, status: 'Đang xem xét', personnelCommission: 17000000 },
+    { id: '5', projectCode: '10195657', estimatedList: 196, estimatedTxRevenue: 816, status: 'Đang xử lý', personnelCommission: 22000000 },
+    { id: '6', projectCode: '10195654', estimatedList: 177, estimatedTxRevenue: 561, status: 'Chờ xác nhận', personnelCommission: 19500000 },
+    { id: '7', projectCode: '10195652', estimatedList: 826, estimatedTxRevenue: 429, status: 'Tạm ngừng', personnelCommission: 23000000 },
+    { id: '8', projectCode: '10195662', estimatedList: 423, estimatedTxRevenue: 922, status: 'Hoàn thành một phần', personnelCommission: 16000000 },
+    { id: '9', projectCode: '10195656', estimatedList: 600, estimatedTxRevenue: 994, status: 'Đang giao hàng', personnelCommission: 24000000 },
+];
 
 export default function DoanhThuDuAnPage() {
+    const router = useRouter();
     const [mounted, setMounted] = useState(false);
-    const [data, setData] = useState<RevenueRow[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [branches, setBranches] = useState<Branch[]>([]);
-    const [teams, setTeams] = useState<Team[]>([]);
 
-    const [fromDate, setFromDate] = useState(dayjs().startOf('year').format('YYYY-MM-DD'));
-    const [toDate, setToDate] = useState(dayjs().endOf('year').format('YYYY-MM-DD'));
-    const [branchFilter, setBranchFilter] = useState<string | undefined>();
-    const [teamFilter, setTeamFilter] = useState<string | undefined>();
+    useEffect(() => setMounted(true), []);
+    if (!mounted) return null;
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const { data: res } = await api.get('/reports/revenue', {
-                params: {
-                    groupBy: 'PROJECT',
-                    fromDate,
-                    toDate,
-                    branchId: branchFilter,
-                    teamId: teamFilter,
-                },
-            });
-            setData(res);
-        } catch {
-            message.error('Không thể tải báo cáo doanh thu');
-        } finally {
-            setLoading(false);
-        }
-    }, [fromDate, toDate, branchFilter, teamFilter]);
-
-    useEffect(() => { fetchData(); }, [fetchData]);
-
-    useEffect(() => {
-        api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => {});
-        api.get('/teams', { params: { limit: 100 } }).then(({ data }) => setTeams(data.data)).catch(() => {});
-    }, []);
-
-    const totalRevenue = data.reduce((s, r) => s + r.totalRevenue, 0);
-    const totalTransactions = data.reduce((s, r) => s + r.transactionCount, 0);
-
-    const chartData = [...data]
-        .sort((a, b) => b.totalRevenue - a.totalRevenue)
-        .slice(0, 10)
-        .map((r) => ({
-            name: r.group?.code || 'N/A',
-            value: r.totalRevenue,
-        }));
-
-    const columns: TableColumnsType<RevenueRow> = [
+    const columns: Column<RevenueEstimate>[] = [
         {
-            title: 'STT', width: 60, align: 'center',
-            render: (_, __, i) => i + 1,
-            onHeaderCell: () => TH,
+            key: 'projectCode', title: 'Mã dự án',
+            render: (_, r) => <span className="font-medium">{r.projectCode}</span>,
         },
         {
-            title: 'Mã dự án', width: 130,
-            render: (_, r) => <Tag color="orange">{r.group?.code || 'N/A'}</Tag>,
-            onHeaderCell: () => TH,
+            key: 'estimatedList', title: 'Danh sách ước tính',
+            dataIndex: 'estimatedList',
         },
         {
-            title: 'Khu vực / Phường xã',
-            render: (_, r) => r.group ? (
-                <div>
-                    <div style={{ fontWeight: 500 }}>{r.group.area}</div>
-                    <div style={{ fontSize: 12, color: '#888' }}>{r.group.ward}</div>
-                </div>
-            ) : '—',
-            onHeaderCell: () => TH,
+            key: 'estimatedTxRevenue', title: 'DT ước tính giao dịch',
+            dataIndex: 'estimatedTxRevenue',
         },
         {
-            title: 'Số giao dịch', width: 130, align: 'center',
-            dataIndex: 'transactionCount',
-            render: (v) => <Tag color="blue">{v}</Tag>,
-            onHeaderCell: () => TH,
-        },
-        {
-            title: 'Doanh thu', width: 200, align: 'right',
-            dataIndex: 'totalRevenue',
-            sorter: (a, b) => a.totalRevenue - b.totalRevenue,
-            defaultSortOrder: 'descend',
-            render: (v) => (
-                <span style={{ fontWeight: 600, color: '#E8890C' }}>{formatCurrency(v)}</span>
+            key: 'status', title: 'Trạng thái',
+            render: (_, r) => (
+                <span className={`font-medium ${getStatusColor(r.status)}`}>{r.status}</span>
             ),
-            onHeaderCell: () => TH,
         },
         {
-            title: '% Tổng', width: 110, align: 'center',
-            render: (_, r) => totalRevenue > 0
-                ? `${((r.totalRevenue / totalRevenue) * 100).toFixed(1)}%`
-                : '—',
-            onHeaderCell: () => TH,
+            key: 'personnelCommission', title: 'Hoa hồng nhân sự',
+            render: (_, r) => <span className="font-bold">{formatCurrency(r.personnelCommission)}</span>,
+        },
+        {
+            key: 'view', title: 'Xem', align: 'center',
+            render: (_, r) => (
+                <button
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 hover:bg-orange-100 transition-colors"
+                    onClick={() => router.push(`/dashboard/quan-ly-du-an/doanh-thu/${r.id}` as any)}
+                >
+                    <Eye className="h-4 w-4 text-[#E8890C]" />
+                </button>
+            ),
         },
     ];
 
-    if (!mounted) return null;
-
     return (
-        <>
-            <PageHeader title="Quản lý dự án / Doanh thu" />
+        <div>
+            <PageHeader title="Quản lý doanh thu / Danh sách" />
 
-            {/* Filters */}
-            <Card style={{ borderRadius: 8, marginBottom: 16 }}>
-                <Space wrap>
-                    <DatePicker.RangePicker
-                        format="DD/MM/YYYY"
-                        defaultValue={[dayjs().startOf('year'), dayjs().endOf('year')]}
-                        onChange={(_, strings) => {
-                            if (strings[0] && strings[1]) {
-                                setFromDate(dayjs(strings[0], 'DD/MM/YYYY').format('YYYY-MM-DD'));
-                                setToDate(dayjs(strings[1], 'DD/MM/YYYY').format('YYYY-MM-DD'));
-                            }
-                        }}
-                    />
-                    <Select
-                        allowClear placeholder="Chi nhánh" style={{ width: 180 }}
-                        onChange={(v) => setBranchFilter(v)}
-                        options={branches.map((b) => ({ value: b.id, label: b.name }))}
-                    />
-                    <Select
-                        allowClear placeholder="Team" style={{ width: 180 }}
-                        onChange={(v) => setTeamFilter(v)}
-                        options={teams.map((t) => ({ value: t.id, label: t.name }))}
-                    />
-                </Space>
-            </Card>
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Toolbar */}
+                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+                    <button className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800">
+                        <List className="h-4 w-4" />
+                        Tác vụ hàng loạt
+                    </button>
 
-            {/* Summary */}
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-                <Col span={8}>
-                    <Card style={{ borderRadius: 8 }}>
-                        <Statistic
-                            title="Tổng doanh thu"
-                            value={totalRevenue}
-                            formatter={(v) => formatCurrency(Number(v))}
-                            styles={{ content: { color: '#E8890C', fontWeight: 700 } }}
-                        />
-                    </Card>
-                </Col>
-                <Col span={8}>
-                    <Card style={{ borderRadius: 8 }}>
-                        <Statistic
-                            title="Số dự án có doanh thu"
-                            value={data.length}
-                            styles={{ content: { color: '#1A2B5A', fontWeight: 700 } }}
-                        />
-                    </Card>
-                </Col>
-                <Col span={8}>
-                    <Card style={{ borderRadius: 8 }}>
-                        <Statistic
-                            title="Tổng giao dịch thành công"
-                            value={totalTransactions}
-                            styles={{ content: { color: '#52c41a', fontWeight: 700 } }}
-                        />
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Chart */}
-            {chartData.length > 0 && (
-                <Card
-                    title={<span style={{ color: '#1A2B5A', fontWeight: 600 }}>Top 10 dự án doanh thu cao nhất</span>}
-                    style={{ borderRadius: 8, marginBottom: 16 }}
-                >
-                    <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={chartData} margin={{ top: 8, right: 32, left: 16, bottom: 8 }}>
-                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                            <YAxis
-                                tick={{ fontSize: 11 }}
-                                tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}tr`}
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 rounded-full border border-gray-200 px-3 h-9 w-56">
+                            <Search className="h-4 w-4 text-gray-400" />
+                            <input
+                                className="outline-none text-sm flex-1 bg-transparent placeholder-gray-400"
+                                placeholder="Tìm kiếm"
                             />
-                            <Tooltip
-                                formatter={(v) => [formatCurrency(Number(v)), 'Doanh thu']}
-                            />
-                            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                {chartData.map((_, i) => (
-                                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </Card>
-            )}
+                        </div>
+                        <button className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-800 px-2 py-1">
+                            <Filter className="h-4 w-4" />
+                            Fitter
+                        </button>
+                    </div>
+                </div>
 
-            {/* Table */}
-            <Card style={{ borderRadius: 8 }}>
-                <Table
-                    rowKey={(r) => r.group?.id ?? 'null'}
-                    columns={columns}
-                    dataSource={data}
-                    loading={loading}
-                    pagination={{ pageSize: 20, showSizeChanger: false }}
-                    summary={() => data.length > 0 ? (
-                        <Table.Summary.Row>
-                            <Table.Summary.Cell index={0} colSpan={3}>
-                                <strong>Tổng cộng</strong>
-                            </Table.Summary.Cell>
-                            <Table.Summary.Cell index={3} align="center">
-                                <strong>{totalTransactions}</strong>
-                            </Table.Summary.Cell>
-                            <Table.Summary.Cell index={4} align="right">
-                                <strong style={{ color: '#E8890C' }}>{formatCurrency(totalRevenue)}</strong>
-                            </Table.Summary.Cell>
-                            <Table.Summary.Cell index={5} align="center">
-                                <strong>100%</strong>
-                            </Table.Summary.Cell>
-                        </Table.Summary.Row>
-                    ) : null}
-                />
-            </Card>
-        </>
+                {/* Table */}
+                <div className="px-0">
+                    <DataTable
+                        columns={columns}
+                        data={dataSource}
+                        rowKey="id"
+                        pageSize={10}
+                    />
+                </div>
+            </div>
+        </div>
     );
 }
