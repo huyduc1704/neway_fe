@@ -1,17 +1,14 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
-import { Pencil, Trash2, Search, Plus, X } from 'lucide-react';
+import { message } from 'antd';
+import { Pencil, Trash2, X } from 'lucide-react';
+import { Button, Input, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 interface Branch  { id: string; name: string; }
 interface Region  {
@@ -19,8 +16,6 @@ interface Region  {
     branches: Branch[];
     _count?: { branches: number };
 }
-
-const EMPTY_FORM = { name: '', branchIds: [] as string[] };
 
 export default function QuanLyKhuVucPage() {
     const [regions,  setRegions]  = useState<Region[]>([]);
@@ -32,9 +27,9 @@ export default function QuanLyKhuVucPage() {
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId,  setEditingId]  = useState<string | null>(null);
-    const [form,       setForm]       = useState(EMPTY_FORM);
     const [saving,     setSaving]     = useState(false);
-    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const [form] = Form.useForm();
+    const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
 
     const fetchRegions = useCallback(async () => {
         setLoading(true);
@@ -42,7 +37,7 @@ export default function QuanLyKhuVucPage() {
             const { data } = await api.get('/regions', { params: { page: pagination.page, limit: pagination.limit, search: search || undefined } });
             setRegions(data.data ?? data);
             if (data.meta) setPagination(p => ({ ...p, total: data.meta.total }));
-        } catch { toast.error('Không thể tải danh sách khu vực'); }
+        } catch { message.error('Không thể tải danh sách khu vực'); }
         finally { setLoading(false); }
     }, [pagination.page, pagination.limit, search]);
 
@@ -51,42 +46,36 @@ export default function QuanLyKhuVucPage() {
         api.get('/branches', { params: { limit: 200 } }).then(({ data }) => setBranches(data.data ?? [])).catch(() => {});
     }, []);
 
-    const openCreate = () => { setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setDialogOpen(true); };
+    const openCreate = () => { setEditingId(null); form.resetFields(); setSelectedBranchIds([]); setDialogOpen(true); };
     const openEdit   = async (r: Region) => {
         setEditingId(r.id);
         try {
             const { data } = await api.get(`/regions/${r.id}`);
-            setForm({ name: data.name, branchIds: data.branches?.map((b: Branch) => b.id) ?? [] });
+            form.setFieldsValue({ name: data.name });
+            setSelectedBranchIds(data.branches?.map((b: Branch) => b.id) ?? []);
         } catch {
-            setForm({ name: r.name, branchIds: r.branches?.map(b => b.id) ?? [] });
+            form.setFieldsValue({ name: r.name });
+            setSelectedBranchIds(r.branches?.map(b => b.id) ?? []);
         }
-        setFormErrors({});
         setDialogOpen(true);
     };
 
-    const validate = () => {
-        const e: Record<string, string> = {};
-        if (!form.name.trim()) e.name = 'Nhập tên khu vực';
-        setFormErrors(e);
-        return Object.keys(e).length === 0;
-    };
-
     const handleSave = async () => {
-        if (!validate()) return;
-        setSaving(true);
         try {
-            const payload = { name: form.name, branchIds: form.branchIds };
+            const values = await form.validateFields();
+            setSaving(true);
+            const payload = { name: values.name, branchIds: selectedBranchIds };
             if (editingId) {
                 await api.patch(`/regions/${editingId}`, payload);
-                toast.success('Cập nhật khu vực thành công');
+                message.success('Cập nhật khu vực thành công');
             } else {
                 await api.post('/regions', payload);
-                toast.success('Tạo khu vực thành công');
+                message.success('Tạo khu vực thành công');
             }
             setDialogOpen(false);
             fetchRegions();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            if (err?.response) message.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally { setSaving(false); }
     };
 
@@ -94,112 +83,108 @@ export default function QuanLyKhuVucPage() {
         if (!window.confirm('Xoá khu vực này? Hành động không thể hoàn tác.')) return;
         try {
             await api.delete(`/regions/${id}`);
-            toast.success('Đã xoá khu vực');
+            message.success('Đã xoá khu vực');
             fetchRegions();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
     };
 
     const toggleBranch = (id: string) => {
-        setForm(f => ({
-            ...f,
-            branchIds: f.branchIds.includes(id) ? f.branchIds.filter(b => b !== id) : [...f.branchIds, id],
-        }));
+        setSelectedBranchIds(prev => prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]);
     };
 
-    const columns: Column<Region>[] = [
-        { key: 'stt', title: 'STT', width: 52, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
-        { key: 'name', title: 'Tên khu vực', render: (_, r) => <span className="font-medium">{r.name}</span> },
+    const columns: ColumnsType<Region> = [
+        { title: 'STT', key: 'stt', width: 52, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
+        { title: 'Tên khu vực', key: 'name', render: (_, r) => <span style={{ fontWeight: 500 }}>{r.name}</span> },
         {
-            key: 'branches', title: 'Chi nhánh trực thuộc',
+            title: 'Chi nhánh trực thuộc', key: 'branches',
             render: (_, r) => {
                 const list = r.branches ?? [];
-                if (!list.length) return <span className="text-gray-400 text-sm">—</span>;
+                if (!list.length) return <span style={{ color: '#9ca3af', fontSize: 14 }}>—</span>;
                 return (
-                    <div className="flex flex-wrap gap-1">
-                        {list.slice(0, 3).map(b => <Badge key={b.id} variant="secondary" className="text-xs">{b.name}</Badge>)}
-                        {list.length > 3 && <Badge variant="secondary" className="text-xs">+{list.length - 3}</Badge>}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {list.slice(0, 3).map(b => <Tag key={b.id} color="default" style={{ fontSize: 12 }}>{b.name}</Tag>)}
+                        {list.length > 3 && <Tag color="default" style={{ fontSize: 12 }}>+{list.length - 3}</Tag>}
                     </div>
                 );
             },
         },
-        { key: 'createdAt', title: 'Ngày tạo', width: 120, align: 'center', render: (_, r) => dayjs(r.createdAt).format('DD/MM/YYYY') },
+        { title: 'Ngày tạo', key: 'createdAt', width: 120, align: 'center', render: (_, r) => dayjs(r.createdAt).format('DD/MM/YYYY') },
         {
-            key: 'actions', title: 'Thao tác', width: 90, align: 'center',
+            title: 'Thao tác', key: 'actions', width: 90, align: 'center',
             render: (_, r) => (
-                <div className="flex items-center justify-center gap-1">
-                    <button title="Chỉnh sửa" className="p-1.5 rounded hover:bg-orange-50 text-gray-500 hover:text-[#E8890C]" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></button>
-                    <button title="Xoá" className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-500" onClick={() => handleDelete(r.id)}><Trash2 className="h-4 w-4" /></button>
-                </div>
+                <Space>
+                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => openEdit(r)}><Pencil size={16} /></button>
+                    <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => handleDelete(r.id)}><Trash2 size={16} /></button>
+                </Space>
             ),
         },
     ];
 
     return (
         <>
-            <PageHeader title="Hệ thống / Quản lý khu vực" />
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex gap-2 mb-4">
-                    <div className="flex items-center gap-1 rounded-full border border-gray-200 px-3 h-9 w-60">
-                        <Search className="h-4 w-4 text-gray-400 shrink-0" />
-                        <input className="outline-none text-sm flex-1 bg-transparent placeholder-gray-400" placeholder="Tìm theo tên khu vực..." value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); } }} />
-                        {searchInput && <button onClick={() => { setSearchInput(''); setSearch(''); }}><X className="h-3.5 w-3.5 text-gray-400" /></button>}
-                    </div>
-                    <Button className="ml-auto" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> Thêm mới</Button>
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Hệ thống / Quản lý khu vực</Title>
+            </div>
+            <Card>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
+                    <Input
+                        prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                        placeholder="Tìm theo tên khu vực..."
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
+                        onPressEnter={() => { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); }}
+                        allowClear
+                        onClear={() => { setSearchInput(''); setSearch(''); }}
+                        style={{ width: 240 }}
+                    />
+                    <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={openCreate}>Thêm mới</Button>
                 </div>
 
-                <DataTable columns={columns} data={regions} rowKey="id" loading={loading} pageSize={pagination.limit} />
+                <Table
+                    columns={columns}
+                    dataSource={regions}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{ pageSize: pagination.limit, total: pagination.total, current: pagination.page, onChange: (page) => setPagination(p => ({ ...p, page })), showTotal: (total) => `Tổng: ${total} khu vực` }}
+                    size="small"
+                />
+            </Card>
 
-                {pagination.total > pagination.limit && (
-                    <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
-                        <span>Tổng: {pagination.total} khu vực</span>
-                        <div className="flex items-center gap-1">
-                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page === 1} onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}>Trước</button>
-                            <span className="px-3 py-1">{pagination.page}</span>
-                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page * pagination.limit >= pagination.total} onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}>Sau</button>
+            <Modal
+                open={dialogOpen}
+                onCancel={() => setDialogOpen(false)}
+                title={editingId ? 'Chỉnh sửa khu vực' : 'Thêm khu vực mới'}
+                width={520}
+                footer={[
+                    <Button key="cancel" onClick={() => setDialogOpen(false)}>Huỷ</Button>,
+                    <Button key="ok" type="primary" onClick={handleSave} loading={saving}>Lưu</Button>,
+                ]}
+            >
+                <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+                    <Form.Item name="name" label={<span>Tên khu vực <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập tên khu vực' }]}>
+                        <Input placeholder="VD: Khu vực Hà Nội" />
+                    </Form.Item>
+                    <Form.Item label="Chi nhánh trực thuộc">
+                        <div style={{ border: '1px solid #d9d9d9', borderRadius: 6, maxHeight: 192, overflowY: 'auto' }}>
+                            {branches.length === 0 && <p style={{ fontSize: 14, color: '#9ca3af', padding: '8px 12px' }}>Chưa có chi nhánh</p>}
+                            {branches.map(b => (
+                                <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 14 }}>
+                                    <input
+                                        type="checkbox"
+                                        style={{ width: 16, height: 16, accentColor: '#E8890C' }}
+                                        checked={selectedBranchIds.includes(b.id)}
+                                        onChange={() => toggleBranch(b.id)}
+                                    />
+                                    {b.name}
+                                </label>
+                            ))}
                         </div>
-                    </div>
-                )}
-            </div>
-
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader><DialogTitle>{editingId ? 'Chỉnh sửa khu vực' : 'Thêm khu vực mới'}</DialogTitle></DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div>
-                            <Label>Tên khu vực <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1" placeholder="VD: Khu vực Hà Nội" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                            {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
-                        </div>
-                        <div>
-                            <Label>Chi nhánh trực thuộc</Label>
-                            <div className="mt-2 border border-gray-200 rounded-md max-h-48 overflow-y-auto">
-                                {branches.length === 0 && <p className="text-sm text-gray-400 px-3 py-2">Chưa có chi nhánh</p>}
-                                {branches.map(b => (
-                                    <label key={b.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-                                        <input
-                                            type="checkbox"
-                                            className="h-4 w-4 accent-[#E8890C]"
-                                            checked={form.branchIds.includes(b.id)}
-                                            onChange={() => toggleBranch(b.id)}
-                                        />
-                                        {b.name}
-                                    </label>
-                                ))}
-                            </div>
-                            {form.branchIds.length > 0 && (
-                                <p className="text-xs text-gray-400 mt-1">Đã chọn {form.branchIds.length} chi nhánh</p>
-                            )}
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-                        <Button onClick={handleSave} disabled={saving}>
-                            {saving && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
-                            Lưu
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        {selectedBranchIds.length > 0 && (
+                            <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>Đã chọn {selectedBranchIds.length} chi nhánh</p>
+                        )}
+                    </Form.Item>
+                </Form>
+            </Modal>
         </>
     );
 }

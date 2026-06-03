@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { toast } from 'sonner';
+import { message } from 'antd';
+import { Select, Tag, Table, Card, Typography, Space, Row, Col, Statistic } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 type GroupBy = 'EMPLOYEE' | 'TEAM' | 'BRANCH';
 
@@ -83,7 +83,7 @@ export default function BaoCaoLuongPage() {
             });
             setData(res);
         } catch {
-            toast.error('Không thể tải báo cáo lương & hoa hồng');
+            message.error('Không thể tải báo cáo lương & hoa hồng');
         } finally {
             setLoading(false);
         }
@@ -112,73 +112,73 @@ export default function BaoCaoLuongPage() {
         revenue: r.totalRevenue,
     }));
 
-    const employeeColumns: Column<PayrollRow>[] = [
-        { key: 'stt', title: 'STT', width: 60, align: 'center', render: (_, __, i) => i + 1 },
+    const employeeColumns: ColumnsType<PayrollRow> = [
+        { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, __, i) => i + 1 },
         {
-            key: 'employee', title: 'Nhân viên',
+            title: 'Nhân viên', key: 'employee',
             render: (_, r) => {
                 if (!isEmployeeRow(r)) return '—';
                 return (
                     <div>
-                        <div className="font-medium">{r.employee.fullName}</div>
-                        <div className="text-xs text-gray-400">{r.employee.employeeCode}</div>
+                        <div style={{ fontWeight: 500 }}>{r.employee.fullName}</div>
+                        <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.employee.employeeCode}</div>
                     </div>
                 );
             },
         },
         {
-            key: 'roles', title: 'Vai trò', width: 160,
+            title: 'Vai trò', key: 'roles', width: 160,
             render: (_, r) => {
                 if (!isEmployeeRow(r)) return '—';
                 return (
-                    <div className="flex flex-wrap gap-1">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {r.employee.roles.map((role) => (
-                            <Badge key={role.code} variant="warning">{role.name}</Badge>
+                            <Tag key={role.code} color="orange">{role.name}</Tag>
                         ))}
                     </div>
                 );
             },
         },
-        { key: 'branch', title: 'Chi nhánh', width: 150, render: (_, r) => isEmployeeRow(r) ? r.employee.branch?.name || '—' : '—' },
-        { key: 'team', title: 'Team', width: 130, render: (_, r) => isEmployeeRow(r) ? r.employee.team?.name || '—' : '—' },
+        { title: 'Chi nhánh', key: 'branch', width: 150, render: (_, r) => isEmployeeRow(r) ? r.employee.branch?.name || '—' : '—' },
+        { title: 'Team', key: 'team', width: 130, render: (_, r) => isEmployeeRow(r) ? r.employee.team?.name || '—' : '—' },
         {
-            key: 'totalRevenue', title: 'DT đóng góp', width: 160, align: 'right',
-            render: (_, r) => <span className="font-medium text-[#1A2B5A]">{formatCurrency(r.totalRevenue)}</span>,
+            title: 'DT đóng góp', key: 'totalRevenue', width: 160, align: 'right',
+            render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{formatCurrency(r.totalRevenue)}</span>,
         },
         {
-            key: 'totalCommission', title: 'Hoa hồng', width: 160, align: 'right',
-            render: (_, r) => <span className="font-semibold text-[#E8890C]">{formatCurrency(r.totalCommission)}</span>,
+            title: 'Hoa hồng', key: 'totalCommission', width: 160, align: 'right',
+            render: (_, r) => <span style={{ fontWeight: 600, color: '#E8890C' }}>{formatCurrency(r.totalCommission)}</span>,
         },
         {
-            key: 'pct', title: '% HH/DT', width: 100, align: 'center',
+            title: '% HH/DT', key: 'pct', width: 100, align: 'center',
             render: (_, r) => r.totalRevenue > 0 ? `${((r.totalCommission / r.totalRevenue) * 100).toFixed(1)}%` : '—',
         },
     ];
 
-    const groupColumns: Column<PayrollRow>[] = [
-        { key: 'stt', title: 'STT', width: 60, align: 'center', render: (_, __, i) => i + 1 },
+    const groupColumns: ColumnsType<PayrollRow> = [
+        { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, __, i) => i + 1 },
         {
-            key: 'group', title: groupBy === 'TEAM' ? 'Team' : 'Chi nhánh',
+            title: groupBy === 'TEAM' ? 'Team' : 'Chi nhánh', key: 'group',
             render: (_, r) => {
                 const g = r as GroupRow;
                 const name = (groupBy === 'TEAM' ? g.team?.name : g.branch?.name) || 'N/A';
-                return <span className="font-medium">{name}</span>;
+                return <span style={{ fontWeight: 500 }}>{name}</span>;
             },
         },
         {
-            key: 'txCount', title: 'Số GD', width: 100, align: 'center',
-            render: (_, r) => <Badge variant="secondary">{(r as GroupRow).transactionCount ?? 0}</Badge>,
+            title: 'Số GD', key: 'txCount', width: 100, align: 'center',
+            render: (_, r) => <Tag color="default">{(r as GroupRow).transactionCount ?? 0}</Tag>,
         },
         {
-            key: 'totalRevenue', title: 'Tổng doanh thu', width: 180, align: 'right',
-            render: (_, r) => <span className="font-medium text-[#1A2B5A]">{formatCurrency(r.totalRevenue)}</span>,
+            title: 'Tổng doanh thu', key: 'totalRevenue', width: 180, align: 'right',
+            render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{formatCurrency(r.totalRevenue)}</span>,
         },
         {
-            key: 'totalCommission', title: 'Tổng hoa hồng', width: 180, align: 'right',
-            render: (_, r) => <span className="font-semibold text-[#E8890C]">{formatCurrency(r.totalCommission)}</span>,
+            title: 'Tổng hoa hồng', key: 'totalCommission', width: 180, align: 'right',
+            render: (_, r) => <span style={{ fontWeight: 600, color: '#E8890C' }}>{formatCurrency(r.totalCommission)}</span>,
         },
         {
-            key: 'pct', title: '% HH/DT', width: 100, align: 'center',
+            title: '% HH/DT', key: 'pct', width: 100, align: 'center',
             render: (_, r) => r.totalRevenue > 0 ? `${((r.totalCommission / r.totalRevenue) * 100).toFixed(1)}%` : '—',
         },
     ];
@@ -192,100 +192,111 @@ export default function BaoCaoLuongPage() {
         return g.team?.id ?? g.branch?.id ?? 'no-group';
     };
 
-    const summaryRow = data.length > 0 ? (
-        <>
-            <td colSpan={summaryColSpan} className="px-4 py-2"><strong>Tổng cộng</strong></td>
-            <td className="px-4 py-2 text-right"><strong className="text-[#1A2B5A]">{formatCurrency(totalRevenue)}</strong></td>
-            <td className="px-4 py-2 text-right"><strong className="text-[#E8890C]">{formatCurrency(totalCommission)}</strong></td>
-            <td className="px-4 py-2 text-center">
-                <strong>{totalRevenue > 0 ? `${((totalCommission / totalRevenue) * 100).toFixed(1)}%` : '—'}</strong>
-            </td>
-        </>
-    ) : undefined;
+    const tableSummary = () => (
+        data.length > 0 ? (
+            <Table.Summary.Row>
+                <Table.Summary.Cell index={0} colSpan={summaryColSpan}><strong>Tổng cộng</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={summaryColSpan} align="right"><strong style={{ color: '#1A2B5A' }}>{formatCurrency(totalRevenue)}</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={summaryColSpan + 1} align="right"><strong style={{ color: '#E8890C' }}>{formatCurrency(totalCommission)}</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={summaryColSpan + 2} align="center">
+                    <strong>{totalRevenue > 0 ? `${((totalCommission / totalRevenue) * 100).toFixed(1)}%` : '—'}</strong>
+                </Table.Summary.Cell>
+            </Table.Summary.Row>
+        ) : null
+    );
 
     return (
         <>
-            <PageHeader title="Báo cáo / Lương & Hoa hồng" />
+            {/* Page Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Báo cáo / Lương & Hoa hồng</Title>
+            </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex rounded-md border border-gray-200 overflow-hidden">
+            <Card style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div style={{ display: 'flex', borderRadius: 6, border: '1px solid #d9d9d9', overflow: 'hidden' }}>
                         {GROUP_OPTIONS.map((opt) => (
                             <button
                                 key={opt.value}
                                 onClick={() => { setGroupBy(opt.value as GroupBy); setEmployeeFilter(''); }}
-                                className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                                    groupBy === opt.value ? 'bg-[#E8890C] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-                                }`}
+                                style={{
+                                    padding: '6px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', border: 'none',
+                                    background: groupBy === opt.value ? '#E8890C' : 'white',
+                                    color: groupBy === opt.value ? 'white' : '#4b5563',
+                                    transition: 'all 0.2s',
+                                }}
                             >
                                 {opt.label}
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <input type="date" className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                        <span className="text-gray-400">→</span>
-                        <input type="date" className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <Space wrap>
+                        <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                        <span style={{ color: '#9ca3af' }}>→</span>
+                        <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={toDate} onChange={(e) => setToDate(e.target.value)} />
 
-                        <Select value={branchFilter} onValueChange={setBranchFilter}>
-                            <SelectTrigger className="w-40"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">Tất cả</SelectItem>
-                                {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={teamFilter} onValueChange={setTeamFilter}>
-                            <SelectTrigger className="w-36"><SelectValue placeholder="Team" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">Tất cả</SelectItem>
-                                {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-
+                        <Select
+                            value={branchFilter || undefined}
+                            onChange={(v) => setBranchFilter(v ?? '')}
+                            placeholder="Chi nhánh"
+                            style={{ width: 160 }}
+                            allowClear
+                            options={[{ value: '', label: 'Tất cả' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+                        />
+                        <Select
+                            value={teamFilter || undefined}
+                            onChange={(v) => setTeamFilter(v ?? '')}
+                            placeholder="Team"
+                            style={{ width: 144 }}
+                            allowClear
+                            options={[{ value: '', label: 'Tất cả' }, ...teams.map((t) => ({ value: t.id, label: t.name }))]}
+                        />
                         {groupBy === 'EMPLOYEE' && (
-                            <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-                                <SelectTrigger className="w-52"><SelectValue placeholder="Nhân viên" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Tất cả</SelectItem>
-                                    {employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <Select
+                                value={employeeFilter || undefined}
+                                onChange={(v) => setEmployeeFilter(v ?? '')}
+                                placeholder="Nhân viên"
+                                style={{ width: 208 }}
+                                allowClear
+                                options={[{ value: '', label: 'Tất cả' }, ...employees.map((e) => ({ value: e.id, label: `${e.fullName} (${e.employeeCode})` }))]}
+                            />
                         )}
-                    </div>
+                    </Space>
                 </div>
-            </div>
+            </Card>
 
             {/* Summary */}
-            <div className="grid grid-cols-4 gap-4 mb-4">
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="text-xs text-gray-400 mb-1">Số {GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}</div>
-                    <div className="text-2xl font-bold text-[#1A2B5A]">{data.length}</div>
-                </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="text-xs text-gray-400 mb-1">Tổng doanh thu đóng góp</div>
-                    <div className="text-xl font-bold text-[#1A2B5A]">{formatCurrency(totalRevenue)}</div>
-                </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="text-xs text-gray-400 mb-1">Tổng hoa hồng chi trả</div>
-                    <div className="text-xl font-bold text-[#E8890C]">{formatCurrency(totalCommission)}</div>
-                </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="text-xs text-gray-400 mb-1">Tỷ lệ HH / Doanh thu</div>
-                    <div className="text-2xl font-bold text-green-500">
-                        {totalRevenue > 0 ? `${((totalCommission / totalRevenue) * 100).toFixed(1)}%` : '—'}
-                    </div>
-                </div>
-            </div>
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col span={6}>
+                    <Card>
+                        <Statistic title={`Số ${GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}`} value={data.length} valueStyle={{ color: '#1A2B5A', fontSize: 24, fontWeight: 700 }} />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card>
+                        <Statistic title="Tổng doanh thu đóng góp" value={formatCurrency(totalRevenue)} formatter={(v) => String(v)} valueStyle={{ color: '#1A2B5A', fontSize: 20, fontWeight: 700 }} />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card>
+                        <Statistic title="Tổng hoa hồng chi trả" value={formatCurrency(totalCommission)} formatter={(v) => String(v)} valueStyle={{ color: '#E8890C', fontSize: 20, fontWeight: 700 }} />
+                    </Card>
+                </Col>
+                <Col span={6}>
+                    <Card>
+                        <Statistic title="Tỷ lệ HH / Doanh thu" value={totalRevenue > 0 ? `${((totalCommission / totalRevenue) * 100).toFixed(1)}%` : '—'} formatter={(v) => String(v)} valueStyle={{ color: '#52c41a', fontSize: 24, fontWeight: 700 }} />
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Chart */}
             {barData.length > 0 && (
-                <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-                    <h3 className="text-sm font-semibold text-[#1A2B5A] mb-3">
+                <Card style={{ marginBottom: 16 }}>
+                    <Title level={5} style={{ color: '#1A2B5A', marginBottom: 12 }}>
                         Doanh thu & Hoa hồng theo {GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}
-                    </h3>
+                    </Title>
                     <ResponsiveContainer width="100%" height={260}>
                         <BarChart data={barData} margin={{ top: 8, right: 32, left: 8, bottom: 8 }}>
                             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -297,24 +308,25 @@ export default function BaoCaoLuongPage() {
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
-                    <div className="flex justify-center gap-6 mt-1 text-xs text-gray-400">
-                        <span><span className="inline-block w-3 h-3 bg-[#FAD99A] rounded-sm mr-1" />Doanh thu</span>
-                        <span><span className="inline-block w-3 h-3 bg-[#E8890C] rounded-sm mr-1" />Hoa hồng</span>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 4, fontSize: 12, color: '#9ca3af' }}>
+                        <span><span style={{ display: 'inline-block', width: 12, height: 12, background: '#FAD99A', borderRadius: 2, marginRight: 4 }} />Doanh thu</span>
+                        <span><span style={{ display: 'inline-block', width: 12, height: 12, background: '#E8890C', borderRadius: 2, marginRight: 4 }} />Hoa hồng</span>
                     </div>
-                </div>
+                </Card>
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <DataTable
+            <Card>
+                <Table
                     columns={columns}
-                    data={sorted}
+                    dataSource={sorted}
                     rowKey={rowKey}
                     loading={loading}
-                    pageSize={20}
-                    summary={summaryRow}
+                    pagination={{ pageSize: 20 }}
+                    summary={tableSummary}
+                    size="small"
                 />
-            </div>
+            </Card>
         </>
     );
 }

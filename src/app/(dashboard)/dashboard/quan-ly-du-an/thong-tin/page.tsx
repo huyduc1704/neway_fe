@@ -1,14 +1,15 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { Eye, Search, X } from 'lucide-react';
+import { Eye } from 'lucide-react';
+import { Button, Input, Select, Tag, Table, Card, Typography, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { PlusOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 interface Project {
     id: string;
@@ -28,12 +29,12 @@ interface Project {
 interface Branch { id: string; name: string; }
 interface Region { id: string; name: string; }
 
-const STATUS_MAP: Record<string, { label: string; variant: 'secondary' | 'success' | 'warning' | 'destructive' }> = {
-    DRAFT:     { label: 'Nháp',           variant: 'secondary' },
-    ACTIVE:    { label: 'Đang hoạt động', variant: 'success' },
-    ON_HOLD:   { label: 'Tạm dừng',       variant: 'warning' },
-    CLOSED:    { label: 'Đã đóng',        variant: 'destructive' },
-    CANCELLED: { label: 'Đã huỷ',        variant: 'secondary' },
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    DRAFT:     { label: 'Nháp',           color: 'default' },
+    ACTIVE:    { label: 'Đang hoạt động', color: 'success' },
+    ON_HOLD:   { label: 'Tạm dừng',       color: 'warning' },
+    CLOSED:    { label: 'Đã đóng',        color: 'error' },
+    CANCELLED: { label: 'Đã huỷ',        color: 'default' },
 };
 
 const LEAD_SOURCE_MAP: Record<string, string> = {
@@ -75,7 +76,7 @@ export default function ThongTinDuAnPage() {
             setProjects(data.data);
             setPagination(p => ({ ...p, total: data.meta.total }));
         } catch {
-            toast.error('Không thể tải danh sách dự án');
+            message.error('Không thể tải danh sách dự án');
         } finally {
             setLoading(false);
         }
@@ -96,55 +97,40 @@ export default function ThongTinDuAnPage() {
 
     const hasFilter = branchFilter || regionFilter || statusFilter || fromDate || toDate || search;
 
-    const columns: Column<Project>[] = [
+    const columns: ColumnsType<Project> = [
         {
-            key: 'stt', title: 'STT', width: 46, align: 'center',
+            title: 'STT', key: 'stt', width: 46, align: 'center',
             render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1,
         },
+        { title: 'Mã dự án', key: 'code', width: 160, render: (_, r) => <Tag color="orange">{r.code}</Tag> },
         {
-            key: 'code', title: 'Mã dự án', width: 160,
-            render: (_, r) => <Badge variant="warning">{r.code}</Badge>,
-        },
-        {
-            key: 'location', title: 'Địa điểm',
+            title: 'Địa điểm', key: 'location',
             render: (_, r) => (
                 <div>
-                    <div className="font-medium">{r.area || r.province || '—'}</div>
-                    <div className="text-xs text-gray-400">{r.ward}</div>
+                    <div style={{ fontWeight: 500 }}>{r.area || r.province || '—'}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.ward}</div>
                 </div>
             ),
         },
+        { title: 'Chi nhánh', key: 'branch', width: 160, render: (_, r) => r.managedBranch?.name || '—' },
+        { title: 'Khu vực', key: 'team', width: 140, render: (_, r) => r.team?.name || '—' },
+        { title: 'Nguồn khách', key: 'leadSource', width: 120, align: 'center', render: (_, r) => r.leadSource ? (LEAD_SOURCE_MAP[r.leadSource] ?? r.leadSource) : '—' },
+        { title: 'Ngày đặt cọc', key: 'depositDate', width: 130, align: 'center', render: (_, r) => r.depositDate ? dayjs(r.depositDate).format('DD/MM/YYYY') : '—' },
         {
-            key: 'branch', title: 'Chi nhánh', width: 160,
-            render: (_, r) => r.managedBranch?.name || '—',
-        },
-        {
-            key: 'team', title: 'Khu vực', width: 140,
-            render: (_, r) => r.team?.name || '—',
-        },
-        {
-            key: 'leadSource', title: 'Nguồn khách', width: 120, align: 'center',
-            render: (_, r) => r.leadSource ? (LEAD_SOURCE_MAP[r.leadSource] ?? r.leadSource) : '—',
-        },
-        {
-            key: 'depositDate', title: 'Ngày đặt cọc', width: 130, align: 'center',
-            render: (_, r) => r.depositDate ? dayjs(r.depositDate).format('DD/MM/YYYY') : '—',
-        },
-        {
-            key: 'status', title: 'Trạng thái', width: 140, align: 'center',
+            title: 'Trạng thái', key: 'status', width: 140, align: 'center',
             render: (_, r) => {
-                const s = STATUS_MAP[r.status] ?? { label: r.status, variant: 'secondary' as const };
-                return <Badge variant={s.variant}>{s.label}</Badge>;
+                const s = STATUS_MAP[r.status] ?? { label: r.status, color: 'default' };
+                return <Tag color={s.color}>{s.label}</Tag>;
             },
         },
         {
-            key: 'actions', title: 'Thao tác', width: 70, align: 'center',
+            title: 'Thao tác', key: 'actions', width: 70, align: 'center',
             render: (_, r) => (
                 <button
-                    className="p-1.5 rounded hover:bg-orange-50 text-gray-500 hover:text-[#E8890C] transition-colors"
+                    style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
                     onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/quan-ly-du-an/thong-tin/${r.id}` as any); }}
                 >
-                    <Eye className="h-4 w-4" />
+                    <Eye size={16} />
                 </button>
             ),
         },
@@ -152,99 +138,45 @@ export default function ThongTinDuAnPage() {
 
     return (
         <>
-            <PageHeader
-                title="Thông tin dự án / Danh sách"
-                createLabel="Tạo mới dự án"
-                createPath="/dashboard/quan-ly-du-an/thong-tin/create"
-            />
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Title level={4} style={{ margin: 0 }}>Thông tin dự án / Danh sách</Title>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/quan-ly-du-an/thong-tin/create' as any)}>
+                    Tạo mới dự án
+                </Button>
+            </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                {/* Filters */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                    <Select value={regionFilter} onValueChange={v => { setRegionFilter(v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Khu vực" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả khu vực</SelectItem>
-                            {regions.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={branchFilter} onValueChange={v => { setBranchFilter(v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả chi nhánh</SelectItem>
-                            {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả</SelectItem>
-                            {Object.entries(STATUS_MAP).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    <div className="flex items-center gap-1">
-                        <span className="text-sm text-gray-500 whitespace-nowrap">Từ ngày</span>
-                        <input
-                            type="date"
-                            className="h-9 px-2 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
-                            value={fromDate}
-                            onChange={e => { setFromDate(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
-                        />
-                        <span className="text-sm text-gray-500 whitespace-nowrap">đến ngày</span>
-                        <input
-                            type="date"
-                            className="h-9 px-2 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
-                            value={toDate}
-                            onChange={e => { setToDate(e.target.value); setPagination(p => ({ ...p, page: 1 })); }}
-                        />
-                    </div>
-
+            <Card>
+                <Space wrap style={{ marginBottom: 12 }}>
+                    <Select value={regionFilter || undefined} onChange={v => { setRegionFilter(v ?? ''); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Khu vực" style={{ width: 160 }} allowClear options={[{ value: '', label: 'Tất cả khu vực' }, ...regions.map(r => ({ value: r.id, label: r.name }))]} />
+                    <Select value={branchFilter || undefined} onChange={v => { setBranchFilter(v ?? ''); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Chi nhánh" style={{ width: 176 }} allowClear options={[{ value: '', label: 'Tất cả chi nhánh' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} />
+                    <Select value={statusFilter || undefined} onChange={v => { setStatusFilter(v ?? ''); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Trạng thái" style={{ width: 160 }} allowClear options={[{ value: '', label: 'Tất cả' }, ...Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))]} />
+                    <span style={{ fontSize: 14, color: '#6b7280' }}>Từ ngày</span>
+                    <input type="date" style={{ height: 32, padding: '0 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={fromDate} onChange={e => { setFromDate(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} />
+                    <span style={{ fontSize: 14, color: '#6b7280' }}>đến ngày</span>
+                    <input type="date" style={{ height: 32, padding: '0 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={toDate} onChange={e => { setToDate(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} />
                     {hasFilter && (
-                        <button
-                            onClick={resetFilters}
-                            className="flex items-center gap-1 h-9 px-3 rounded-md border border-gray-200 text-sm text-gray-500 hover:bg-gray-50"
-                        >
-                            <X className="h-3.5 w-3.5" /> Xoá lọc
-                        </button>
+                        <Button icon={<CloseOutlined />} onClick={resetFilters}>Xoá lọc</Button>
                     )}
+                    <Input
+                        prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                        placeholder="Tìm theo mã dự án..."
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
+                        onPressEnter={() => { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); }}
+                        style={{ width: 256 }}
+                    />
+                </Space>
 
-                    <div className="ml-auto flex items-center gap-1 rounded-full border border-gray-200 px-3 h-9 w-64">
-                        <Search className="h-4 w-4 text-gray-400 shrink-0" />
-                        <input
-                            className="outline-none text-sm flex-1 bg-transparent placeholder-gray-400"
-                            placeholder="Tìm theo mã dự án..."
-                            value={searchInput}
-                            onChange={e => setSearchInput(e.target.value)}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); }
-                            }}
-                        />
-                    </div>
-                </div>
-
-                <DataTable
+                <Table
                     columns={columns}
-                    data={projects}
+                    dataSource={projects}
                     rowKey="id"
                     loading={loading}
-                    pageSize={pagination.limit}
-                    onRowClick={r => router.push(`/dashboard/quan-ly-du-an/thong-tin/${r.id}` as any)}
+                    pagination={{ pageSize: pagination.limit, total: pagination.total, current: pagination.page, onChange: (page) => setPagination(p => ({ ...p, page })), showTotal: (total) => `Tổng: ${total} dự án` }}
+                    onRow={(r) => ({ onClick: () => router.push(`/dashboard/quan-ly-du-an/thong-tin/${r.id}` as any) })}
+                    size="small"
                 />
-
-                {pagination.total > pagination.limit && (
-                    <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
-                        <span>Tổng: {pagination.total} dự án</span>
-                        <div className="flex items-center gap-1">
-                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page === 1} onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}>Trước</button>
-                            <span className="px-3 py-1">{pagination.page}</span>
-                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page * pagination.limit >= pagination.total} onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}>Sau</button>
-                        </div>
-                    </div>
-                )}
-            </div>
+            </Card>
         </>
     );
 }

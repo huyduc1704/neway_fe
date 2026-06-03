@@ -1,108 +1,135 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, Form, Input, Select, Button, Typography, Space, Descriptions, message, Spin } from 'antd';
+import { ArrowLeftOutlined } from '@ant-design/icons';
+import api from '@/lib/api';
+
+const { Title } = Typography;
+
+const STATUS_OPTIONS = [
+    { value: 'DRAFT',     label: 'Nháp' },
+    { value: 'ACTIVE',    label: 'Đang hoạt động' },
+    { value: 'ON_HOLD',   label: 'Tạm dừng' },
+    { value: 'CLOSED',    label: 'Đã đóng' },
+    { value: 'CANCELLED', label: 'Đã hủy' },
+];
+
+const formatCurrency = (v: number) =>
+    new Intl.NumberFormat('vi-VN').format(v) + 'đ';
 
 export default function RevenueDetailPage() {
     const router = useRouter();
-    const params = useParams();
-    const [loading, setLoading] = useState(false);
-
-    const [projectCode, setProjectCode] = useState('');
-    const [estimatedProjectRevenue, setEstimatedProjectRevenue] = useState('');
-    const [personnelCommission, setPersonnelCommission] = useState('');
-    const [estimatedTxRevenue, setEstimatedTxRevenue] = useState('');
-    const [status, setStatus] = useState('');
+    const { id } = useParams<{ id: string }>();
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [project, setProject] = useState<any>(null);
 
     useEffect(() => {
-        // Mock data fetch for specific ID
-        setProjectCode('10195653');
-        setEstimatedProjectRevenue('5000000');
-        setPersonnelCommission('18000000');
-        setEstimatedTxRevenue('877');
-        setStatus('Đang giao dịch');
-    }, [params.id]);
+        api.get(`/projects/${id}`)
+            .then(({ data }) => {
+                setProject(data);
+                form.setFieldsValue({
+                    estimatedCommissionPercent: data.estimatedCommissionPercent != null
+                        ? Number(data.estimatedCommissionPercent) : undefined,
+                    customerSupport: data.customerSupport != null
+                        ? Number(data.customerSupport) : undefined,
+                    status: data.status ?? undefined,
+                });
+            })
+            .catch(() => message.error('Không thể tải thông tin dự án'))
+            .finally(() => setLoading(false));
+    }, [id]);
 
-    const onSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
+    const onFinish = async (values: any) => {
+        setSaving(true);
         try {
-            // Perform update logic here
-            toast.success('Cập nhật doanh thu thành công!');
+            await api.patch(`/projects/${id}`, {
+                estimatedCommissionPercent: values.estimatedCommissionPercent != null
+                    ? Number(values.estimatedCommissionPercent) : undefined,
+                customerSupport: values.customerSupport != null
+                    ? Number(values.customerSupport) : undefined,
+                status: values.status,
+            });
+            message.success('Cập nhật doanh thu thành công');
             router.push('/dashboard/quan-ly-du-an/doanh-thu');
         } catch {
-            toast.error('Lỗi lưu dữ liệu, vui lòng thử lại.');
+            message.error('Lưu thất bại, vui lòng thử lại');
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
+    if (loading) {
+        return <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spin size="large" /></div>;
+    }
+
     return (
         <div>
-            <div className="flex items-center gap-4 mb-6">
-                <button className="p-1.5 rounded hover:bg-gray-100 text-gray-500" onClick={() => router.back()}>
-                    <ArrowLeft className="h-5 w-5" />
-                </button>
-                <h1 className="text-2xl font-semibold text-[#1A2B5A]">Quản lý doanh thu / chi tiết</h1>
+            <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Button icon={<ArrowLeftOutlined />} onClick={() => router.back()} />
+                <Title level={4} style={{ margin: 0 }}>Quản lý doanh thu / Chi tiết</Title>
             </div>
 
-            <form onSubmit={onSubmit}>
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 min-h-[60vh]">
-                    <div className="grid grid-cols-2 gap-x-12 gap-y-6 mb-20">
-                        <div>
-                            <Label className="font-bold">Mã dự án</Label>
-                            <Input className="mt-1 h-10" placeholder="Nhập mã dự án" value={projectCode} onChange={(e) => setProjectCode(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label className="font-bold">Doanh thu ước tính dự án</Label>
-                            <Input className="mt-1 h-10" placeholder="Nhập giá thuê" value={estimatedProjectRevenue} onChange={(e) => setEstimatedProjectRevenue(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label className="font-bold">Hoa hồng nhân sự</Label>
-                            <Input className="mt-1 h-10" placeholder="Nhập hoa hồng" value={personnelCommission} onChange={(e) => setPersonnelCommission(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label className="font-bold">Doanh thu ước tính giao dịch</Label>
-                            <Input className="mt-1 h-10" placeholder="Nhập doanh thu" value={estimatedTxRevenue} onChange={(e) => setEstimatedTxRevenue(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label className="font-bold">Trạng thái</Label>
-                            <Select value={status} onValueChange={setStatus}>
-                                <SelectTrigger className="mt-1 h-10"><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Đang giao dịch">Đang giao dịch</SelectItem>
-                                    <SelectItem value="Hoàn thành">Hoàn thành</SelectItem>
-                                    <SelectItem value="Chờ">Chờ</SelectItem>
-                                    <SelectItem value="Đang xem xét">Đang xem xét</SelectItem>
-                                    <SelectItem value="Tạm ngừng">Tạm ngừng</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                {/* Thông tin chỉ đọc */}
+                <Card title="Thông tin dự án">
+                    <Descriptions column={2} size="small">
+                        <Descriptions.Item label="Mã dự án">{project?.code ?? '—'}</Descriptions.Item>
+                        <Descriptions.Item label="Địa chỉ">
+                            {[project?.ward, project?.province].filter(Boolean).join(', ') || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Chi nhánh">{project?.managedBranch?.name ?? '—'}</Descriptions.Item>
+                        <Descriptions.Item label="Team">{project?.team?.name ?? '—'}</Descriptions.Item>
+                        <Descriptions.Item label="Số phòng">{project?._count?.rooms ?? 0}</Descriptions.Item>
+                        <Descriptions.Item label="Doanh thu ước tính">
+                            {project?.estimatedRevenue != null
+                                ? <strong style={{ color: '#E8890C' }}>{formatCurrency(Number(project.estimatedRevenue))}</strong>
+                                : '—'}
+                        </Descriptions.Item>
+                    </Descriptions>
+                </Card>
 
-                    <div className="flex justify-end gap-4">
-                        <Button
-                            type="button" variant="outline"
-                            className="h-11 w-24 border-[#E8890C] text-[#E8890C] hover:bg-orange-50"
-                            onClick={() => router.back()}
+                {/* Form chỉnh sửa */}
+                <Card title="Cập nhật doanh thu">
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={onFinish}
+                        style={{ maxWidth: 600 }}
+                    >
+                        <Form.Item
+                            label="% Hoa hồng ước tính"
+                            name="estimatedCommissionPercent"
+                            rules={[{ type: 'number', min: 0, max: 100, message: 'Giá trị từ 0–100' }]}
                         >
-                            Xoá
-                        </Button>
-                        <Button
-                            type="submit" disabled={loading}
-                            className="h-11 w-36 bg-[#E8890C] hover:bg-[#C8720A]"
+                            <Input type="number" min={0} max={100} suffix="%" placeholder="Nhập % hoa hồng" />
+                        </Form.Item>
+
+                        <Form.Item
+                            label="Hỗ trợ khách hàng (đ)"
+                            name="customerSupport"
                         >
-                            {loading && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
-                            Lưu thay đổi
-                        </Button>
-                    </div>
-                </div>
-            </form>
+                            <Input type="number" min={0} placeholder="Nhập số tiền hỗ trợ" />
+                        </Form.Item>
+
+                        <Form.Item label="Trạng thái" name="status">
+                            <Select options={STATUS_OPTIONS} placeholder="Chọn trạng thái" />
+                        </Form.Item>
+
+                        <Form.Item>
+                            <Space>
+                                <Button onClick={() => router.back()}>Hủy</Button>
+                                <Button type="primary" htmlType="submit" loading={saving}
+                                    style={{ background: '#E8890C', borderColor: '#E8890C' }}>
+                                    Lưu thay đổi
+                                </Button>
+                            </Space>
+                        </Form.Item>
+                    </Form>
+                </Card>
+            </Space>
         </div>
     );
 }

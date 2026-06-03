@@ -1,14 +1,12 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import { Plus, Trash2, ShieldCheck } from 'lucide-react';
+import { Button, Input, Tag, Card, Modal, Form, Typography } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+
+const { Title } = Typography;
 
 interface Permission { id: string; action: string; resource: string; description: string | null; }
 interface Role       { id: string; code: string; name: string; isActive: boolean; }
@@ -22,10 +20,8 @@ export default function PhanQuyenPage() {
     const [checkedIds,   setCheckedIds]   = useState<Set<string>>(new Set());
 
     const [addDialog,   setAddDialog]   = useState(false);
-    const [newAction,   setNewAction]   = useState('');
-    const [newResource, setNewResource] = useState('');
-    const [newDesc,     setNewDesc]     = useState('');
     const [creating,    setCreating]    = useState(false);
+    const [addForm] = Form.useForm();
 
     useEffect(() => {
         api.get('/roles',       { params: { limit: 200 } }).then(({ data }) => setRoles(data.data ?? [])).catch(() => {});
@@ -40,7 +36,7 @@ export default function PhanQuyenPage() {
             const perms: Permission[] = data.data ?? data ?? [];
             setRolePerms(perms);
             setCheckedIds(new Set(perms.map((p: Permission) => p.id)));
-        } catch { toast.error('Không thể tải quyền của vai trò'); }
+        } catch { message.error('Không thể tải quyền của vai trò'); }
         finally { setLoadingPerms(false); }
     }, []);
 
@@ -60,23 +56,24 @@ export default function PhanQuyenPage() {
         setSaving(true);
         try {
             await api.put(`/roles/${selectedRole.id}/permissions`, { permissionIds: [...checkedIds] });
-            toast.success(`Đã cập nhật quyền cho vai trò "${selectedRole.name}"`);
+            message.success(`Đã cập nhật quyền cho vai trò "${selectedRole.name}"`);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Lưu thất bại');
+            message.error(err?.response?.data?.message || 'Lưu thất bại');
         } finally { setSaving(false); }
     };
 
     const handleCreatePermission = async () => {
-        if (!newAction.trim() || !newResource.trim()) { toast.error('Nhập đủ action và resource'); return; }
-        setCreating(true);
         try {
-            await api.post('/permissions', { action: newAction.trim().toUpperCase(), resource: newResource.trim().toUpperCase(), description: newDesc || undefined });
-            toast.success('Đã thêm permission');
+            const values = await addForm.validateFields();
+            setCreating(true);
+            await api.post('/permissions', { action: values.action.trim().toUpperCase(), resource: values.resource.trim().toUpperCase(), description: values.desc || undefined });
+            message.success('Đã thêm permission');
             const { data } = await api.get('/permissions');
             setPermissions(data.data ?? data ?? []);
-            setNewAction(''); setNewResource(''); setNewDesc(''); setAddDialog(false);
+            addForm.resetFields();
+            setAddDialog(false);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Tạo thất bại');
+            if (err?.response) message.error(err?.response?.data?.message || 'Tạo thất bại');
         } finally { setCreating(false); }
     };
 
@@ -84,10 +81,10 @@ export default function PhanQuyenPage() {
         if (!window.confirm('Xoá permission này?')) return;
         try {
             await api.delete(`/permissions/${id}`);
-            toast.success('Đã xoá permission');
+            message.success('Đã xoá permission');
             setPermissions(p => p.filter(x => x.id !== id));
             setCheckedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Xoá thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Xoá thất bại'); }
     };
 
     const grouped = permissions.reduce<Record<string, Permission[]>>((acc, p) => {
@@ -98,72 +95,80 @@ export default function PhanQuyenPage() {
 
     return (
         <>
-            <PageHeader title="Hệ thống / Phân quyền" />
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Hệ thống / Phân quyền</Title>
+            </div>
 
-            <div className="grid grid-cols-[280px_1fr] gap-4">
-                {/* Danh sách vai trò */}
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <h3 className="text-sm font-semibold text-[#1A2B5A] mb-3">Chọn vai trò</h3>
-                    <div className="space-y-1">
+            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
+                {/* Role list */}
+                <Card>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#1A2B5A', marginBottom: 12 }}>Chọn vai trò</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {roles.map(r => (
                             <button
                                 key={r.id}
                                 onClick={() => loadRolePerms(r)}
-                                className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors flex items-center justify-between ${selectedRole?.id === r.id ? 'bg-orange-50 text-[#E8890C] font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+                                style={{
+                                    width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8, fontSize: 14, cursor: 'pointer', border: 'none',
+                                    background: selectedRole?.id === r.id ? '#fff7ed' : 'transparent',
+                                    color: selectedRole?.id === r.id ? '#E8890C' : '#4b5563',
+                                    fontWeight: selectedRole?.id === r.id ? 500 : 400,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    transition: 'all 0.2s',
+                                }}
                             >
-                                <span className="flex items-center gap-2">
-                                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <ShieldCheck size={16} style={{ flexShrink: 0 }} />
                                     {r.name}
                                 </span>
-                                <Badge variant={r.isActive ? 'success' : 'secondary'} className="text-xs">
+                                <Tag color={r.isActive ? 'success' : 'default'} style={{ fontSize: 10 }}>
                                     {r.isActive ? 'Active' : 'Off'}
-                                </Badge>
+                                </Tag>
                             </button>
                         ))}
-                        {roles.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Chưa có vai trò</p>}
+                        {roles.length === 0 && <p style={{ fontSize: 14, color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>Chưa có vai trò</p>}
                     </div>
-                </div>
+                </Card>
 
-                {/* Phân quyền */}
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                {/* Permissions */}
+                <Card>
                     {!selectedRole ? (
-                        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                            <ShieldCheck className="h-10 w-10 mb-3 opacity-30" />
-                            <p className="text-sm">Chọn một vai trò bên trái để phân quyền</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', color: '#9ca3af' }}>
+                            <ShieldCheck size={40} style={{ marginBottom: 12, opacity: 0.3 }} />
+                            <p style={{ fontSize: 14 }}>Chọn một vai trò bên trái để phân quyền</p>
                         </div>
                     ) : (
                         <>
-                            <div className="flex items-center justify-between mb-4">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <div>
-                                    <h3 className="text-sm font-semibold text-[#1A2B5A]">
-                                        Quyền của: <span className="text-[#E8890C]">{selectedRole.name}</span>
-                                    </h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">{checkedIds.size} / {permissions.length} quyền được chọn</p>
+                                    <p style={{ fontSize: 14, fontWeight: 600, color: '#1A2B5A', margin: 0 }}>
+                                        Quyền của: <span style={{ color: '#E8890C' }}>{selectedRole.name}</span>
+                                    </p>
+                                    <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{checkedIds.size} / {permissions.length} quyền được chọn</p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => setAddDialog(true)}>
-                                        <Plus className="h-4 w-4 mr-1" /> Thêm permission
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <Button icon={<PlusOutlined />} onClick={() => { addForm.resetFields(); setAddDialog(true); }}>
+                                        Thêm permission
                                     </Button>
-                                    <Button size="sm" onClick={handleSave} disabled={saving} className="bg-[#E8890C] hover:bg-[#C8720A]">
-                                        {saving && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
+                                    <Button type="primary" onClick={handleSave} loading={saving} style={{ background: '#E8890C', borderColor: '#E8890C' }}>
                                         Lưu thay đổi
                                     </Button>
                                 </div>
                             </div>
 
                             {loadingPerms ? (
-                                <div className="flex justify-center py-10">
-                                    <div className="h-5 w-5 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                                    <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E8890C', borderTop: '2px solid transparent', animation: 'spin 1s linear infinite' }} />
                                 </div>
                             ) : (
-                                <div className="space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', paddingRight: 4 }}>
                                     {Object.entries(grouped).sort().map(([resource, perms]) => (
                                         <div key={resource}>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{resource}</span>
-                                                <div className="flex-1 h-px bg-gray-100" />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>{resource}</span>
+                                                <div style={{ flex: 1, height: 1, background: '#f3f4f6' }} />
                                                 <button
-                                                    className="text-xs text-[#E8890C] hover:underline whitespace-nowrap"
+                                                    style={{ fontSize: 12, color: '#E8890C', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
                                                     onClick={() => {
                                                         const allChecked = perms.every(p => checkedIds.has(p.id));
                                                         setCheckedIds(prev => {
@@ -176,25 +181,25 @@ export default function PhanQuyenPage() {
                                                     {perms.every(p => checkedIds.has(p.id)) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                                                 </button>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-1.5">
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                                                 {perms.map(p => (
-                                                    <label key={p.id} className="flex items-start gap-2 px-3 py-2 rounded-md border border-gray-100 hover:bg-gray-50 cursor-pointer group">
+                                                    <label key={p.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid #f3f4f6', cursor: 'pointer' }}>
                                                         <input
                                                             type="checkbox"
-                                                            className="mt-0.5 h-4 w-4 accent-[#E8890C] shrink-0"
+                                                            style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: '#E8890C' }}
                                                             checked={checkedIds.has(p.id)}
                                                             onChange={() => togglePerm(p.id)}
                                                         />
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="text-sm font-medium text-gray-800">{p.action}</div>
-                                                            {p.description && <div className="text-xs text-gray-400 truncate">{p.description}</div>}
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: 14, fontWeight: 500, color: '#1f2937' }}>{p.action}</div>
+                                                            {p.description && <div style={{ fontSize: 12, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>}
                                                         </div>
                                                         <button
-                                                            className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-red-500 shrink-0"
+                                                            style={{ padding: 2, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
                                                             title="Xoá permission"
                                                             onClick={e => { e.preventDefault(); handleDeletePermission(p.id); }}
                                                         >
-                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            <Trash2 size={14} />
                                                         </button>
                                                     </label>
                                                 ))}
@@ -202,7 +207,7 @@ export default function PhanQuyenPage() {
                                         </div>
                                     ))}
                                     {permissions.length === 0 && (
-                                        <div className="text-center py-10 text-gray-400 text-sm">
+                                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 14 }}>
                                             Chưa có permission nào. Nhấn "Thêm permission" để bắt đầu.
                                         </div>
                                     )}
@@ -210,36 +215,32 @@ export default function PhanQuyenPage() {
                             )}
                         </>
                     )}
-                </div>
+                </Card>
             </div>
 
-            {/* Add Permission Dialog */}
-            <Dialog open={addDialog} onOpenChange={setAddDialog}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader><DialogTitle>Thêm permission mới</DialogTitle></DialogHeader>
-                    <div className="space-y-3 py-2">
-                        <div>
-                            <Label>Resource <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1 uppercase" placeholder="VD: PROJECT, USER..." value={newResource} onChange={e => setNewResource(e.target.value.toUpperCase())} />
-                        </div>
-                        <div>
-                            <Label>Action <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1 uppercase" placeholder="VD: READ, CREATE, UPDATE..." value={newAction} onChange={e => setNewAction(e.target.value.toUpperCase())} />
-                        </div>
-                        <div>
-                            <Label>Mô tả</Label>
-                            <Input className="mt-1" placeholder="Mô tả ngắn về quyền này..." value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setAddDialog(false)}>Huỷ</Button>
-                        <Button onClick={handleCreatePermission} disabled={creating}>
-                            {creating && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
-                            Tạo
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {/* Add Permission Modal */}
+            <Modal
+                open={addDialog}
+                onCancel={() => setAddDialog(false)}
+                title="Thêm permission mới"
+                width={400}
+                footer={[
+                    <Button key="cancel" onClick={() => setAddDialog(false)}>Huỷ</Button>,
+                    <Button key="ok" type="primary" onClick={handleCreatePermission} loading={creating}>Tạo</Button>,
+                ]}
+            >
+                <Form form={addForm} layout="vertical" style={{ marginTop: 16 }}>
+                    <Form.Item name="resource" label={<span>Resource <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập resource' }]}>
+                        <Input placeholder="VD: PROJECT, USER..." style={{ textTransform: 'uppercase' }} onChange={e => addForm.setFieldValue('resource', e.target.value.toUpperCase())} />
+                    </Form.Item>
+                    <Form.Item name="action" label={<span>Action <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập action' }]}>
+                        <Input placeholder="VD: READ, CREATE, UPDATE..." style={{ textTransform: 'uppercase' }} onChange={e => addForm.setFieldValue('action', e.target.value.toUpperCase())} />
+                    </Form.Item>
+                    <Form.Item name="desc" label="Mô tả">
+                        <Input placeholder="Mô tả ngắn về quyền này..." />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </>
     );
 }

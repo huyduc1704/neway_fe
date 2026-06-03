@@ -1,127 +1,152 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, Search, Filter, List } from 'lucide-react';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
+import { Table, Input, Tag, Typography, Card, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
+import api from '@/lib/api';
+import dayjs from 'dayjs';
 
-interface RevenueEstimate {
+const { Title } = Typography;
+
+interface Project {
     id: string;
-    projectCode: string;
-    estimatedList: number;
-    estimatedTxRevenue: number;
-    status: string;
-    personnelCommission: number;
+    code: string;
+    status: string | null;
+    estimatedRevenue: string | null;
+    createdAt: string;
+    _count: { rooms: number };
+    managedBranch: { name: string } | null;
+    team: { name: string } | null;
 }
 
 const formatCurrency = (v: number) =>
     new Intl.NumberFormat('vi-VN').format(v) + 'đ';
 
-const getStatusColor = (status: string) => {
-    if (status === 'Hoàn thành') return 'text-red-600';
-    if (status === 'Đang giao dịch') return 'text-teal-500';
-    if (status === 'Chờ') return 'text-[#E8890C]';
-    if (status === 'Đang xem xét') return 'text-red-500';
-    if (status === 'Đang xử lý') return 'text-[#E8890C]';
-    if (status === 'Chờ xác nhận') return 'text-red-500';
-    if (status === 'Tạm ngừng') return 'text-teal-500';
-    if (status === 'Hoàn thành một phần') return 'text-red-500';
-    if (status === 'Đang giao hàng') return 'text-[#E8890C]';
-    return 'text-gray-700';
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    DRAFT:     { label: 'Nháp',            color: 'default' },
+    ACTIVE:    { label: 'Đang hoạt động',  color: 'success' },
+    ON_HOLD:   { label: 'Tạm dừng',        color: 'warning' },
+    CLOSED:    { label: 'Đã đóng',         color: 'blue' },
+    CANCELLED: { label: 'Đã hủy',          color: 'error' },
 };
-
-const dataSource: RevenueEstimate[] = [
-    { id: '1', projectCode: '10195653', estimatedList: 536, estimatedTxRevenue: 877, status: 'Đang giao dịch', personnelCommission: 18000000 },
-    { id: '2', projectCode: '10195662', estimatedList: 492, estimatedTxRevenue: 492, status: 'Hoàn thành', personnelCommission: 20500000 },
-    { id: '3', projectCode: '10195659', estimatedList: 703, estimatedTxRevenue: 536, status: 'Chờ', personnelCommission: 21000000 },
-    { id: '4', projectCode: '10195659', estimatedList: 994, estimatedTxRevenue: 826, status: 'Đang xem xét', personnelCommission: 17000000 },
-    { id: '5', projectCode: '10195657', estimatedList: 196, estimatedTxRevenue: 816, status: 'Đang xử lý', personnelCommission: 22000000 },
-    { id: '6', projectCode: '10195654', estimatedList: 177, estimatedTxRevenue: 561, status: 'Chờ xác nhận', personnelCommission: 19500000 },
-    { id: '7', projectCode: '10195652', estimatedList: 826, estimatedTxRevenue: 429, status: 'Tạm ngừng', personnelCommission: 23000000 },
-    { id: '8', projectCode: '10195662', estimatedList: 423, estimatedTxRevenue: 922, status: 'Hoàn thành một phần', personnelCommission: 16000000 },
-    { id: '9', projectCode: '10195656', estimatedList: 600, estimatedTxRevenue: 994, status: 'Đang giao hàng', personnelCommission: 24000000 },
-];
 
 export default function DoanhThuDuAnPage() {
     const router = useRouter();
-    const [mounted, setMounted] = useState(false);
+    const [rows, setRows] = useState<Project[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
 
-    useEffect(() => setMounted(true), []);
-    if (!mounted) return null;
+    const fetchData = useCallback(async (p = 1, q = search) => {
+        setLoading(true);
+        try {
+            const { data } = await api.get('/projects', {
+                params: { page: p, limit: 20, search: q || undefined },
+            });
+            setRows(data.data);
+            setTotal(data.meta.total);
+        } finally {
+            setLoading(false);
+        }
+    }, [search]);
 
-    const columns: Column<RevenueEstimate>[] = [
+    useEffect(() => { fetchData(1); }, []);
+
+    const columns: ColumnsType<Project> = [
         {
-            key: 'projectCode', title: 'Mã dự án',
-            render: (_, r) => <span className="font-medium">{r.projectCode}</span>,
+            title: 'Mã dự án',
+            dataIndex: 'code',
+            key: 'code',
+            render: (v) => <span style={{ fontWeight: 500 }}>{v}</span>,
         },
         {
-            key: 'estimatedList', title: 'Danh sách ước tính',
-            dataIndex: 'estimatedList',
+            title: 'Chi nhánh',
+            key: 'branch',
+            render: (_, r) => r.managedBranch?.name ?? '—',
         },
         {
-            key: 'estimatedTxRevenue', title: 'DT ước tính giao dịch',
-            dataIndex: 'estimatedTxRevenue',
+            title: 'Team',
+            key: 'team',
+            render: (_, r) => r.team?.name ?? '—',
         },
         {
-            key: 'status', title: 'Trạng thái',
+            title: 'Số phòng',
+            key: 'rooms',
+            align: 'center',
+            render: (_, r) => r._count.rooms,
+        },
+        {
+            title: 'Doanh thu ước tính',
+            key: 'estimatedRevenue',
+            render: (_, r) => r.estimatedRevenue
+                ? <span style={{ fontWeight: 700, color: '#E8890C' }}>{formatCurrency(Number(r.estimatedRevenue))}</span>
+                : <span style={{ color: '#9ca3af' }}>—</span>,
+        },
+        {
+            title: 'Ngày tạo',
+            key: 'createdAt',
+            render: (_, r) => dayjs(r.createdAt).format('DD/MM/YYYY'),
+        },
+        {
+            title: 'Trạng thái',
+            key: 'status',
+            render: (_, r) => {
+                const s = STATUS_MAP[r.status ?? ''] ?? { label: r.status ?? '—', color: 'default' };
+                return <Tag color={s.color}>{s.label}</Tag>;
+            },
+        },
+        {
+            title: '',
+            key: 'action',
+            align: 'center',
             render: (_, r) => (
-                <span className={`font-medium ${getStatusColor(r.status)}`}>{r.status}</span>
-            ),
-        },
-        {
-            key: 'personnelCommission', title: 'Hoa hồng nhân sự',
-            render: (_, r) => <span className="font-bold">{formatCurrency(r.personnelCommission)}</span>,
-        },
-        {
-            key: 'view', title: 'Xem', align: 'center',
-            render: (_, r) => (
-                <button
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 hover:bg-orange-100 transition-colors"
-                    onClick={() => router.push(`/dashboard/quan-ly-du-an/doanh-thu/${r.id}` as any)}
-                >
-                    <Eye className="h-4 w-4 text-[#E8890C]" />
-                </button>
+                <EyeOutlined
+                    style={{ fontSize: 16, color: '#E8890C', cursor: 'pointer' }}
+                    onClick={() => router.push(`/dashboard/quan-ly-du-an/doanh-thu/${r.id}`)}
+                />
             ),
         },
     ];
 
     return (
         <div>
-            <PageHeader title="Quản lý doanh thu / Danh sách" />
-
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Toolbar */}
-                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                    <button className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800">
-                        <List className="h-4 w-4" />
-                        Tác vụ hàng loạt
-                    </button>
-
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 rounded-full border border-gray-200 px-3 h-9 w-56">
-                            <Search className="h-4 w-4 text-gray-400" />
-                            <input
-                                className="outline-none text-sm flex-1 bg-transparent placeholder-gray-400"
-                                placeholder="Tìm kiếm"
-                            />
-                        </div>
-                        <button className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-800 px-2 py-1">
-                            <Filter className="h-4 w-4" />
-                            Fitter
-                        </button>
-                    </div>
-                </div>
-
-                {/* Table */}
-                <div className="px-0">
-                    <DataTable
-                        columns={columns}
-                        data={dataSource}
-                        rowKey="id"
-                        pageSize={10}
-                    />
-                </div>
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Quản lý doanh thu</Title>
             </div>
+
+            <Card>
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Space>
+                        <Input
+                            prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                            placeholder="Tìm theo mã dự án"
+                            style={{ width: 240 }}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onPressEnter={() => { setPage(1); fetchData(1, search); }}
+                            allowClear
+                            onClear={() => { setSearch(''); fetchData(1, ''); }}
+                        />
+                    </Space>
+                </div>
+
+                <Table
+                    columns={columns}
+                    dataSource={rows}
+                    rowKey="id"
+                    loading={loading}
+                    size="small"
+                    pagination={{
+                        current: page,
+                        pageSize: 20,
+                        total,
+                        showSizeChanger: false,
+                        onChange: (p) => { setPage(p); fetchData(p); },
+                    }}
+                />
+            </Card>
         </div>
     );
 }

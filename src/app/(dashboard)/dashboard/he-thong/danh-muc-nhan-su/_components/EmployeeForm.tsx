@@ -1,15 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Upload } from 'lucide-react';
+import { Button, Input, Select, Form, Card, Typography } from 'antd';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 interface Props {
     mode: 'create' | 'edit';
@@ -29,6 +27,7 @@ const ROLE_OPTIONS = [
 
 export default function EmployeeForm({ mode, userId }: Props) {
     const router = useRouter();
+    const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
@@ -36,18 +35,8 @@ export default function EmployeeForm({ mode, userId }: Props) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
     const [managers, setManagers] = useState<ManagerOption[]>([]);
-
-    const [selectedUserId, setSelectedUserId] = useState('');
-    const [employeeCode, setEmployeeCode] = useState('');
-    const [roleCode, setRoleCode] = useState('');
-    const [branchId, setBranchId] = useState('');
-    const [teamId, setTeamId] = useState('');
-    const [directManagerId, setDirectManagerId] = useState('');
-    const [joinedAt, setJoinedAt] = useState('');
-    const [isActive, setIsActive] = useState<string>('true');
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
-    const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => {});
@@ -67,54 +56,46 @@ export default function EmployeeForm({ mode, userId }: Props) {
             setLoading(true);
             api.get(`/employees/${userId}`)
                 .then(({ data }) => {
-                    setEmployeeCode(data.employeeProfile?.employeeCode || '');
-                    setRoleCode(data.roles?.[0]?.role?.code || '');
-                    setBranchId(data.employeeProfile?.branch?.id || '');
-                    setTeamId(data.employeeProfile?.team?.id || '');
-                    setDirectManagerId(data.employeeProfile?.directManager?.id || '');
-                    setJoinedAt(data.employeeProfile?.joinedAt ? dayjs(data.employeeProfile.joinedAt).format('YYYY-MM-DD') : '');
-                    setIsActive(String(data.employeeProfile?.isActive ?? true));
+                    form.setFieldsValue({
+                        employeeCode: data.employeeProfile?.employeeCode || '',
+                        roleCode: data.roles?.[0]?.role?.code || '',
+                        branchId: data.employeeProfile?.branch?.id || '',
+                        teamId: data.employeeProfile?.team?.id || '',
+                        directManagerId: data.employeeProfile?.directManager?.id || '',
+                        joinedAt: data.employeeProfile?.joinedAt ? dayjs(data.employeeProfile.joinedAt).format('YYYY-MM-DD') : '',
+                        isActive: String(data.employeeProfile?.isActive ?? true),
+                    });
                     setAvatarUrl(data.employeeProfile?.avatarUrl ?? null);
                 })
-                .catch(() => toast.error('Không thể tải thông tin nhân viên'))
+                .catch(() => message.error('Không thể tải thông tin nhân viên'))
                 .finally(() => setLoading(false));
         }
     }, [mode, userId]);
 
-    const validate = () => {
-        const e: Record<string, string> = {};
-        if (mode === 'create' && !selectedUserId) e.userId = 'Chọn tài khoản';
-        if (!employeeCode.trim()) e.employeeCode = 'Nhập mã nhân viên';
-        if (!roleCode) e.roleCode = 'Chọn vai trò';
-        setErrors(e);
-        return Object.keys(e).length === 0;
-    };
-
-    const onSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validate()) return;
-        setSubmitting(true);
+    const onSubmit = async () => {
         try {
+            const values = await form.validateFields();
+            setSubmitting(true);
             const payload: any = {
-                employeeCode,
-                roleCode,
-                branchId: branchId || undefined,
-                teamId: teamId || undefined,
-                directManagerId: directManagerId || undefined,
-                joinedAt: joinedAt ? new Date(joinedAt).toISOString() : undefined,
+                employeeCode: values.employeeCode,
+                roleCode: values.roleCode,
+                branchId: values.branchId || undefined,
+                teamId: values.teamId || undefined,
+                directManagerId: values.directManagerId || undefined,
+                joinedAt: values.joinedAt ? new Date(values.joinedAt).toISOString() : undefined,
             };
 
             if (mode === 'create') {
-                await api.post('/employees', { ...payload, userId: selectedUserId });
-                toast.success('Tạo hồ sơ nhân viên thành công');
+                await api.post('/employees', { ...payload, userId: values.userId });
+                message.success('Tạo hồ sơ nhân viên thành công');
             } else {
                 const { employeeCode: _c, ...rest } = payload;
-                await api.patch(`/employees/${userId}/profile`, { ...rest, isActive: isActive === 'true' });
-                toast.success('Cập nhật thành công');
+                await api.patch(`/employees/${userId}/profile`, { ...rest, isActive: values.isActive === 'true' });
+                message.success('Cập nhật thành công');
             }
             router.push('/dashboard/he-thong/danh-muc-nhan-su' as any);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            if (err?.response) message.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally {
             setSubmitting(false);
         }
@@ -128,9 +109,9 @@ export default function EmployeeForm({ mode, userId }: Props) {
             fd.append('file', file);
             const { data } = await api.patch(`/employees/${userId}/avatar`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
             setAvatarUrl(data?.avatarUrl ?? null);
-            toast.success('Upload avatar thành công');
+            message.success('Upload avatar thành công');
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Upload thất bại');
+            message.error(err?.response?.data?.message || 'Upload thất bại');
         } finally { setUploadingAvatar(false); }
     };
 
@@ -138,140 +119,100 @@ export default function EmployeeForm({ mode, userId }: Props) {
         if (!window.confirm('Xoá nhân viên này?')) return;
         try {
             await api.delete(`/employees/${userId}`);
-            toast.success('Đã xoá nhân viên');
+            message.success('Đã xoá nhân viên');
             router.push('/dashboard/he-thong/danh-muc-nhan-su' as any);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            message.error(err?.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20">
-                <div className="h-5 w-5 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+                <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E8890C', borderTop: '2px solid transparent', animation: 'spin 1s linear infinite' }} />
             </div>
         );
     }
 
     return (
         <>
-            <PageHeader title="Danh mục nhân sự / Tạo mới · Chỉnh sửa" />
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <form onSubmit={onSubmit}>
-                    <div className="grid grid-cols-3 gap-6">
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Danh mục nhân sự / Tạo mới · Chỉnh sửa</Title>
+            </div>
+            <Card>
+                <Form form={form} layout="vertical" initialValues={{ isActive: 'true' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
                         {mode === 'create' && (
-                            <div>
-                                <Label>Tài khoản người dùng <span className="text-red-500">*</span></Label>
-                                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                                    <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn tài khoản..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.username})</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                {errors.userId && <p className="text-red-500 text-xs mt-1">{errors.userId}</p>}
-                            </div>
+                            <Form.Item name="userId" label={<span>Tài khoản người dùng <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Chọn tài khoản' }]}>
+                                <Select placeholder="Chọn tài khoản..."
+                                    options={users.map((u) => ({ value: u.id, label: `${u.fullName} (${u.username})` }))} />
+                            </Form.Item>
                         )}
-                        <div>
-                            <Label>Mã nhân viên <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1" placeholder="VD: NV001" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} disabled={mode === 'edit'} />
-                            {errors.employeeCode && <p className="text-red-500 text-xs mt-1">{errors.employeeCode}</p>}
-                        </div>
-                        <div>
-                            <Label>Vai trò <span className="text-red-500">*</span></Label>
-                            <Select value={roleCode} onValueChange={setRoleCode}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn vai trò" /></SelectTrigger>
-                                <SelectContent>
-                                    {ROLE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            {errors.roleCode && <p className="text-red-500 text-xs mt-1">{errors.roleCode}</p>}
-                        </div>
+                        <Form.Item name="employeeCode" label={<span>Mã nhân viên <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập mã nhân viên' }]}>
+                            <Input placeholder="VD: NV001" disabled={mode === 'edit'} />
+                        </Form.Item>
+                        <Form.Item name="roleCode" label={<span>Vai trò <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Chọn vai trò' }]}>
+                            <Select placeholder="Chọn vai trò" options={ROLE_OPTIONS} />
+                        </Form.Item>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 mt-5">
-                        <div>
-                            <Label>Chi nhánh</Label>
-                            <Select value={branchId} onValueChange={setBranchId}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Không chọn</SelectItem>
-                                    {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label>Team</Label>
-                            <Select value={teamId} onValueChange={setTeamId}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn team" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Không chọn</SelectItem>
-                                    {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label>Leader trực thuộc</Label>
-                            <Select value={directManagerId} onValueChange={setDirectManagerId}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn leader (không bắt buộc)" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Không chọn</SelectItem>
-                                    {managers.map((m) => <SelectItem key={m.id} value={m.id}>{m.user.fullName}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginTop: 20 }}>
+                        <Form.Item name="branchId" label="Chi nhánh">
+                            <Select placeholder="Chọn chi nhánh" allowClear
+                                options={branches.map((b) => ({ value: b.id, label: b.name }))} />
+                        </Form.Item>
+                        <Form.Item name="teamId" label="Team">
+                            <Select placeholder="Chọn team" allowClear
+                                options={teams.map((t) => ({ value: t.id, label: t.name }))} />
+                        </Form.Item>
+                        <Form.Item name="directManagerId" label="Leader trực thuộc">
+                            <Select placeholder="Chọn leader (không bắt buộc)" allowClear
+                                options={managers.map((m) => ({ value: m.id, label: m.user.fullName }))} />
+                        </Form.Item>
                     </div>
 
                     {mode === 'edit' && (
-                        <div className="mt-5 flex items-center gap-4 p-4 bg-gray-50 rounded-md border border-gray-200">
-                            <div className="h-16 w-16 rounded-full border-2 border-gray-200 overflow-hidden bg-white flex items-center justify-center shrink-0">
+                        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16, padding: 16, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                            <div style={{ width: 64, height: 64, borderRadius: '50%', border: '2px solid #e5e7eb', overflow: 'hidden', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 {avatarUrl
-                                    ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-                                    : <span className="text-2xl text-gray-300">👤</span>}
+                                    ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <span style={{ fontSize: 24, color: '#d1d5db' }}>👤</span>}
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-1">Ảnh đại diện</p>
-                                <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs cursor-pointer ${uploadingAvatar ? 'opacity-50' : 'border-gray-300 hover:bg-white'}`}>
-                                    <Upload className="h-3.5 w-3.5" />
+                                <p style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Ảnh đại diện</p>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, cursor: uploadingAvatar ? 'not-allowed' : 'pointer', opacity: uploadingAvatar ? 0.5 : 1 }}>
+                                    <Upload size={14} />
                                     {uploadingAvatar ? 'Đang upload...' : (avatarUrl ? 'Thay ảnh' : 'Upload ảnh')}
-                                    <input type="file" accept="image/*" className="hidden" disabled={uploadingAvatar}
+                                    <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingAvatar}
                                         onChange={e => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])} />
                                 </label>
-                                <p className="text-xs text-gray-400 mt-1">Tối đa 5MB</p>
+                                <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>Tối đa 5MB</p>
                             </div>
                         </div>
                     )}
 
-                    <div className="grid grid-cols-3 gap-6 mt-5">
-                        <div>
-                            <Label>Ngày vào làm</Label>
-                            <input type="date" className="mt-1 h-9 w-full px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={joinedAt} onChange={(e) => setJoinedAt(e.target.value)} />
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginTop: 20 }}>
+                        <Form.Item name="joinedAt" label="Ngày vào làm">
+                            <input type="date" style={{ height: 36, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} />
+                        </Form.Item>
                         {mode === 'edit' && (
-                            <div>
-                                <Label>Trạng thái</Label>
-                                <Select value={isActive} onValueChange={setIsActive}>
-                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="true">Đang làm</SelectItem>
-                                        <SelectItem value="false">Đã nghỉ</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <Form.Item name="isActive" label="Trạng thái">
+                                <Select options={[{ value: 'true', label: 'Đang làm' }, { value: 'false', label: 'Đã nghỉ' }]} />
+                            </Form.Item>
                         )}
                     </div>
 
-                    <div className="flex justify-end gap-2 mt-6">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
                         {mode === 'edit' && (
-                            <Button type="button" variant="destructive" onClick={handleDelete}>Xoá</Button>
+                            <Button danger onClick={handleDelete}>Xoá</Button>
                         )}
-                        <Button type="button" variant="outline" onClick={() => router.back()}>Huỷ</Button>
-                        <Button type="submit" disabled={submitting}>
-                            {submitting && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
+                        <Button onClick={() => router.back()}>Huỷ</Button>
+                        <Button type="primary" onClick={onSubmit} loading={submitting}>
                             Lưu thay đổi
                         </Button>
                     </div>
-                </form>
-            </div>
+                </Form>
+            </Card>
         </>
     );
 }

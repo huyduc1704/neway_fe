@@ -1,13 +1,13 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button, Input, Select, Typography, Space, Card } from 'antd';
+import { ArrowLeftOutlined } from '@ant-design/icons';
+
+const { Title } = Typography;
 
 /* ─── Constants ─────────────────────────────────────────── */
 const LEAD_SOURCES = [
@@ -64,11 +64,11 @@ function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean
 function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Label className="text-sm font-medium text-gray-700">
-                {label} {required && <span className="text-red-500">*</span>}
-            </Label>
-            <div className="mt-1">{children}</div>
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+            <label style={{ fontSize: 14, fontWeight: 500, color: '#374151', display: 'block', marginBottom: 4 }}>
+                {label} {required && <span style={{ color: '#ef4444' }}>*</span>}
+            </label>
+            {children}
+            {error && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{error}</p>}
         </div>
     );
 }
@@ -76,8 +76,8 @@ function Field({ label, required, error, children }: { label: string; required?:
 /* ─── Section header ─────────────────────────────────────── */
 function Section({ title }: { title: string }) {
     return (
-        <div className="col-span-full border-b border-orange-100 pb-1 mb-1">
-            <h3 className="text-sm font-semibold text-[#E8890C]">{title}</h3>
+        <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid #fed7aa', paddingBottom: 4, marginBottom: 4 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#E8890C', margin: 0 }}>{title}</h3>
         </div>
     );
 }
@@ -99,9 +99,7 @@ export default function CreateProjectPage() {
     const [m2Id, setM2Id] = useState('');
     const [s1Id, setS1Id] = useState('');
     const [s2Id, setS2Id] = useState('');
-    // computed rates (display only)
     const rates = calcRates(!!mId, !!m1Id, !!m2Id, !!s1Id, !!s2Id);
-    // leaders
     const [mLeader,  setMLeader]  = useState('');
     const [m1Leader, setM1Leader] = useState('');
     const [m2Leader, setM2Leader] = useState('');
@@ -137,7 +135,6 @@ export default function CreateProjectPage() {
     const [customerPhone,  setCustomerPhone]  = useState('');
     const [note,           setNote]           = useState('');
 
-    /* estimated revenue preview */
     const estimatedRevenue = (() => {
         const price = parseFloat(rentalPrice) || 0;
         const pct   = parseFloat(estimatedCommissionPercent) || 0;
@@ -145,6 +142,9 @@ export default function CreateProjectPage() {
         if (!price || !pct) return null;
         return price * (pct / 100) - sup;
     })();
+
+    const formatCurrencyLocal = (v: number) =>
+        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
 
     /* ── Load lookups ── */
     useEffect(() => {
@@ -169,13 +169,11 @@ export default function CreateProjectPage() {
     }, []);
 
     const handleMChange = async (id: string) => {
-        // mutex: clear M1, M2 when m selected
         setMId(id); setM1Id(''); setM2Id('');
         setM1Leader(''); setM2Leader('');
         setMLeader(id ? await getLeaderName(id) : '');
     };
     const handleM1Change = async (id: string) => {
-        // mutex: clear m when M1/M2 selected
         setM1Id(id); setMId('');
         setMLeader('');
         setM1Leader(id ? await getLeaderName(id) : '');
@@ -248,7 +246,6 @@ export default function CreateProjectPage() {
 
             const { data: created } = await api.post('/projects', payload);
 
-            // upload contract image if selected
             if (contractFile && created?.id) {
                 const fd = new FormData();
                 fd.append('file', contractFile);
@@ -257,308 +254,240 @@ export default function CreateProjectPage() {
                 });
             }
 
-            toast.success('Tạo mới dự án thành công!');
+            message.success('Tạo mới dự án thành công!');
             router.push('/dashboard/quan-ly-du-an/thong-tin');
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Không thể tạo dự án, vui lòng thử lại.');
+            message.error(err?.response?.data?.message || 'Không thể tạo dự án, vui lòng thử lại.');
         } finally {
             setLoading(false);
         }
     };
 
-    /* ── Employee select options ── */
-    const empOptions = employees.map(em => (
-        <SelectItem key={em.id} value={em.id}>{em.fullName} ({em.code})</SelectItem>
-    ));
-
-    const formatCurrency = (v: number) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+    const empOptions = employees.map(em => ({ value: em.id, label: `${em.fullName} (${em.code})` }));
+    const dateInputStyle: React.CSSProperties = { height: 32, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 };
 
     return (
         <div>
-            <div className="flex items-center gap-4 mb-6">
-                <button className="p-1.5 rounded hover:bg-gray-100 text-gray-500" onClick={() => router.back()}>
-                    <ArrowLeft className="h-5 w-5" />
-                </button>
-                <h1 className="text-xl font-semibold text-[#1A2B5A]">Tạo dự án mới</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.back()} style={{ color: '#6b7280' }} />
+                <Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>Tạo dự án mới</Title>
             </div>
 
             <form onSubmit={onSubmit}>
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-
+                <Card>
                     {/* ── Cụm thông tin dự án ─────────────────────────── */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm thông tin dự án" />
 
                         <Field label="Ngày đặt cọc" required error={errors.depositDate}>
-                            <input type="date" className="h-9 w-full px-3 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={depositDate} onChange={e => setDepositDate(e.target.value)} />
+                            <input type="date" style={dateInputStyle} value={depositDate} onChange={e => setDepositDate(e.target.value)} />
                         </Field>
 
                         <Field label="Tên khách hàng" required error={errors.customerName}>
-                            <Input className="h-9" placeholder="Nguyễn Văn A" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+                            <Input placeholder="Nguyễn Văn A" value={customerName} onChange={e => setCustomerName(e.target.value)} />
                         </Field>
 
                         <Field label="Số điện thoại khách" required error={errors.customerPhone}>
-                            <Input className="h-9" placeholder="0901234567" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
+                            <Input placeholder="0901234567" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
                         </Field>
                     </div>
 
                     {/* ── Cụm thông tin phòng ─────────────────────────── */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm thông tin phòng" />
 
                         <Field label="Mã phòng">
-                            <Input className="h-9" placeholder="VD: P101" value={roomCode} onChange={e => setRoomCode(e.target.value)} />
+                            <Input placeholder="VD: P101" value={roomCode} onChange={e => setRoomCode(e.target.value)} />
                         </Field>
 
                         <Field label="Số nhà">
-                            <Input className="h-9" placeholder="VD: 12B" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
+                            <Input placeholder="VD: 12B" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
                         </Field>
 
                         <Field label="Tỉnh / Thành phố" required error={errors.province}>
-                            <Select value={province} onValueChange={setProvince}>
-                                <SelectTrigger className="h-9"><SelectValue placeholder="Chọn tỉnh/thành" /></SelectTrigger>
-                                <SelectContent>
-                                    {VIETNAM_PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <Select
+                                value={province || undefined}
+                                onChange={setProvince}
+                                placeholder="Chọn tỉnh/thành"
+                                style={{ width: '100%' }}
+                                options={VIETNAM_PROVINCES.map(p => ({ value: p, label: p }))}
+                                showSearch
+                            />
                         </Field>
 
                         <Field label="Phường / Xã" required error={errors.ward}>
-                            <Input className="h-9" placeholder="VD: Phường Bến Nghé" value={ward} onChange={e => setWard(e.target.value)} />
+                            <Input placeholder="VD: Phường Bến Nghé" value={ward} onChange={e => setWard(e.target.value)} />
                         </Field>
 
                         <Field label="Chi nhánh quản lý" required error={errors.managedBranchId}>
-                            <Select value={managedBranchId} onValueChange={setManagedBranchId}>
-                                <SelectTrigger className="h-9"><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger>
-                                <SelectContent>
-                                    {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <Select
+                                value={managedBranchId || undefined}
+                                onChange={setManagedBranchId}
+                                placeholder="Chọn chi nhánh"
+                                style={{ width: '100%' }}
+                                options={branches.map(b => ({ value: b.id, label: b.name }))}
+                            />
                         </Field>
 
                         <Field label="Khu vực (Team)">
-                            <Select value={teamId} onValueChange={setTeamId}>
-                                <SelectTrigger className="h-9"><SelectValue placeholder="Chọn khu vực" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Không chọn</SelectItem>
-                                    {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <Select
+                                value={teamId || undefined}
+                                onChange={v => setTeamId(v ?? '')}
+                                placeholder="Chọn khu vực"
+                                style={{ width: '100%' }}
+                                allowClear
+                                options={teams.map(t => ({ value: t.id, label: t.name }))}
+                            />
                         </Field>
 
                         <Field label="Giá thuê (VNĐ)">
-                            <Input type="number" className="h-9" min={0} placeholder="VD: 5000000" value={rentalPrice} onChange={e => setRentalPrice(e.target.value)} />
+                            <Input type="number" min={0} placeholder="VD: 5000000" value={rentalPrice} onChange={e => setRentalPrice(e.target.value)} />
                         </Field>
 
                         <Field label="Ngày bắt đầu HĐ">
-                            <input type="date" className="h-9 w-full px-3 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={contractStartAt} onChange={e => setContractStartAt(e.target.value)} />
+                            <input type="date" style={dateInputStyle} value={contractStartAt} onChange={e => setContractStartAt(e.target.value)} />
                         </Field>
 
                         <Field label="Ngày kết thúc HĐ">
-                            <input type="date" className="h-9 w-full px-3 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={contractEndAt} onChange={e => setContractEndAt(e.target.value)} />
+                            <input type="date" style={dateInputStyle} value={contractEndAt} onChange={e => setContractEndAt(e.target.value)} />
                         </Field>
 
                         <Field label="Nguồn khách" required error={errors.leadSource}>
-                            <Select value={leadSource} onValueChange={setLeadSource}>
-                                <SelectTrigger className="h-9"><SelectValue placeholder="Chọn nguồn khách" /></SelectTrigger>
-                                <SelectContent>
-                                    {LEAD_SOURCES.map(ls => <SelectItem key={ls.value} value={ls.value}>{ls.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <Select
+                                value={leadSource || undefined}
+                                onChange={setLeadSource}
+                                placeholder="Chọn nguồn khách"
+                                style={{ width: '100%' }}
+                                options={LEAD_SOURCES}
+                            />
                         </Field>
 
                         <Field label="File ảnh hợp đồng">
                             <input
                                 type="file"
                                 accept="image/*"
-                                className="h-9 w-full text-sm file:mr-3 file:h-full file:border-0 file:bg-orange-50 file:text-[#E8890C] file:font-medium file:px-3 file:rounded-l-md cursor-pointer border border-gray-200 rounded-md"
+                                style={{ height: 32, width: '100%', fontSize: 14, border: '1px solid #d9d9d9', borderRadius: 6, padding: '0 8px' }}
                                 onChange={e => setContractFile(e.target.files?.[0] ?? null)}
                             />
                         </Field>
                     </div>
 
                     {/* ── Cụm ngày cọc ────────────────────────────────── */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm ngày cọc" />
 
                         <Field label="Tiền cọc lần 1 (VNĐ)" required error={errors.deposit1}>
-                            <Input type="number" className="h-9" min={0} placeholder="VD: 3000000" value={deposit1} onChange={e => setDeposit1(e.target.value)} />
+                            <Input type="number" min={0} placeholder="VD: 3000000" value={deposit1} onChange={e => setDeposit1(e.target.value)} />
                         </Field>
 
                         <Field label="Tiền cọc bổ sung (VNĐ)">
-                            <Input type="number" className="h-9" min={0} placeholder="Không bắt buộc" value={deposit2} onChange={e => setDeposit2(e.target.value)} />
+                            <Input type="number" min={0} placeholder="Không bắt buộc" value={deposit2} onChange={e => setDeposit2(e.target.value)} />
                         </Field>
 
                         <Field label="Ngày bổ sung cọc">
-                            <input type="date" className="h-9 w-full px-3 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={deposit2Date} onChange={e => setDeposit2Date(e.target.value)} />
+                            <input type="date" style={dateInputStyle} value={deposit2Date} onChange={e => setDeposit2Date(e.target.value)} />
                         </Field>
 
                         <Field label="Ngày nhận phòng">
-                            <input type="date" className="h-9 w-full px-3 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={checkInDate} onChange={e => setCheckInDate(e.target.value)} />
+                            <input type="date" style={dateInputStyle} value={checkInDate} onChange={e => setCheckInDate(e.target.value)} />
                         </Field>
                     </div>
 
                     {/* ── Cụm doanh thu ───────────────────────────────── */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm doanh thu" />
 
                         <Field label="Hoa hồng ước tính (%)">
-                            <Input type="number" className="h-9" min={0} max={100} step={0.01} placeholder="VD: 5" value={estimatedCommissionPercent} onChange={e => setEstimatedCommissionPercent(e.target.value)} />
+                            <Input type="number" min={0} max={100} step={0.01} placeholder="VD: 5" value={estimatedCommissionPercent} onChange={e => setEstimatedCommissionPercent(e.target.value)} />
                         </Field>
 
                         <Field label="Hỗ trợ khách (VNĐ)">
-                            <Input type="number" className="h-9" min={0} placeholder="VD: 500000" value={customerSupport} onChange={e => setCustomerSupport(e.target.value)} />
+                            <Input type="number" min={0} placeholder="VD: 500000" value={customerSupport} onChange={e => setCustomerSupport(e.target.value)} />
                         </Field>
 
-                        <div className="flex flex-col justify-end">
-                            <Label className="text-sm font-medium text-gray-700">Doanh thu ước tính</Label>
-                            <div className={`mt-1 h-9 flex items-center px-3 rounded-md border text-sm font-medium ${estimatedRevenue != null ? 'border-orange-200 bg-orange-50 text-[#E8890C]' : 'border-gray-200 bg-gray-50 text-gray-400'}`}>
-                                {estimatedRevenue != null ? formatCurrency(estimatedRevenue) : '— (chưa đủ dữ liệu)'}
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                            <label style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 4 }}>Doanh thu ước tính</label>
+                            <div style={{
+                                height: 32, display: 'flex', alignItems: 'center', padding: '0 12px', borderRadius: 6, border: '1px solid',
+                                borderColor: estimatedRevenue != null ? '#fed7aa' : '#d9d9d9',
+                                background: estimatedRevenue != null ? '#fff7ed' : '#f9fafb',
+                                color: estimatedRevenue != null ? '#E8890C' : '#9ca3af',
+                                fontSize: 14, fontWeight: estimatedRevenue != null ? 500 : 400,
+                            }}>
+                                {estimatedRevenue != null ? formatCurrencyLocal(estimatedRevenue) : '— (chưa đủ dữ liệu)'}
                             </div>
                         </div>
                     </div>
 
                     {/* ── Cụm nhân sự ─────────────────────────────────── */}
-                    <div className="space-y-3">
-                        <div className="border-b border-orange-100 pb-1">
-                            <h3 className="text-sm font-semibold text-[#E8890C]">Cụm nhân sự</h3>
+                    <div style={{ marginBottom: 24 }}>
+                        <div style={{ borderBottom: '1px solid #fed7aa', paddingBottom: 4, marginBottom: 12 }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#E8890C', margin: 0 }}>Cụm nhân sự</h3>
                         </div>
 
-                        {/* Mutex warning */}
                         {mId && (m1Id || m2Id) && (
-                            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs">
-                                <AlertCircle className="h-4 w-4 shrink-0" />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#d97706', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, padding: '8px 12px', fontSize: 12, marginBottom: 12 }}>
+                                <AlertCircle size={16} style={{ flexShrink: 0 }} />
                                 m nhỏ và M1/M2 không thể chọn cùng lúc — hệ thống sẽ tự ưu tiên m nhỏ.
                             </div>
                         )}
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm border-collapse">
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
                                 <thead>
-                                    <tr className="bg-gray-50">
-                                        <th className="text-left px-3 py-2 font-medium text-gray-600 w-28">Vai trò</th>
-                                        <th className="text-left px-3 py-2 font-medium text-gray-600">Mã nhân viên</th>
-                                        <th className="text-center px-3 py-2 font-medium text-gray-600 w-28">Tỉ lệ</th>
-                                        <th className="text-left px-3 py-2 font-medium text-gray-600">Mã Leader</th>
-                                        <th className="text-center px-3 py-2 font-medium text-gray-600 w-28">Tỉ lệ Leader</th>
+                                    <tr style={{ background: '#f9fafb' }}>
+                                        <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: '#6b7280', width: 112 }}>Vai trò</th>
+                                        <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: '#6b7280' }}>Mã nhân viên</th>
+                                        <th style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 500, color: '#6b7280', width: 112 }}>Tỉ lệ</th>
+                                        <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: '#6b7280' }}>Mã Leader</th>
+                                        <th style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 500, color: '#6b7280', width: 112 }}>Tỉ lệ Leader</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {/* m nhỏ */}
-                                    <tr>
-                                        <td className="px-3 py-2 font-medium text-[#E8890C]">m nhỏ</td>
-                                        <td className="px-3 py-2">
-                                            <Select value={mId} onValueChange={handleMChange}>
-                                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="">Không chọn</SelectItem>
-                                                    {empOptions}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <span className={`text-xs font-semibold ${rates.mRate ? 'text-[#E8890C]' : 'text-gray-300'}`}>
-                                                {rates.mRate ? `${(rates.mRate * 100).toFixed(0)}%` : '—'}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-xs text-gray-600">{mLeader || '—'}</td>
-                                        <td className="px-3 py-2 text-center text-xs text-gray-400">Auto</td>
-                                    </tr>
-                                    {/* M1 */}
-                                    <tr>
-                                        <td className="px-3 py-2 font-medium text-[#1A2B5A]">M lớn 1</td>
-                                        <td className="px-3 py-2">
-                                            <Select value={m1Id} onValueChange={handleM1Change}>
-                                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="">Không chọn</SelectItem>
-                                                    {empOptions}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <span className={`text-xs font-semibold ${rates.m1Rate ? 'text-[#1A2B5A]' : 'text-gray-300'}`}>
-                                                {rates.m1Rate ? `${(rates.m1Rate * 100).toFixed(0)}%` : '—'}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-xs text-gray-600">{m1Leader || '—'}</td>
-                                        <td className="px-3 py-2 text-center text-xs text-gray-400">Auto</td>
-                                    </tr>
-                                    {/* M2 */}
-                                    <tr>
-                                        <td className="px-3 py-2 font-medium text-[#1A2B5A]">M lớn 2</td>
-                                        <td className="px-3 py-2">
-                                            <Select value={m2Id} onValueChange={handleM2Change}>
-                                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="">Không chọn</SelectItem>
-                                                    {empOptions}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <span className={`text-xs font-semibold ${rates.m2Rate ? 'text-[#1A2B5A]' : 'text-gray-300'}`}>
-                                                {rates.m2Rate ? `${(rates.m2Rate * 100).toFixed(0)}%` : '—'}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-xs text-gray-600">{m2Leader || '—'}</td>
-                                        <td className="px-3 py-2 text-center text-xs text-gray-400">Auto</td>
-                                    </tr>
-                                    {/* S1 */}
-                                    <tr>
-                                        <td className="px-3 py-2 font-medium text-green-700">S1</td>
-                                        <td className="px-3 py-2">
-                                            <Select value={s1Id} onValueChange={handleS1Change}>
-                                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="">Không chọn</SelectItem>
-                                                    {empOptions}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <span className={`text-xs font-semibold ${rates.s1Rate ? 'text-green-700' : 'text-gray-300'}`}>
-                                                {rates.s1Rate ? `${(rates.s1Rate * 100).toFixed(0)}%` : '—'}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-xs text-gray-600">{s1Leader || '—'}</td>
-                                        <td className="px-3 py-2 text-center text-xs text-gray-400">Auto</td>
-                                    </tr>
-                                    {/* S2 */}
-                                    <tr>
-                                        <td className="px-3 py-2 font-medium text-green-700">S2</td>
-                                        <td className="px-3 py-2">
-                                            <Select value={s2Id} onValueChange={handleS2Change}>
-                                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="">Không chọn</SelectItem>
-                                                    {empOptions}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            <span className={`text-xs font-semibold ${rates.s2Rate ? 'text-green-700' : 'text-gray-300'}`}>
-                                                {rates.s2Rate ? `${(rates.s2Rate * 100).toFixed(0)}%` : '—'}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-xs text-gray-600">{s2Leader || '—'}</td>
-                                        <td className="px-3 py-2 text-center text-xs text-gray-400">Auto</td>
-                                    </tr>
+                                <tbody style={{ borderTop: '1px solid #f0f0f0' }}>
+                                    {[
+                                        { role: 'm nhỏ', roleColor: '#E8890C', value: mId, onChange: handleMChange, rate: rates.mRate, rateColor: '#E8890C', leader: mLeader },
+                                        { role: 'M lớn 1', roleColor: '#1A2B5A', value: m1Id, onChange: handleM1Change, rate: rates.m1Rate, rateColor: '#1A2B5A', leader: m1Leader },
+                                        { role: 'M lớn 2', roleColor: '#1A2B5A', value: m2Id, onChange: handleM2Change, rate: rates.m2Rate, rateColor: '#1A2B5A', leader: m2Leader },
+                                        { role: 'S1', roleColor: '#16a34a', value: s1Id, onChange: handleS1Change, rate: rates.s1Rate, rateColor: '#16a34a', leader: s1Leader },
+                                        { role: 'S2', roleColor: '#16a34a', value: s2Id, onChange: handleS2Change, rate: rates.s2Rate, rateColor: '#16a34a', leader: s2Leader },
+                                    ].map((row, i) => (
+                                        <tr key={row.role} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                            <td style={{ padding: '8px 12px', fontWeight: 500, color: row.roleColor }}>{row.role}</td>
+                                            <td style={{ padding: '8px 12px' }}>
+                                                <Select
+                                                    value={row.value || undefined}
+                                                    onChange={v => row.onChange(v ?? '')}
+                                                    placeholder="Chọn nhân viên"
+                                                    style={{ width: '100%', fontSize: 12 }}
+                                                    allowClear
+                                                    options={[{ value: '', label: 'Không chọn' }, ...empOptions]}
+                                                    showSearch
+                                                    size="small"
+                                                />
+                                            </td>
+                                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: row.rate ? row.rateColor : '#d1d5db' }}>
+                                                    {row.rate ? `${(row.rate * 100).toFixed(0)}%` : '—'}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{row.leader || '—'}</td>
+                                            <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>Auto</td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
 
-                        <p className="text-xs text-gray-400">
+                        <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>
                             * Tỉ lệ tự tính theo quy tắc: m nhỏ=0.3 | M1=0.5 | M1+M2=0.25 mỗi. Leader tự động load từ team của nhân viên.
                         </p>
                     </div>
 
                     {/* ── Ghi chú ────────────────────────────────────── */}
-                    <div>
-                        <Label className="text-sm font-medium text-gray-700">Ghi chú</Label>
+                    <div style={{ marginBottom: 24 }}>
+                        <label style={{ fontSize: 14, fontWeight: 500, color: '#374151', display: 'block', marginBottom: 4 }}>Ghi chú</label>
                         <textarea
-                            className="mt-1 w-full h-20 px-3 py-2 rounded-md border border-gray-200 text-sm resize-none focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
+                            style={{ width: '100%', height: 80, padding: '8px 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14, resize: 'none', outline: 'none' }}
                             placeholder="Ghi chú thêm..."
                             value={note}
                             onChange={e => setNote(e.target.value)}
@@ -566,16 +495,13 @@ export default function CreateProjectPage() {
                     </div>
 
                     {/* ── Actions ─────────────────────────────────────── */}
-                    <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                        <Button type="button" variant="outline" className="border-gray-300" onClick={() => router.back()}>
-                            Huỷ
-                        </Button>
-                        <Button type="submit" disabled={loading} className="bg-[#E8890C] hover:bg-[#C8720A] min-w-[120px]">
-                            {loading && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 8, borderTop: '1px solid #f0f0f0' }}>
+                        <Button onClick={() => router.back()}>Huỷ</Button>
+                        <Button type="primary" htmlType="submit" loading={loading} style={{ minWidth: 120, background: '#E8890C', borderColor: '#E8890C' }}>
                             Tạo dự án
                         </Button>
                     </div>
-                </div>
+                </Card>
             </form>
         </div>
     );

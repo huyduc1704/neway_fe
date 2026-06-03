@@ -1,15 +1,15 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import { Download } from 'lucide-react';
+import { Button, Select, Tag, Table, Card, Typography, Space, Row, Col, Statistic } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { DownloadOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import { downloadExport } from '@/lib/export';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 interface TransactionRow {
     id: string;
@@ -42,18 +42,18 @@ interface Team { id: string; name: string; }
 interface Project { id: string; code: string; }
 interface EmployeeOption { id: string; employeeCode: string; fullName: string; }
 
-const STATUS_MAP: Record<string, { label: string; variant: 'processing' | 'success' | 'secondary' | 'destructive' }> = {
-    PENDING:   { label: 'Đang xử lý', variant: 'processing' },
-    SUCCESS:   { label: 'Thành công', variant: 'success' },
-    CANCELLED: { label: 'Đã huỷ',    variant: 'secondary' },
-    FAILED:    { label: 'Thất bại',   variant: 'destructive' },
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    PENDING:   { label: 'Đang xử lý', color: 'processing' },
+    SUCCESS:   { label: 'Thành công', color: 'success' },
+    CANCELLED: { label: 'Đã huỷ',    color: 'default' },
+    FAILED:    { label: 'Thất bại',   color: 'error' },
 };
 
 const formatCurrency = (v: number) => new Intl.NumberFormat('vi-VN').format(v) + 'đ';
 
-const ROLE_COLOR: Record<string, string> = {
-    LEADER: 'text-purple-600 bg-purple-50',
-    SALES: 'text-blue-600 bg-blue-50',
+const ROLE_COLOR: Record<string, { color: string; bg: string }> = {
+    LEADER: { color: '#7c3aed', bg: '#f5f3ff' },
+    SALES: { color: '#2563eb', bg: '#eff6ff' },
 };
 
 export default function BaoCaoGiaoDichPage() {
@@ -88,7 +88,7 @@ export default function BaoCaoGiaoDichPage() {
             setData(res.data);
             setSummary(res.summary);
         } catch {
-            toast.error('Không thể tải báo cáo giao dịch');
+            message.error('Không thể tải báo cáo giao dịch');
         } finally {
             setLoading(false);
         }
@@ -111,165 +111,174 @@ export default function BaoCaoGiaoDichPage() {
 
     const totalValue = data.reduce((s, r) => s + r.actualValue, 0);
 
-    const columns: Column<TransactionRow>[] = [
-        { key: 'stt', title: 'STT', width: 60, align: 'center', render: (_, __, i) => i + 1 },
+    const columns: ColumnsType<TransactionRow> = [
+        { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, __, i) => i + 1 },
         {
-            key: 'transactionCode', title: 'Mã GD', width: 130,
-            render: (_, r) => <Badge variant="warning">{r.transactionCode}</Badge>,
+            title: 'Mã GD', key: 'transactionCode', width: 130,
+            render: (_, r) => <Tag color="orange">{r.transactionCode}</Tag>,
         },
         {
-            key: 'project', title: 'Dự án / Phòng',
+            title: 'Dự án / Phòng', key: 'project',
             render: (_, r) => (
                 <div>
-                    <div className="font-medium">{r.project?.code || '—'}</div>
-                    {r.room && <div className="text-xs text-gray-400">Phòng: {r.room.roomCode}</div>}
+                    <div style={{ fontWeight: 500 }}>{r.project?.code || '—'}</div>
+                    {r.room && <div style={{ fontSize: 12, color: '#9ca3af' }}>Phòng: {r.room.roomCode}</div>}
                 </div>
             ),
         },
         {
-            key: 'customer', title: 'Khách hàng', width: 180,
+            title: 'Khách hàng', key: 'customer', width: 180,
             render: (_, r) => r.customer ? (
                 <div>
-                    <div className="font-medium">{r.customer.fullName}</div>
-                    <div className="text-xs text-gray-400">{r.customer.phone}</div>
+                    <div style={{ fontWeight: 500 }}>{r.customer.fullName}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.customer.phone}</div>
                 </div>
             ) : '—',
         },
         {
-            key: 'assignments', title: 'Nhân sự', width: 180,
+            title: 'Nhân sự', key: 'assignments', width: 180,
             render: (_, r) => {
                 if (!r.assignments?.length) return '—';
                 return (
-                    <div className="space-y-1">
-                        {r.assignments.map((a, i) => (
-                            <div key={i} className="flex items-center gap-1 text-xs">
-                                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${ROLE_COLOR[a.roleInProject] || 'text-green-600 bg-green-50'}`}>
-                                    {a.roleInProject}
-                                </span>
-                                <span>{a.employee.user.fullName}</span>
-                            </div>
-                        ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {r.assignments.map((a, i) => {
+                            const rc = ROLE_COLOR[a.roleInProject] || { color: '#16a34a', bg: '#f0fdf4' };
+                            return (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                                    <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 12, fontWeight: 500, color: rc.color, background: rc.bg }}>
+                                        {a.roleInProject}
+                                    </span>
+                                    <span>{a.employee.user.fullName}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 );
             },
         },
         {
-            key: 'actualValue', title: 'Giá trị GD', width: 150, align: 'right',
-            render: (_, r) => <span className="font-semibold text-[#1A2B5A]">{formatCurrency(r.actualValue)}</span>,
+            title: 'Giá trị GD', key: 'actualValue', width: 150, align: 'right',
+            render: (_, r) => <span style={{ fontWeight: 600, color: '#1A2B5A' }}>{formatCurrency(r.actualValue)}</span>,
         },
         {
-            key: 'transactedAt', title: 'Ngày GD', width: 110, align: 'center',
+            title: 'Ngày GD', key: 'transactedAt', width: 110, align: 'center',
             render: (_, r) => dayjs(r.transactedAt).format('DD/MM/YYYY'),
         },
         {
-            key: 'status', title: 'Trạng thái', width: 130, align: 'center',
+            title: 'Trạng thái', key: 'status', width: 130, align: 'center',
             render: (_, r) => {
-                const s = STATUS_MAP[r.status] ?? { label: r.status, variant: 'secondary' as const };
-                return <Badge variant={s.variant}>{s.label}</Badge>;
+                const s = STATUS_MAP[r.status] ?? { label: r.status, color: 'default' };
+                return <Tag color={s.color}>{s.label}</Tag>;
             },
         },
     ];
 
-    const summaryRow = data.length > 0 ? (
-        <>
-            <td colSpan={5} className="px-4 py-2"><strong>Tổng cộng ({data.length} giao dịch)</strong></td>
-            <td className="px-4 py-2 text-right"><strong className="text-[#E8890C]">{formatCurrency(totalValue)}</strong></td>
-            <td colSpan={2} />
-        </>
-    ) : undefined;
+    const tableSummary = () => (
+        data.length > 0 ? (
+            <Table.Summary.Row>
+                <Table.Summary.Cell index={0} colSpan={5}><strong>Tổng cộng ({data.length} giao dịch)</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={5} align="right"><strong style={{ color: '#E8890C' }}>{formatCurrency(totalValue)}</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={6} colSpan={2} />
+            </Table.Summary.Row>
+        ) : null
+    );
 
     return (
         <>
-            <PageHeader title="Báo cáo / Giao dịch" actions={
-                <Button variant="outline" size="sm" onClick={async () => {
+            {/* Page Header */}
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Title level={4} style={{ margin: 0 }}>Báo cáo / Giao dịch</Title>
+                <Button icon={<DownloadOutlined />} onClick={async () => {
                     try {
                         await downloadExport('/reports/transactions/export', { fromDate, toDate, branchId: branchFilter || undefined, teamId: teamFilter || undefined, status: statusFilter || undefined }, 'bao-cao-giao-dich');
-                    } catch { toast.error('Xuất file thất bại'); }
+                    } catch { message.error('Xuất file thất bại'); }
                 }}>
-                    <Download className="h-4 w-4" /> Xuất Excel
+                    Xuất Excel
                 </Button>
-            } />
+            </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-                <div className="flex flex-wrap items-center gap-2">
-                    <input type="date" className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                    <span className="text-gray-400">→</span>
-                    <input type="date" className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <Card style={{ marginBottom: 16 }}>
+                <Space wrap>
+                    <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <span style={{ color: '#9ca3af' }}>→</span>
+                    <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={toDate} onChange={(e) => setToDate(e.target.value)} />
 
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-40"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả</SelectItem>
-                            {Object.entries(STATUS_MAP).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={branchFilter} onValueChange={setBranchFilter}>
-                        <SelectTrigger className="w-40"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả</SelectItem>
-                            {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={teamFilter} onValueChange={setTeamFilter}>
-                        <SelectTrigger className="w-36"><SelectValue placeholder="Team" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả</SelectItem>
-                            {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={projectFilter} onValueChange={setProjectFilter}>
-                        <SelectTrigger className="w-36"><SelectValue placeholder="Dự án" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả</SelectItem>
-                            {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.code}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-                        <SelectTrigger className="w-48"><SelectValue placeholder="Nhân viên" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả</SelectItem>
-                            {employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.fullName} ({e.employeeCode})</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
+                    <Select
+                        value={statusFilter || undefined}
+                        onChange={(v) => setStatusFilter(v ?? '')}
+                        placeholder="Trạng thái"
+                        style={{ width: 160 }}
+                        allowClear
+                        options={[{ value: '', label: 'Tất cả' }, ...Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))]}
+                    />
+                    <Select
+                        value={branchFilter || undefined}
+                        onChange={(v) => setBranchFilter(v ?? '')}
+                        placeholder="Chi nhánh"
+                        style={{ width: 160 }}
+                        allowClear
+                        options={[{ value: '', label: 'Tất cả' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+                    />
+                    <Select
+                        value={teamFilter || undefined}
+                        onChange={(v) => setTeamFilter(v ?? '')}
+                        placeholder="Team"
+                        style={{ width: 144 }}
+                        allowClear
+                        options={[{ value: '', label: 'Tất cả' }, ...teams.map((t) => ({ value: t.id, label: t.name }))]}
+                    />
+                    <Select
+                        value={projectFilter || undefined}
+                        onChange={(v) => setProjectFilter(v ?? '')}
+                        placeholder="Dự án"
+                        style={{ width: 144 }}
+                        allowClear
+                        options={[{ value: '', label: 'Tất cả' }, ...projects.map((p) => ({ value: p.id, label: p.code }))]}
+                    />
+                    <Select
+                        value={employeeFilter || undefined}
+                        onChange={(v) => setEmployeeFilter(v ?? '')}
+                        placeholder="Nhân viên"
+                        style={{ width: 192 }}
+                        allowClear
+                        options={[{ value: '', label: 'Tất cả' }, ...employees.map((e) => ({ value: e.id, label: `${e.fullName} (${e.employeeCode})` }))]}
+                    />
+                </Space>
+            </Card>
 
             {/* Summary */}
-            <div className="grid grid-cols-4 gap-4 mb-4">
+            <Row gutter={16} style={{ marginBottom: 16 }}>
                 {[
-                    { label: 'Tổng giao dịch', value: summary.total, color: 'text-[#1A2B5A]' },
-                    { label: 'Thành công', value: summary.successCount, color: 'text-green-500' },
-                    { label: 'Đang xử lý', value: summary.pendingCount, color: 'text-blue-500' },
-                    { label: 'Đã huỷ', value: summary.cancelledCount, color: 'text-gray-400' },
+                    { label: 'Tổng giao dịch', value: summary.total, color: '#1A2B5A' },
+                    { label: 'Thành công', value: summary.successCount, color: '#52c41a' },
+                    { label: 'Đang xử lý', value: summary.pendingCount, color: '#1677ff' },
+                    { label: 'Đã huỷ', value: summary.cancelledCount, color: '#9ca3af' },
                 ].map((item) => (
-                    <div key={item.label} className="bg-white rounded-lg border border-gray-200 p-4">
-                        <div className="text-xs text-gray-400 mb-1">{item.label}</div>
-                        <div className={`text-2xl font-bold ${item.color}`}>{item.value}</div>
-                    </div>
+                    <Col key={item.label} span={6}>
+                        <Card>
+                            <Statistic title={item.label} value={item.value} valueStyle={{ color: item.color, fontSize: 24, fontWeight: 700 }} />
+                        </Card>
+                    </Col>
                 ))}
-            </div>
+            </Row>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-                <div className="text-xs text-gray-400 mb-1">Tổng doanh thu (GD thành công)</div>
-                <div className="text-3xl font-bold text-[#E8890C]">{formatCurrency(summary.totalRevenue)}</div>
-            </div>
+            <Card style={{ marginBottom: 16 }}>
+                <Statistic title="Tổng doanh thu (GD thành công)" value={formatCurrency(summary.totalRevenue)} formatter={(v) => String(v)} valueStyle={{ color: '#E8890C', fontSize: 30, fontWeight: 700 }} />
+            </Card>
 
             {/* Table */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <DataTable
+            <Card>
+                <Table
                     columns={columns}
-                    data={data}
+                    dataSource={data}
                     rowKey="id"
                     loading={loading}
-                    pageSize={20}
-                    summary={summaryRow}
+                    pagination={{ pageSize: 20 }}
+                    summary={tableSummary}
+                    size="small"
                 />
-            </div>
+            </Card>
         </>
     );
 }

@@ -1,18 +1,14 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
-import { Pencil, Trash2, Search, PowerOff, Plus, X, BadgePercent } from 'lucide-react';
+import { message } from 'antd';
+import { Pencil, Trash2, PowerOff } from 'lucide-react';
+import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency, formatDate } from '@/lib/utils';
+
+const { Title } = Typography;
 
 interface Policy {
     id: string; code: string; name: string;
@@ -26,12 +22,6 @@ interface Policy {
 interface Role { id: string; code: string; name: string; }
 interface Branch { id: string; code: string; name: string; }
 interface Team { id: string; code: string; name: string; }
-
-const EMPTY_FORM = {
-    code: '', name: '', roleId: '', branchId: '', teamId: '',
-    valueType: 'PERCENT' as 'PERCENT' | 'FIXED', value: '',
-    effectiveFrom: '', effectiveTo: '', note: '',
-};
 
 export default function ChinhSachHoaHongPage() {
     const [policies, setPolicies] = useState<Policy[]>([]);
@@ -50,8 +40,8 @@ export default function ChinhSachHoaHongPage() {
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [form, setForm] = useState(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
+    const [form] = Form.useForm();
 
     const fetchPolicies = useCallback(async () => {
         setLoading(true);
@@ -68,7 +58,7 @@ export default function ChinhSachHoaHongPage() {
             });
             setPolicies(data.data);
             setPagination(p => ({ ...p, total: data.meta.total }));
-        } catch { toast.error('Không thể tải danh sách chính sách hoa hồng'); }
+        } catch { message.error('Không thể tải danh sách chính sách hoa hồng'); }
         finally { setLoading(false); }
     }, [pagination.page, pagination.limit, search, roleFilter, branchFilter, teamFilter, activeFilter]);
 
@@ -80,10 +70,10 @@ export default function ChinhSachHoaHongPage() {
         api.get('/teams', { params: { limit: 100 } }).then(({ data }) => setTeams(data.data)).catch(() => {});
     }, []);
 
-    const openCreate = () => { setEditingId(null); setForm(EMPTY_FORM); setDialogOpen(true); };
+    const openCreate = () => { setEditingId(null); form.resetFields(); form.setFieldsValue({ valueType: 'PERCENT' }); setDialogOpen(true); };
     const openEdit = (p: Policy) => {
         setEditingId(p.id);
-        setForm({
+        form.setFieldsValue({
             code: p.code, name: p.name, roleId: p.role.id,
             branchId: p.branch?.id ?? '', teamId: p.team?.id ?? '',
             valueType: p.valueType, value: p.value,
@@ -95,54 +85,52 @@ export default function ChinhSachHoaHongPage() {
     };
 
     const handleSave = async () => {
-        if (!form.name.trim()) { toast.error('Tên chính sách không được để trống'); return; }
-        if (!form.effectiveFrom) { toast.error('Ngày hiệu lực không được để trống'); return; }
-        if (!editingId && !form.code.trim()) { toast.error('Mã chính sách không được để trống'); return; }
-        if (!editingId && !form.roleId) { toast.error('Vui lòng chọn vai trò'); return; }
-        setSaving(true);
         try {
+            const values = await form.validateFields();
+            setSaving(true);
             if (editingId) {
                 await api.patch(`/commission-policies/${editingId}`, {
-                    name: form.name,
-                    branchId: form.branchId || undefined,
-                    teamId: form.teamId || undefined,
-                    effectiveFrom: form.effectiveFrom,
-                    effectiveTo: form.effectiveTo || undefined,
-                    note: form.note || undefined,
+                    name: values.name,
+                    branchId: values.branchId || undefined,
+                    teamId: values.teamId || undefined,
+                    effectiveFrom: values.effectiveFrom,
+                    effectiveTo: values.effectiveTo || undefined,
+                    note: values.note || undefined,
                 });
-                toast.success('Cập nhật chính sách thành công');
+                message.success('Cập nhật chính sách thành công');
             } else {
                 await api.post('/commission-policies', {
-                    code: form.code, name: form.name, roleId: form.roleId,
-                    branchId: form.branchId || undefined, teamId: form.teamId || undefined,
-                    valueType: form.valueType, value: Number(form.value),
-                    effectiveFrom: form.effectiveFrom,
-                    effectiveTo: form.effectiveTo || undefined,
-                    note: form.note || undefined,
+                    code: values.code, name: values.name, roleId: values.roleId,
+                    branchId: values.branchId || undefined, teamId: values.teamId || undefined,
+                    valueType: values.valueType, value: Number(values.value),
+                    effectiveFrom: values.effectiveFrom,
+                    effectiveTo: values.effectiveTo || undefined,
+                    note: values.note || undefined,
                 });
-                toast.success('Tạo chính sách thành công');
+                message.success('Tạo chính sách thành công');
             }
             setDialogOpen(false); fetchPolicies();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Thao tác thất bại'); }
-        finally { setSaving(false); }
+        } catch (err: any) {
+            if (err?.response) message.error(err?.response?.data?.message || 'Thao tác thất bại');
+        } finally { setSaving(false); }
     };
 
     const handleDeactivate = async (id: string, name: string) => {
         if (!window.confirm(`Vô hiệu hoá chính sách "${name}"?`)) return;
         try {
             await api.patch(`/commission-policies/${id}/deactivate`);
-            toast.success('Đã vô hiệu hoá chính sách');
+            message.success('Đã vô hiệu hoá chính sách');
             fetchPolicies();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
     };
 
     const handleDelete = async (id: string, name: string) => {
         if (!window.confirm(`Xoá chính sách "${name}"?`)) return;
         try {
             await api.delete(`/commission-policies/${id}`);
-            toast.success('Đã xoá chính sách');
+            message.success('Đã xoá chính sách');
             fetchPolicies();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
     };
 
     const formatValue = (p: Policy) => {
@@ -154,203 +142,135 @@ export default function ChinhSachHoaHongPage() {
         if (p.branch && p.team) return `${p.branch.name} / ${p.team.name}`;
         if (p.branch) return p.branch.name;
         if (p.team) return p.team.name;
-        return <span className="text-gray-400 italic">Toàn hệ thống</span>;
+        return <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Toàn hệ thống</span>;
     };
 
-    const columns: Column<Policy>[] = [
-        { key: 'stt', title: 'STT', width: 60, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
-        { key: 'code', title: 'Mã policy', width: 130, render: (_, r) => <Badge variant="outline">{r.code}</Badge> },
-        { key: 'name', title: 'Tên chính sách', render: (_, r) => <span className="font-medium text-[#1A2B5A]">{r.name}</span> },
-        { key: 'role', title: 'Vai trò', width: 140, render: (_, r) => <Badge variant="secondary">{r.role.name}</Badge> },
-        { key: 'scope', title: 'Áp dụng cho', width: 200, render: (_, r) => formatScope(r) },
+    const columns: ColumnsType<Policy> = [
+        { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
+        { title: 'Mã policy', key: 'code', width: 130, render: (_, r) => <Tag>{r.code}</Tag> },
+        { title: 'Tên chính sách', key: 'name', render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{r.name}</span> },
+        { title: 'Vai trò', key: 'role', width: 140, render: (_, r) => <Tag color="default">{r.role.name}</Tag> },
+        { title: 'Áp dụng cho', key: 'scope', width: 200, render: (_, r) => formatScope(r) },
         {
-            key: 'valueType', title: 'Loại', width: 90, align: 'center',
-            render: (_, r) => <Badge variant={r.valueType === 'PERCENT' ? 'processing' : 'warning'}>{r.valueType === 'PERCENT' ? '%' : 'VNĐ'}</Badge>,
+            title: 'Loại', key: 'valueType', width: 90, align: 'center',
+            render: (_, r) => <Tag color={r.valueType === 'PERCENT' ? 'processing' : 'warning'}>{r.valueType === 'PERCENT' ? '%' : 'VNĐ'}</Tag>,
         },
-        { key: 'value', title: 'Giá trị', width: 130, align: 'right', render: (_, r) => <span className="font-bold text-[#E8890C]">{formatValue(r)}</span> },
-        { key: 'effectiveFrom', title: 'Hiệu lực từ', width: 120, align: 'center', render: (_, r) => formatDate(r.effectiveFrom) },
-        { key: 'effectiveTo', title: 'Đến ngày', width: 120, align: 'center', render: (_, r) => r.effectiveTo ? formatDate(r.effectiveTo) : <span className="text-gray-400">—</span> },
+        { title: 'Giá trị', key: 'value', width: 130, align: 'right', render: (_, r) => <span style={{ fontWeight: 700, color: '#E8890C' }}>{formatValue(r)}</span> },
+        { title: 'Hiệu lực từ', key: 'effectiveFrom', width: 120, align: 'center', render: (_, r) => formatDate(r.effectiveFrom) },
+        { title: 'Đến ngày', key: 'effectiveTo', width: 120, align: 'center', render: (_, r) => r.effectiveTo ? formatDate(r.effectiveTo) : <span style={{ color: '#9ca3af' }}>—</span> },
         {
-            key: 'status', title: 'Trạng thái', width: 130, align: 'center',
-            render: (_, r) => <Badge variant={r.isActive ? 'success' : 'secondary'}>{r.isActive ? 'Đang áp dụng' : 'Vô hiệu'}</Badge>,
+            title: 'Trạng thái', key: 'status', width: 130, align: 'center',
+            render: (_, r) => <Tag color={r.isActive ? 'success' : 'default'}>{r.isActive ? 'Đang áp dụng' : 'Vô hiệu'}</Tag>,
         },
         {
-            key: 'actions', title: 'Thao tác', width: 120, align: 'center',
+            title: 'Thao tác', key: 'actions', width: 120, align: 'center',
             render: (_, r) => (
-                <div className="flex items-center justify-center gap-1">
+                <Space>
                     <button title="Chỉnh sửa" onClick={() => openEdit(r)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-[#E8890C] transition-colors">
-                        <Pencil className="h-4 w-4" />
+                        style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                        <Pencil size={16} />
                     </button>
                     {r.isActive && (
                         <button title="Vô hiệu hoá" onClick={() => handleDeactivate(r.id, r.name)}
-                            className="p-1.5 rounded hover:bg-yellow-50 text-gray-500 hover:text-yellow-600 transition-colors">
-                            <PowerOff className="h-4 w-4" />
+                            style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                            <PowerOff size={16} />
                         </button>
                     )}
                     <button title="Xoá" onClick={() => handleDelete(r.id, r.name)}
-                        className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors">
-                        <Trash2 className="h-4 w-4" />
+                        style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                        <Trash2 size={16} />
                     </button>
-                </div>
+                </Space>
             ),
         },
     ];
 
     return (
         <>
-            <PageHeader title="Chính sách hoa hồng" description="Quản lý tỷ lệ hoa hồng theo vai trò, chi nhánh, team"
-                actions={<Button onClick={openCreate}><Plus className="h-4 w-4" /> Thêm chính sách</Button>}
-            />
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <Title level={4} style={{ margin: 0 }}>Chính sách hoa hồng</Title>
+                    <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Quản lý tỷ lệ hoa hồng theo vai trò, chi nhánh, team</p>
+                </div>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Thêm chính sách</Button>
+            </div>
 
             {/* Filters */}
-            <Card className="mb-4">
-                <CardContent className="p-4 flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 h-9 min-w-[220px]">
-                        <Search className="h-4 w-4 text-gray-400 shrink-0" />
-                        <input className="outline-none text-sm w-full bg-transparent placeholder-gray-400"
-                            placeholder="Tìm mã hoặc tên chính sách..."
-                            value={searchInput} onChange={e => setSearchInput(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); } }} />
-                        {searchInput && <button onClick={() => { setSearchInput(''); setSearch(''); }}><X className="h-3.5 w-3.5 text-gray-400" /></button>}
-                    </div>
-                    <Select value={roleFilter} onValueChange={v => { setRoleFilter(v === '__all__' ? '' : v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-40"><SelectValue placeholder="Tất cả vai trò" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__all__">Tất cả vai trò</SelectItem>
-                            {roles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Select value={branchFilter} onValueChange={v => { setBranchFilter(v === '__all__' ? '' : v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-44"><SelectValue placeholder="Tất cả chi nhánh" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__all__">Tất cả chi nhánh</SelectItem>
-                            {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Select value={teamFilter} onValueChange={v => { setTeamFilter(v === '__all__' ? '' : v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-40"><SelectValue placeholder="Tất cả team" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__all__">Tất cả team</SelectItem>
-                            {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Select value={activeFilter} onValueChange={v => { setActiveFilter(v === '__all__' ? '' : v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-40"><SelectValue placeholder="Tất cả trạng thái" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__all__">Tất cả trạng thái</SelectItem>
-                            <SelectItem value="true">Đang áp dụng</SelectItem>
-                            <SelectItem value="false">Vô hiệu</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </CardContent>
+            <Card style={{ marginBottom: 16 }}>
+                <Space wrap>
+                    <Input
+                        prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                        placeholder="Tìm mã hoặc tên chính sách..."
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
+                        onPressEnter={() => { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); }}
+                        allowClear
+                        onClear={() => { setSearchInput(''); setSearch(''); }}
+                        style={{ width: 260 }}
+                    />
+                    <Select value={roleFilter || undefined} onChange={(v) => { setRoleFilter(v === '__all__' ? '' : (v ?? '')); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Tất cả vai trò" style={{ width: 160 }} allowClear options={[{ value: '__all__', label: 'Tất cả vai trò' }, ...roles.map(r => ({ value: r.id, label: r.name }))]} />
+                    <Select value={branchFilter || undefined} onChange={(v) => { setBranchFilter(v === '__all__' ? '' : (v ?? '')); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Tất cả chi nhánh" style={{ width: 176 }} allowClear options={[{ value: '__all__', label: 'Tất cả chi nhánh' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} />
+                    <Select value={teamFilter || undefined} onChange={(v) => { setTeamFilter(v === '__all__' ? '' : (v ?? '')); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Tất cả team" style={{ width: 160 }} allowClear options={[{ value: '__all__', label: 'Tất cả team' }, ...teams.map(t => ({ value: t.id, label: t.name }))]} />
+                    <Select value={activeFilter || undefined} onChange={(v) => { setActiveFilter(v === '__all__' ? '' : (v ?? '')); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Tất cả trạng thái" style={{ width: 160 }} allowClear options={[{ value: '__all__', label: 'Tất cả trạng thái' }, { value: 'true', label: 'Đang áp dụng' }, { value: 'false', label: 'Vô hiệu' }]} />
+                </Space>
             </Card>
 
             <Card>
-                <CardContent className="p-0">
-                    <DataTable columns={columns} data={policies} rowKey="id" loading={loading} pageSize={pagination.limit} />
-                </CardContent>
+                <Table columns={columns} dataSource={policies} rowKey="id" loading={loading} pagination={{ pageSize: pagination.limit, total: pagination.total, current: pagination.page, onChange: (page) => setPagination(p => ({ ...p, page })) }} size="small" />
             </Card>
 
-            {/* Create/Edit Dialog */}
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <BadgePercent className="h-5 w-5 text-[#E8890C]" />
-                            {editingId ? 'Cập nhật chính sách hoa hồng' : 'Thêm chính sách hoa hồng'}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label>Mã chính sách <span className="text-red-500">*</span></Label>
-                                <Input placeholder="VD: POL-SALE-HN" value={form.code}
-                                    onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                                    disabled={!!editingId} />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label>Vai trò <span className="text-red-500">*</span></Label>
-                                <Select value={form.roleId} onValueChange={v => setForm(f => ({ ...f, roleId: v }))} disabled={!!editingId}>
-                                    <SelectTrigger><SelectValue placeholder="Chọn vai trò" /></SelectTrigger>
-                                    <SelectContent>
-                                        {roles.map(r => <SelectItem key={r.id} value={r.id}>{r.name} ({r.code})</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>Tên chính sách <span className="text-red-500">*</span></Label>
-                            <Input placeholder="VD: Hoa hồng Sale Hà Nội 2025" value={form.name}
-                                onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label>Chi nhánh áp dụng</Label>
-                                <Select value={form.branchId} onValueChange={v => setForm(f => ({ ...f, branchId: v === '__none__' ? '' : v }))}>
-                                    <SelectTrigger><SelectValue placeholder="Tất cả chi nhánh" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">Tất cả chi nhánh</SelectItem>
-                                        {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label>Team áp dụng</Label>
-                                <Select value={form.teamId} onValueChange={v => setForm(f => ({ ...f, teamId: v === '__none__' ? '' : v }))}>
-                                    <SelectTrigger><SelectValue placeholder="Tất cả team" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">Tất cả team</SelectItem>
-                                        {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label>Loại giá trị <span className="text-red-500">*</span></Label>
-                                <Select value={form.valueType} onValueChange={v => setForm(f => ({ ...f, valueType: v as any }))} disabled={!!editingId}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="PERCENT">Phần trăm (%)</SelectItem>
-                                        <SelectItem value="FIXED">Cố định (VNĐ)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label>Giá trị <span className="text-red-500">*</span></Label>
-                                <Input type="number" min={0} max={form.valueType === 'PERCENT' ? 100 : undefined}
-                                    placeholder={form.valueType === 'PERCENT' ? 'VD: 15 (= 15%)' : 'VD: 500000'}
-                                    value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
-                                    disabled={!!editingId} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <Label>Hiệu lực từ <span className="text-red-500">*</span></Label>
-                                <input type="date" className="h-9 w-full px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
-                                    value={form.effectiveFrom} onChange={e => setForm(f => ({ ...f, effectiveFrom: e.target.value }))} />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label>Hiệu lực đến <span className="text-gray-400 text-xs">(để trống = không hạn)</span></Label>
-                                <input type="date" className="h-9 w-full px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
-                                    value={form.effectiveTo} onChange={e => setForm(f => ({ ...f, effectiveTo: e.target.value }))} />
-                            </div>
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>Ghi chú</Label>
-                            <Input placeholder="Ghi chú thêm (tuỳ chọn)" value={form.note}
-                                onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-                        </div>
+            {/* Create/Edit Modal */}
+            <Modal
+                open={dialogOpen}
+                onCancel={() => setDialogOpen(false)}
+                title={editingId ? 'Cập nhật chính sách hoa hồng' : 'Thêm chính sách hoa hồng'}
+                width={640}
+                footer={[
+                    <Button key="cancel" onClick={() => setDialogOpen(false)}>Huỷ</Button>,
+                    <Button key="ok" type="primary" onClick={handleSave} loading={saving}>{editingId ? 'Cập nhật' : 'Tạo mới'}</Button>,
+                ]}
+            >
+                <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <Form.Item name="code" label={<span>Mã chính sách <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: !editingId, message: 'Nhập mã chính sách' }]}>
+                            <Input placeholder="VD: POL-SALE-HN" disabled={!!editingId} onChange={e => form.setFieldValue('code', e.target.value.toUpperCase())} />
+                        </Form.Item>
+                        <Form.Item name="roleId" label={<span>Vai trò <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: !editingId, message: 'Chọn vai trò' }]}>
+                            <Select placeholder="Chọn vai trò" disabled={!!editingId} options={roles.map(r => ({ value: r.id, label: `${r.name} (${r.code})` }))} />
+                        </Form.Item>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-                        <Button onClick={handleSave} disabled={saving}>
-                            {saving ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : editingId ? 'Cập nhật' : 'Tạo mới'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    <Form.Item name="name" label={<span>Tên chính sách <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập tên chính sách' }]}>
+                        <Input placeholder="VD: Hoa hồng Sale Hà Nội 2025" />
+                    </Form.Item>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <Form.Item name="branchId" label="Chi nhánh áp dụng">
+                            <Select placeholder="Tất cả chi nhánh" allowClear options={branches.map(b => ({ value: b.id, label: b.name }))} />
+                        </Form.Item>
+                        <Form.Item name="teamId" label="Team áp dụng">
+                            <Select placeholder="Tất cả team" allowClear options={teams.map(t => ({ value: t.id, label: t.name }))} />
+                        </Form.Item>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <Form.Item name="valueType" label={<span>Loại giá trị <span style={{ color: 'red' }}>*</span></span>}>
+                            <Select disabled={!!editingId} options={[{ value: 'PERCENT', label: 'Phần trăm (%)' }, { value: 'FIXED', label: 'Cố định (VNĐ)' }]} />
+                        </Form.Item>
+                        <Form.Item name="value" label={<span>Giá trị <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: !editingId, message: 'Nhập giá trị' }]}>
+                            <Input type="number" min={0} placeholder="VD: 15" disabled={!!editingId} />
+                        </Form.Item>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <Form.Item name="effectiveFrom" label={<span>Hiệu lực từ <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Chọn ngày hiệu lực' }]}>
+                            <input type="date" style={{ height: 36, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} />
+                        </Form.Item>
+                        <Form.Item name="effectiveTo" label="Hiệu lực đến (để trống = không hạn)">
+                            <input type="date" style={{ height: 36, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} />
+                        </Form.Item>
+                    </div>
+                    <Form.Item name="note" label="Ghi chú">
+                        <Input placeholder="Ghi chú thêm (tuỳ chọn)" />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </>
     );
 }

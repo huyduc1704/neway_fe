@@ -1,13 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import { useRouter } from 'next/navigation';
+import { Button, Input, Select, Form, Card, Typography } from 'antd';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const { Title } = Typography;
 
 interface Role { id: string; name: string; }
 
@@ -18,18 +16,10 @@ interface Props {
 
 export default function UserForm({ mode, userId }: Props) {
     const router = useRouter();
+    const [form] = Form.useForm();
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-
-    const [fullName, setFullName] = useState('');
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [phone, setPhone] = useState('');
-    const [email, setEmail] = useState('');
-    const [roleId, setRoleId] = useState('');
-    const [isActive, setIsActive] = useState<string>('true');
-    const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         api.get('/roles', { params: { limit: 100 } }).then(({ data }) => setRoles(data.data)).catch(() => {});
@@ -40,45 +30,34 @@ export default function UserForm({ mode, userId }: Props) {
             setLoading(true);
             api.get(`/users/${userId}`)
                 .then(({ data }) => {
-                    setFullName(data.fullName || '');
-                    setUsername(data.username || '');
-                    setPhone(data.phone || '');
-                    setEmail(data.email || '');
-                    setRoleId(data.roles?.[0]?.role?.id || '');
-                    setIsActive(String(data.isActive ?? true));
+                    form.setFieldsValue({
+                        fullName: data.fullName || '',
+                        username: data.username || '',
+                        phone: data.phone || '',
+                        email: data.email || '',
+                        roleId: data.roles?.[0]?.role?.id || '',
+                        isActive: String(data.isActive ?? true),
+                    });
                 })
-                .catch(() => toast.error('Không thể tải thông tin người dùng'))
+                .catch(() => message.error('Không thể tải thông tin người dùng'))
                 .finally(() => setLoading(false));
         }
     }, [mode, userId]);
 
-    const validate = () => {
-        const e: Record<string, string> = {};
-        if (!fullName.trim()) e.fullName = 'Nhập họ tên';
-        if (!username.trim()) e.username = 'Nhập tên đăng nhập';
-        if (mode === 'create' && !password) e.password = 'Nhập mật khẩu';
-        if (mode === 'create' && password && password.length < 8) e.password = 'Ít nhất 8 ký tự';
-        if (!phone.trim()) e.phone = 'Nhập số điện thoại';
-        if (mode === 'create' && !roleId) e.roleId = 'Chọn vai trò';
-        setErrors(e);
-        return Object.keys(e).length === 0;
-    };
-
-    const onSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validate()) return;
-        setSubmitting(true);
+    const onSubmit = async () => {
         try {
+            const values = await form.validateFields();
+            setSubmitting(true);
             if (mode === 'create') {
-                await api.post('/users', { fullName, username, password, phone, email: email || undefined, roleId });
-                toast.success('Tạo người dùng thành công');
+                await api.post('/users', { fullName: values.fullName, username: values.username, password: values.password, phone: values.phone, email: values.email || undefined, roleId: values.roleId });
+                message.success('Tạo người dùng thành công');
             } else {
-                await api.patch(`/users/${userId}`, { fullName, phone, email: email || undefined, isActive: isActive === 'true' });
-                toast.success('Cập nhật thành công');
+                await api.patch(`/users/${userId}`, { fullName: values.fullName, phone: values.phone, email: values.email || undefined, isActive: values.isActive === 'true' });
+                message.success('Cập nhật thành công');
             }
             router.push('/dashboard/he-thong/nguoi-dung' as any);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            if (err?.response) message.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally {
             setSubmitting(false);
         }
@@ -88,97 +67,78 @@ export default function UserForm({ mode, userId }: Props) {
         if (!window.confirm('Vô hiệu hoá tài khoản này?')) return;
         try {
             await api.patch(`/users/${userId}/deactivate`);
-            toast.success('Đã vô hiệu hoá tài khoản');
+            message.success('Đã vô hiệu hoá tài khoản');
             router.push('/dashboard/he-thong/nguoi-dung' as any);
         } catch {
-            toast.error('Thao tác thất bại');
+            message.error('Thao tác thất bại');
         }
     };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20">
-                <div className="h-5 w-5 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+                <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E8890C', borderTop: '2px solid transparent', animation: 'spin 1s linear infinite' }} />
             </div>
         );
     }
 
     return (
         <>
-            <PageHeader title="Tạo mới / Chỉnh sửa" />
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <form onSubmit={onSubmit}>
-                    <div className="grid grid-cols-3 gap-6">
-                        <div>
-                            <Label htmlFor="fullName">Họ tên <span className="text-red-500">*</span></Label>
-                            <Input id="fullName" className="mt-1" placeholder="Nhập họ tên" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                            {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
-                        </div>
-                        <div>
-                            <Label htmlFor="username">Tên đăng nhập <span className="text-red-500">*</span></Label>
-                            <Input id="username" className="mt-1" placeholder="Nhập tên đăng nhập" value={username} onChange={(e) => setUsername(e.target.value)} disabled={mode === 'edit'} />
-                            {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
-                        </div>
-                        <div>
-                            <Label>Trạng thái</Label>
-                            <Select value={isActive} onValueChange={setIsActive}>
-                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="true">Hoạt động</SelectItem>
-                                    <SelectItem value="false">Không hoạt động</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Tạo mới / Chỉnh sửa</Title>
+            </div>
+            <Card>
+                <Form form={form} layout="vertical" initialValues={{ isActive: 'true' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
+                        <Form.Item name="fullName" label={<span>Họ tên <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập họ tên' }]}>
+                            <Input placeholder="Nhập họ tên" />
+                        </Form.Item>
+                        <Form.Item name="username" label={<span>Tên đăng nhập <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập tên đăng nhập' }]}>
+                            <Input placeholder="Nhập tên đăng nhập" disabled={mode === 'edit'} />
+                        </Form.Item>
+                        <Form.Item name="isActive" label="Trạng thái">
+                            <Select options={[{ value: 'true', label: 'Hoạt động' }, { value: 'false', label: 'Không hoạt động' }]} />
+                        </Form.Item>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 mt-5">
-                        <div>
-                            <Label htmlFor="password">
-                                Mật khẩu {mode === 'create' && <span className="text-red-500">*</span>}
-                            </Label>
-                            <Input
-                                id="password" type="password" className="mt-1"
-                                placeholder={mode === 'edit' ? 'Để trống nếu không đổi' : 'Nhập mật khẩu'}
-                                value={password} onChange={(e) => setPassword(e.target.value)}
-                            />
-                            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                        </div>
-                        <div>
-                            <Label htmlFor="phone">Số điện thoại <span className="text-red-500">*</span></Label>
-                            <Input id="phone" className="mt-1" placeholder="Nhập số điện thoại" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-                        </div>
-                        <div>
-                            <Label>Vai trò {mode === 'create' && <span className="text-red-500">*</span>}</Label>
-                            <Select value={roleId} onValueChange={setRoleId} disabled={mode === 'edit'}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn vai trò" /></SelectTrigger>
-                                <SelectContent>
-                                    {roles.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            {errors.roleId && <p className="text-red-500 text-xs mt-1">{errors.roleId}</p>}
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginTop: 20 }}>
+                        <Form.Item
+                            name="password"
+                            label={<span>Mật khẩu {mode === 'create' && <span style={{ color: 'red' }}>*</span>}</span>}
+                            rules={mode === 'create' ? [{ required: true, message: 'Nhập mật khẩu' }, { min: 8, message: 'Ít nhất 8 ký tự' }] : []}
+                        >
+                            <Input.Password placeholder={mode === 'edit' ? 'Để trống nếu không đổi' : 'Nhập mật khẩu'} />
+                        </Form.Item>
+                        <Form.Item name="phone" label={<span>Số điện thoại <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập số điện thoại' }]}>
+                            <Input placeholder="Nhập số điện thoại" />
+                        </Form.Item>
+                        <Form.Item
+                            name="roleId"
+                            label={<span>Vai trò {mode === 'create' && <span style={{ color: 'red' }}>*</span>}</span>}
+                            rules={mode === 'create' ? [{ required: true, message: 'Chọn vai trò' }] : []}
+                        >
+                            <Select placeholder="Chọn vai trò" disabled={mode === 'edit'}
+                                options={roles.map((r) => ({ value: r.id, label: r.name }))} />
+                        </Form.Item>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 mt-5">
-                        <div>
-                            <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" className="mt-1" placeholder="Nhập email (không bắt buộc)" value={email} onChange={(e) => setEmail(e.target.value)} />
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginTop: 20 }}>
+                        <Form.Item name="email" label="Email">
+                            <Input type="email" placeholder="Nhập email (không bắt buộc)" />
+                        </Form.Item>
                     </div>
 
-                    <div className="flex justify-end gap-2 mt-6">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
                         {mode === 'edit' && (
-                            <Button type="button" variant="destructive" onClick={handleDelete}>Xoá</Button>
+                            <Button danger onClick={handleDelete}>Xoá</Button>
                         )}
-                        <Button type="button" variant="outline" onClick={() => router.back()}>Huỷ</Button>
-                        <Button type="submit" disabled={submitting}>
-                            {submitting && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
+                        <Button onClick={() => router.back()}>Huỷ</Button>
+                        <Button type="primary" onClick={onSubmit} loading={submitting}>
                             Lưu thay đổi
                         </Button>
                     </div>
-                </form>
-            </div>
+                </Form>
+            </Card>
         </>
     );
 }

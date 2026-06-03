@@ -1,24 +1,22 @@
 'use client';
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import {
     Calculator, Download, ChevronRight, Pencil, FileText,
     RefreshCw, Lock, TrendingUp, DollarSign, Receipt, Users
 } from 'lucide-react';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { StatCard } from '@/components/ui/stat-card';
 import { downloadExport } from '@/lib/export';
 import { formatCurrency } from '@/lib/utils';
+import {
+    Button, Select, Tag, Table, Card, Modal, Form, Typography, Space,
+    Statistic, Row, Col, Checkbox, Input, Spin
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { CalculatorOutlined, DownloadOutlined, EditOutlined, FileTextOutlined, LockOutlined } from '@ant-design/icons';
+
+const { Title } = Typography;
 
 type Tab = 'lines' | 'transactions';
 
@@ -103,7 +101,7 @@ function BangLuongContent() {
             setLines(data.data ?? []);
             setSummary(data.summary ?? null);
             if (!period) setPeriod(data.period);
-        } catch { toast.error('Không thể tải bảng lương'); }
+        } catch { message.error('Không thể tải bảng lương'); }
         finally { setLoading(false); }
     }, [periodId]);
 
@@ -114,7 +112,7 @@ function BangLuongContent() {
             const { data } = await api.get(`/payroll/periods/${periodId}/transactions`, { params: { periodOnly: true } });
             setTxData(data.data ?? []);
             setTxSummary(data.summary ?? null);
-        } catch { toast.error('Không thể tải giao dịch'); }
+        } catch { message.error('Không thể tải giao dịch'); }
         finally { setLoading(false); }
     }, [periodId]);
 
@@ -132,10 +130,10 @@ function BangLuongContent() {
                 branchId: calcForm.branchId || undefined,
                 teamId: calcForm.teamId || undefined,
             });
-            toast.success(data.message ?? 'Tính lương thành công');
+            message.success(data.message ?? 'Tính lương thành công');
             setCalcOpen(false);
             fetchLines();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Tính lương thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Tính lương thất bại'); }
         finally { setCalculating(false); }
     };
 
@@ -155,10 +153,10 @@ function BangLuongContent() {
                 isTaxExempt: editForm.isTaxExempt,
                 note: editForm.note || undefined,
             });
-            toast.success('Cập nhật bảng lương thành công');
+            message.success('Cập nhật bảng lương thành công');
             setEditOpen(false);
             fetchLines();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
         finally { setEditSaving(false); }
     };
 
@@ -168,181 +166,187 @@ function BangLuongContent() {
         try {
             const { data } = await api.get(`/payroll/lines/${lineId}/manager-breakdown`);
             setBreakdown(data);
-        } catch { toast.error('Không thể tải chi tiết lương'); }
+        } catch { message.error('Không thể tải chi tiết lương'); }
         finally { setBreakdownLoading(false); }
     };
 
     const handleExport = async (format: 'excel' | 'pdf', groupBy: string) => {
         try {
             await downloadExport(`/payroll/periods/${periodId}/export`, { groupBy, format }, `bang-luong-${groupBy.toLowerCase()}`);
-        } catch { toast.error('Xuất file thất bại'); }
+        } catch { message.error('Xuất file thất bại'); }
     };
 
-    // ── Columns ──────────────────────────────────────────────────────────────
-
-    const lineColumns: Column<PayrollLine>[] = [
-        { key: 'stt', title: 'STT', width: 55, align: 'center', render: (_, __, i) => i + 1 },
+    const lineColumns: ColumnsType<PayrollLine> = [
+        { title: 'STT', key: 'stt', width: 55, align: 'center', render: (_, __, i) => i + 1 },
         {
-            key: 'employee', title: 'Nhân viên', width: 200,
+            title: 'Nhân viên', key: 'employee', width: 200,
             render: (_, r) => (
                 <div>
-                    <p className="font-medium text-[#1A2B5A]">{r.employee.user.fullName}</p>
-                    <p className="text-xs text-gray-400">{r.employee.employeeCode} · {r.role?.name ?? '—'}</p>
+                    <div style={{ fontWeight: 500, color: '#1A2B5A' }}>{r.employee.user.fullName}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.employee.employeeCode} · {r.role?.name ?? '—'}</div>
                 </div>
             ),
         },
         {
-            key: 'dept', title: 'Chi nhánh / Team', width: 170,
+            title: 'Chi nhánh / Team', key: 'dept', width: 170,
             render: (_, r) => (
-                <div className="text-xs">
-                    {r.employee.branch && <p className="text-gray-600">{r.employee.branch.name}</p>}
-                    {r.employee.team && <p className="text-gray-400">{r.employee.team.name}</p>}
+                <div style={{ fontSize: 12 }}>
+                    {r.employee.branch && <div style={{ color: '#6b7280' }}>{r.employee.branch.name}</div>}
+                    {r.employee.team && <div style={{ color: '#9ca3af' }}>{r.employee.team.name}</div>}
                 </div>
             ),
         },
-        { key: 'grossRevenue', title: 'Gross', width: 140, align: 'right', render: (_, r) => <span className="text-gray-600">{formatCurrency(Number(r.grossRevenue))}</span> },
-        { key: 'netRevenue', title: 'Net', width: 140, align: 'right', render: (_, r) => <span className="text-gray-600">{formatCurrency(Number(r.netRevenue))}</span> },
+        { title: 'Gross', key: 'grossRevenue', width: 140, align: 'right', render: (_, r) => <span style={{ color: '#6b7280' }}>{formatCurrency(Number(r.grossRevenue))}</span> },
+        { title: 'Net', key: 'netRevenue', width: 140, align: 'right', render: (_, r) => <span style={{ color: '#6b7280' }}>{formatCurrency(Number(r.netRevenue))}</span> },
         {
-            key: 'commission', title: 'Hoa hồng', width: 155, align: 'right',
+            title: 'Hoa hồng', key: 'commission', width: 155, align: 'right',
             render: (_, r) => (
-                <div className="text-right">
-                    <p className="font-medium text-[#E8890C]">{formatCurrency(Number(r.commissionAmount))}</p>
-                    <p className="text-xs text-gray-400">{Number(r.commissionPercent).toFixed(2)}%</p>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 500, color: '#E8890C' }}>{formatCurrency(Number(r.commissionAmount))}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{Number(r.commissionPercent).toFixed(2)}%</div>
                 </div>
             ),
         },
-        { key: 'bonus', title: 'Thưởng', width: 120, align: 'right', render: (_, r) => Number(r.bonus) > 0 ? <span className="text-green-600 font-medium">{formatCurrency(Number(r.bonus))}</span> : <span className="text-gray-300">—</span> },
-        { key: 'advancePayment', title: 'Ứng lương', width: 120, align: 'right', render: (_, r) => Number(r.advancePayment) > 0 ? <span className="text-orange-500 font-medium">{formatCurrency(Number(r.advancePayment))}</span> : <span className="text-gray-300">—</span> },
-        { key: 'preTaxIncome', title: 'Trước thuế', width: 150, align: 'right', render: (_, r) => <span className="font-medium text-[#1A2B5A]">{formatCurrency(Number(r.preTaxIncome))}</span> },
         {
-            key: 'tax', title: 'Thuế', width: 120, align: 'right',
+            title: 'Thưởng', key: 'bonus', width: 120, align: 'right',
+            render: (_, r) => Number(r.bonus) > 0
+                ? <span style={{ color: '#16a34a', fontWeight: 500 }}>{formatCurrency(Number(r.bonus))}</span>
+                : <span style={{ color: '#d1d5db' }}>—</span>,
+        },
+        {
+            title: 'Ứng lương', key: 'advancePayment', width: 120, align: 'right',
+            render: (_, r) => Number(r.advancePayment) > 0
+                ? <span style={{ color: '#f97316', fontWeight: 500 }}>{formatCurrency(Number(r.advancePayment))}</span>
+                : <span style={{ color: '#d1d5db' }}>—</span>,
+        },
+        { title: 'Trước thuế', key: 'preTaxIncome', width: 150, align: 'right', render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{formatCurrency(Number(r.preTaxIncome))}</span> },
+        {
+            title: 'Thuế', key: 'tax', width: 120, align: 'right',
             render: (_, r) => r.isTaxExempt
-                ? <Badge variant="success">Miễn thuế</Badge>
-                : <span className="text-red-500">{formatCurrency(Number(r.taxAmount))}</span>,
-        },
-        { key: 'socialInsuranceAmount', title: 'BHXH', width: 120, align: 'right', render: (_, r) => Number(r.socialInsuranceAmount) > 0 ? formatCurrency(Number(r.socialInsuranceAmount)) : <span className="text-gray-300">—</span> },
-        {
-            key: 'finalNetIncome', title: 'Thực nhận', width: 155, align: 'right',
-            render: (_, r) => <span className="font-bold text-[#E8890C] text-base">{formatCurrency(Number(r.finalNetIncome))}</span>,
+                ? <Tag color="green">Miễn thuế</Tag>
+                : <span style={{ color: '#ef4444' }}>{formatCurrency(Number(r.taxAmount))}</span>,
         },
         {
-            key: 'actions', title: '', width: 100, align: 'center',
+            title: 'BHXH', key: 'socialInsuranceAmount', width: 120, align: 'right',
+            render: (_, r) => Number(r.socialInsuranceAmount) > 0
+                ? formatCurrency(Number(r.socialInsuranceAmount))
+                : <span style={{ color: '#d1d5db' }}>—</span>,
+        },
+        {
+            title: 'Thực nhận', key: 'finalNetIncome', width: 155, align: 'right',
+            render: (_, r) => <span style={{ fontWeight: 700, color: '#E8890C', fontSize: 15 }}>{formatCurrency(Number(r.finalNetIncome))}</span>,
+        },
+        {
+            title: '', key: 'actions', width: 100, align: 'center',
             render: (_, r) => (
-                <div className="flex items-center justify-center gap-1">
+                <Space size={4}>
                     {!period?.isLocked && (
-                        <button title="Điều chỉnh" onClick={() => openEditLine(r)}
-                            className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-[#E8890C] transition-colors">
-                            <Pencil className="h-4 w-4" />
-                        </button>
+                        <Button type="text" size="small" icon={<EditOutlined />} title="Điều chỉnh"
+                            onClick={() => openEditLine(r)} style={{ color: '#6b7280' }} />
                     )}
-                    <button title="Chi tiết lương" onClick={() => openBreakdown(r.id)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-[#1A2B5A] transition-colors">
-                        <FileText className="h-4 w-4" />
-                    </button>
-                </div>
+                    <Button type="text" size="small" icon={<FileTextOutlined />} title="Chi tiết lương"
+                        onClick={() => openBreakdown(r.id)} style={{ color: '#6b7280' }} />
+                </Space>
             ),
         },
     ];
 
-    const txColumns: Column<TxRow>[] = [
-        { key: 'stt', title: 'STT', width: 55, align: 'center', render: (_, __, i) => i + 1 },
+    const txColumns: ColumnsType<TxRow> = [
+        { title: 'STT', key: 'stt', width: 55, align: 'center', render: (_, __, i) => i + 1 },
         {
-            key: 'transactionCode', title: 'Mã GD', width: 140,
-            render: (_, r) => <Badge variant="outline">{r.transactionCode}</Badge>,
+            title: 'Mã GD', key: 'transactionCode', width: 140,
+            render: (_, r) => <Tag color="orange">{r.transactionCode}</Tag>,
         },
         {
-            key: 'project', title: 'Dự án', width: 160,
+            title: 'Dự án', key: 'project', width: 160,
             render: (_, r) => (
                 <div>
-                    <p className="font-medium">{r.project.code}</p>
-                    <p className="text-xs text-gray-400">{r.project.ward}</p>
+                    <div style={{ fontWeight: 500 }}>{r.project.code}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.project.ward}</div>
                 </div>
             ),
         },
-        { key: 'actualValue', title: 'Giá trị GD', width: 150, align: 'right', render: (_, r) => <span className="font-medium text-[#1A2B5A]">{formatCurrency(r.actualValue)}</span> },
+        { title: 'Giá trị GD', key: 'actualValue', width: 150, align: 'right', render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{formatCurrency(r.actualValue)}</span> },
         ...['m', 'm1', 'm2', 's1', 's2'].flatMap(key => [
             {
-                key: `${key}_emp`, title: `Mã ${SLOT_LABELS[key]}`, width: 90, align: 'center' as const,
+                title: `Mã ${SLOT_LABELS[key]}`, key: `${key}_emp`, width: 90, align: 'center' as const,
                 render: (_: any, r: TxRow) => r.slots[key]?.employeeCode
-                    ? <span className="text-xs font-medium text-[#1A2B5A]">{r.slots[key].employeeCode}</span>
-                    : <span className="text-gray-200">—</span>,
+                    ? <span style={{ fontSize: 12, fontWeight: 500, color: '#1A2B5A' }}>{r.slots[key].employeeCode}</span>
+                    : <span style={{ color: '#e5e7eb' }}>—</span>,
             },
             {
-                key: `${key}_rate`, title: `Tỉ lệ ${SLOT_LABELS[key]}`, width: 80, align: 'center' as const,
+                title: `Tỉ lệ ${SLOT_LABELS[key]}`, key: `${key}_rate`, width: 80, align: 'center' as const,
                 render: (_: any, r: TxRow) => r.slots[key]?.rate > 0
-                    ? <span className="text-xs text-gray-600">{(r.slots[key].rate * 100).toFixed(0)}%</span>
-                    : <span className="text-gray-200">—</span>,
+                    ? <span style={{ fontSize: 12, color: '#6b7280' }}>{(r.slots[key].rate * 100).toFixed(0)}%</span>
+                    : <span style={{ color: '#e5e7eb' }}>—</span>,
             },
             {
-                key: `${key}_rev`, title: `DT ${SLOT_LABELS[key]}`, width: 120, align: 'right' as const,
+                title: `DT ${SLOT_LABELS[key]}`, key: `${key}_rev`, width: 120, align: 'right' as const,
                 render: (_: any, r: TxRow) => r.slots[key]?.revenue > 0
-                    ? <span className="text-xs text-[#E8890C]">{formatCurrency(r.slots[key].revenue)}</span>
-                    : <span className="text-gray-200">—</span>,
+                    ? <span style={{ fontSize: 12, color: '#E8890C' }}>{formatCurrency(r.slots[key].revenue)}</span>
+                    : <span style={{ color: '#e5e7eb' }}>—</span>,
             },
         ]),
-        { key: 'grossRevenue', title: 'Gross', width: 140, align: 'right', render: (_, r) => <span className="font-bold text-[#E8890C]">{formatCurrency(r.grossRevenue)}</span> },
-        { key: 'netRevenue', title: 'Net (÷1.1)', width: 140, align: 'right', render: (_, r) => <span className="font-bold text-[#1A2B5A]">{formatCurrency(r.netRevenue)}</span> },
+        { title: 'Gross', key: 'grossRevenue', width: 140, align: 'right', render: (_, r) => <span style={{ fontWeight: 700, color: '#E8890C' }}>{formatCurrency(r.grossRevenue)}</span> },
+        { title: 'Net (÷1.1)', key: 'netRevenue', width: 140, align: 'right', render: (_, r) => <span style={{ fontWeight: 700, color: '#1A2B5A' }}>{formatCurrency(r.netRevenue)}</span> },
     ];
-
-    // ── Render ────────────────────────────────────────────────────────────────
 
     return (
         <>
-            <PageHeader
-                title="Tính lương / Bảng lương"
-                description="Tính toán và quản lý bảng lương theo kỳ"
-                actions={
-                    <div className="flex items-center gap-2">
-                        {periodId && !period?.isLocked && (
-                            <Button onClick={() => setCalcOpen(true)}>
-                                <Calculator className="h-4 w-4" /> Tính lương
-                            </Button>
-                        )}
-                        {periodId && lines.length > 0 && (
-                            <div className="flex gap-1">
-                                {['EMPLOYEE', 'TEAM', 'BRANCH'].map(g => (
-                                    <Button key={g} variant="outline" size="sm" onClick={() => handleExport('excel', g)}>
-                                        <Download className="h-3.5 w-3.5" /> {g === 'EMPLOYEE' ? 'NV' : g === 'TEAM' ? 'Team' : 'CN'}
-                                    </Button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                }
-            />
+            {/* Page Header */}
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <Title level={4} style={{ margin: 0 }}>Tính lương / Bảng lương</Title>
+                    <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Tính toán và quản lý bảng lương theo kỳ</p>
+                </div>
+                <Space>
+                    {periodId && !period?.isLocked && (
+                        <Button icon={<CalculatorOutlined />} onClick={() => setCalcOpen(true)}>
+                            Tính lương
+                        </Button>
+                    )}
+                    {periodId && lines.length > 0 && (
+                        <Space size={4}>
+                            {['EMPLOYEE', 'TEAM', 'BRANCH'].map(g => (
+                                <Button key={g} size="small" icon={<DownloadOutlined />} onClick={() => handleExport('excel', g)}>
+                                    {g === 'EMPLOYEE' ? 'NV' : g === 'TEAM' ? 'Team' : 'CN'}
+                                </Button>
+                            ))}
+                        </Space>
+                    )}
+                </Space>
+            </div>
 
             {/* Period selector */}
-            <Card className="mb-4">
-                <CardContent className="p-4 flex items-center gap-4">
-                    <div className="flex items-center gap-3 flex-1">
-                        <Label className="whitespace-nowrap">Chọn kỳ lương:</Label>
-                        <Select value={periodId} onValueChange={v => { setPeriodId(v); router.replace(`/dashboard/tinh-luong/bang-luong?periodId=${v}` as any); }}>
-                            <SelectTrigger className="w-80">
-                                <SelectValue placeholder="-- Chọn kỳ lương --" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {periods.map(p => (
-                                    <SelectItem key={p.id} value={p.id}>
-                                        {p.code} ({new Date(p.periodStart).toLocaleDateString('vi-VN')} → {new Date(p.periodEnd).toLocaleDateString('vi-VN')})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+            <Card style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <span style={{ whiteSpace: 'nowrap', fontSize: 14 }}>Chọn kỳ lương:</span>
+                        <Select
+                            value={periodId || undefined}
+                            onChange={v => { setPeriodId(v); router.replace(`/dashboard/tinh-luong/bang-luong?periodId=${v}` as any); }}
+                            placeholder="-- Chọn kỳ lương --"
+                            style={{ width: 320 }}
+                            options={periods.map(p => ({
+                                value: p.id,
+                                label: `${p.code} (${new Date(p.periodStart).toLocaleDateString('vi-VN')} → ${new Date(p.periodEnd).toLocaleDateString('vi-VN')})`,
+                            }))}
+                        />
                     </div>
                     {period && (
-                        <Badge variant={period.isLocked ? 'navy' : 'warning'} className="ml-auto">
-                            {period.isLocked ? <><Lock className="h-3.5 w-3.5 mr-1" /> Đã khoá</> : '🔓 Đang mở'}
-                        </Badge>
+                        <Tag color={period.isLocked ? 'navy' : 'warning'} style={{ marginLeft: 'auto' }}>
+                            {period.isLocked ? <><LockOutlined style={{ marginRight: 4 }} />Đã khoá</> : '🔓 Đang mở'}
+                        </Tag>
                     )}
-                </CardContent>
+                </div>
             </Card>
 
             {!periodId && (
-                <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                    <Calculator className="h-12 w-12 mb-3 opacity-30" />
-                    <p className="text-base">Chọn kỳ lương để xem bảng lương</p>
-                    <Button variant="outline" className="mt-4" onClick={() => router.push('/dashboard/tinh-luong/ky-luong' as any)}>
-                        <ChevronRight className="h-4 w-4" /> Quản lý kỳ lương
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', color: '#d1d5db' }}>
+                    <CalculatorOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
+                    <p style={{ fontSize: 16 }}>Chọn kỳ lương để xem bảng lương</p>
+                    <Button style={{ marginTop: 16 }} icon={<ChevronRight size={16} />} onClick={() => router.push('/dashboard/tinh-luong/ky-luong' as any)}>
+                        Quản lý kỳ lương
                     </Button>
                 </div>
             )}
@@ -351,233 +355,267 @@ function BangLuongContent() {
                 <>
                     {/* Summary */}
                     {summary && (
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                            <StatCard label="Tổng Gross" value={formatCurrency(summary.grossRevenue)} icon={<TrendingUp className="h-5 w-5" />} />
-                            <StatCard label="Tổng Hoa hồng" value={formatCurrency(summary.commissionAmount)} icon={<DollarSign className="h-5 w-5" />} color="#1A2B5A" />
-                            <StatCard label="Tổng Thuế TNCN" value={formatCurrency(summary.taxAmount)} icon={<Receipt className="h-5 w-5" />} color="#ef4444" />
-                            <StatCard label="Tổng Thực nhận" value={formatCurrency(summary.finalNetIncome)} icon={<Users className="h-5 w-5" />} color="#16a34a" />
-                        </div>
+                        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+                            <Col xs={12} lg={6}>
+                                <Card size="small">
+                                    <Statistic title="Tổng Gross" value={formatCurrency(summary.grossRevenue)} formatter={v => String(v)} valueStyle={{ fontSize: 16, color: '#E8890C' }} />
+                                </Card>
+                            </Col>
+                            <Col xs={12} lg={6}>
+                                <Card size="small">
+                                    <Statistic title="Tổng Hoa hồng" value={formatCurrency(summary.commissionAmount)} formatter={v => String(v)} valueStyle={{ fontSize: 16, color: '#1A2B5A' }} />
+                                </Card>
+                            </Col>
+                            <Col xs={12} lg={6}>
+                                <Card size="small">
+                                    <Statistic title="Tổng Thuế TNCN" value={formatCurrency(summary.taxAmount)} formatter={v => String(v)} valueStyle={{ fontSize: 16, color: '#ef4444' }} />
+                                </Card>
+                            </Col>
+                            <Col xs={12} lg={6}>
+                                <Card size="small">
+                                    <Statistic title="Tổng Thực nhận" value={formatCurrency(summary.finalNetIncome)} formatter={v => String(v)} valueStyle={{ fontSize: 16, color: '#16a34a' }} />
+                                </Card>
+                            </Col>
+                        </Row>
                     )}
 
                     {/* Tabs */}
-                    <div className="flex gap-1 mb-4 bg-white rounded-lg border border-gray-200 p-1 w-fit">
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'white', borderRadius: 8, border: '1px solid #e5e7eb', padding: 4, width: 'fit-content' }}>
                         {[
-                            { key: 'lines', label: 'Bảng lương', icon: <Receipt className="h-4 w-4" /> },
-                            { key: 'transactions', label: 'GD đã thu', icon: <FileText className="h-4 w-4" /> },
+                            { key: 'lines', label: 'Bảng lương', icon: <Receipt size={16} /> },
+                            { key: 'transactions', label: 'GD đã thu', icon: <FileText size={16} /> },
                         ].map(t => (
                             <button key={t.key} onClick={() => setTab(t.key as Tab)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === t.key ? 'bg-[#E8890C] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}>
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 6,
+                                    fontSize: 14, fontWeight: 500, cursor: 'pointer', border: 'none',
+                                    background: tab === t.key ? '#E8890C' : 'transparent',
+                                    color: tab === t.key ? 'white' : '#6b7280',
+                                    transition: 'all 0.2s',
+                                }}>
                                 {t.icon}{t.label}
                             </button>
                         ))}
                     </div>
 
                     <Card>
-                        <CardContent className="p-0 overflow-x-auto">
-                            {tab === 'lines' && (
-                                <DataTable columns={lineColumns} data={lines} rowKey="id" loading={loading}
-                                    pageSize={20} emptyText={period?.isLocked ? 'Kỳ lương chưa có bảng lương' : 'Chưa tính lương — nhấn "Tính lương" để bắt đầu'} />
-                            )}
-                            {tab === 'transactions' && (
-                                <div>
-                                    {txSummary && (
-                                        <div className="flex gap-4 p-4 border-b border-gray-100 text-sm">
-                                            <span className="text-gray-500">{txSummary.transactionCount} giao dịch</span>
-                                            <span className="text-gray-500">Gross: <strong className="text-[#E8890C]">{formatCurrency(txSummary.totalGross)}</strong></span>
-                                            <span className="text-gray-500">Net: <strong className="text-[#1A2B5A]">{formatCurrency(txSummary.totalNet)}</strong></span>
-                                        </div>
-                                    )}
-                                    <DataTable columns={txColumns} data={txData} rowKey="transactionCode" loading={loading}
-                                        pageSize={20} emptyText="Không có giao dịch đã thu trong kỳ này" />
-                                </div>
-                            )}
-                        </CardContent>
+                        {tab === 'lines' && (
+                            <Table
+                                columns={lineColumns}
+                                dataSource={lines}
+                                rowKey="id"
+                                loading={loading}
+                                pagination={{ pageSize: 20 }}
+                                size="small"
+                                scroll={{ x: true }}
+                                locale={{ emptyText: period?.isLocked ? 'Kỳ lương chưa có bảng lương' : 'Chưa tính lương — nhấn "Tính lương" để bắt đầu' }}
+                            />
+                        )}
+                        {tab === 'transactions' && (
+                            <>
+                                {txSummary && (
+                                    <div style={{ display: 'flex', gap: 16, padding: '12px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 14, color: '#6b7280' }}>
+                                        <span>{txSummary.transactionCount} giao dịch</span>
+                                        <span>Gross: <strong style={{ color: '#E8890C' }}>{formatCurrency(txSummary.totalGross)}</strong></span>
+                                        <span>Net: <strong style={{ color: '#1A2B5A' }}>{formatCurrency(txSummary.totalNet)}</strong></span>
+                                    </div>
+                                )}
+                                <Table
+                                    columns={txColumns}
+                                    dataSource={txData}
+                                    rowKey="transactionCode"
+                                    loading={loading}
+                                    pagination={{ pageSize: 20 }}
+                                    size="small"
+                                    scroll={{ x: true }}
+                                    locale={{ emptyText: 'Không có giao dịch đã thu trong kỳ này' }}
+                                />
+                            </>
+                        )}
                     </Card>
                 </>
             )}
 
-            {/* Calculate Dialog */}
-            <Dialog open={calcOpen} onOpenChange={setCalcOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Calculator className="h-5 w-5 text-[#E8890C]" /> Tính lương tự động
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-sm text-blue-700">
-                            Hệ thống sẽ tự động tính: Gross → Net → Hoa hồng → Lương CB → Lương NV → Thuế → BHXH → Thực nhận cho từng nhân viên.
+            {/* Calculate Modal */}
+            <Modal
+                open={calcOpen}
+                onCancel={() => setCalcOpen(false)}
+                title={<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><CalculatorOutlined style={{ color: '#E8890C' }} /> Tính lương tự động</span>}
+                footer={[
+                    <Button key="cancel" onClick={() => setCalcOpen(false)}>Huỷ</Button>,
+                    <Button key="ok" type="primary" onClick={handleCalculate} loading={calculating} icon={<CalculatorOutlined />}>
+                        Bắt đầu tính
+                    </Button>,
+                ]}
+                width={480}
+            >
+                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 12, fontSize: 14, color: '#1d4ed8' }}>
+                        Hệ thống sẽ tự động tính: Gross → Net → Hoa hồng → Lương CB → Lương NV → Thuế → BHXH → Thực nhận cho từng nhân viên.
+                    </div>
+                    <div>
+                        <label style={{ fontSize: 14, marginBottom: 6, display: 'block' }}>Giới hạn theo chi nhánh (tuỳ chọn)</label>
+                        <Select
+                            value={calcForm.branchId || undefined}
+                            onChange={v => setCalcForm(f => ({ ...f, branchId: v === '__all__' ? '' : (v ?? '') }))}
+                            placeholder="Tất cả chi nhánh"
+                            style={{ width: '100%' }}
+                            allowClear
+                            options={[{ value: '__all__', label: 'Tất cả chi nhánh' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: 14, marginBottom: 6, display: 'block' }}>Giới hạn theo team (tuỳ chọn)</label>
+                        <Select
+                            value={calcForm.teamId || undefined}
+                            onChange={v => setCalcForm(f => ({ ...f, teamId: v === '__all__' ? '' : (v ?? '') }))}
+                            placeholder="Tất cả team"
+                            style={{ width: '100%' }}
+                            allowClear
+                            options={[{ value: '__all__', label: 'Tất cả team' }, ...teams.map(t => ({ value: t.id, label: t.name }))]}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                        <Checkbox
+                            checked={calcForm.overwrite}
+                            onChange={e => setCalcForm(f => ({ ...f, overwrite: e.target.checked }))}
+                        />
+                        <div>
+                            <div style={{ fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Ghi đè bảng lương đã có</div>
+                            <div style={{ fontSize: 12, color: '#9ca3af' }}>Bonus / Ứng lương đã nhập sẽ được giữ nguyên</div>
                         </div>
-                        <div className="space-y-1.5">
-                            <Label>Giới hạn theo chi nhánh (tuỳ chọn)</Label>
-                            <Select value={calcForm.branchId} onValueChange={v => setCalcForm(f => ({ ...f, branchId: v === '__all__' ? '' : v }))}>
-                                <SelectTrigger><SelectValue placeholder="Tất cả chi nhánh" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__all__">Tất cả chi nhánh</SelectItem>
-                                    {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Edit Line Modal */}
+            <Modal
+                open={editOpen}
+                onCancel={() => setEditOpen(false)}
+                title={<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><EditOutlined style={{ color: '#E8890C' }} /> Điều chỉnh bảng lương</span>}
+                footer={[
+                    <Button key="cancel" onClick={() => setEditOpen(false)}>Huỷ</Button>,
+                    <Button key="ok" type="primary" onClick={handleEditSave} loading={editSaving}>Lưu điều chỉnh</Button>,
+                ]}
+                width={480}
+            >
+                {editLine && (
+                    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ padding: 12, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                            <div style={{ fontWeight: 600, color: '#1A2B5A' }}>{editLine.employee.user.fullName}</div>
+                            <div style={{ fontSize: 14, color: '#6b7280' }}>{editLine.employee.employeeCode} · {editLine.role?.name ?? '—'}</div>
                         </div>
-                        <div className="space-y-1.5">
-                            <Label>Giới hạn theo team (tuỳ chọn)</Label>
-                            <Select value={calcForm.teamId} onValueChange={v => setCalcForm(f => ({ ...f, teamId: v === '__all__' ? '' : v }))}>
-                                <SelectTrigger><SelectValue placeholder="Tất cả team" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__all__">Tất cả team</SelectItem>
-                                    {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <div>
+                                    <label style={{ fontSize: 14, marginBottom: 6, display: 'block' }}>Thưởng / Bonus (VNĐ)</label>
+                                    <Input type="number" min={0} value={editForm.bonus}
+                                        onChange={e => setEditForm(f => ({ ...f, bonus: e.target.value }))} />
+                                    {Number(editForm.bonus) > 0 && <p style={{ fontSize: 12, color: '#16a34a', marginTop: 4 }}>{formatCurrency(Number(editForm.bonus))}</p>}
+                                </div>
+                            </Col>
+                            <Col span={12}>
+                                <div>
+                                    <label style={{ fontSize: 14, marginBottom: 6, display: 'block' }}>Ứng Lương / Trừ tiền (VNĐ)</label>
+                                    <Input type="number" min={0} value={editForm.advancePayment}
+                                        onChange={e => setEditForm(f => ({ ...f, advancePayment: e.target.value }))} />
+                                    {Number(editForm.advancePayment) > 0 && <p style={{ fontSize: 12, color: '#f97316', marginTop: 4 }}>{formatCurrency(Number(editForm.advancePayment))}</p>}
+                                </div>
+                            </Col>
+                        </Row>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                            <Checkbox
+                                checked={editForm.isTaxExempt}
+                                onChange={e => setEditForm(f => ({ ...f, isTaxExempt: e.target.checked }))}
+                            />
+                            <label style={{ fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Miễn thuế TNCN (có hợp đồng / cam kết)</label>
                         </div>
-                        <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200">
-                            <input type="checkbox" id="overwrite" checked={calcForm.overwrite}
-                                onChange={e => setCalcForm(f => ({ ...f, overwrite: e.target.checked }))}
-                                className="h-4 w-4 accent-[#E8890C]" />
-                            <div>
-                                <label htmlFor="overwrite" className="text-sm font-medium cursor-pointer">Ghi đè bảng lương đã có</label>
-                                <p className="text-xs text-gray-400">Bonus / Ứng lương đã nhập sẽ được giữ nguyên</p>
+                        <div>
+                            <label style={{ fontSize: 14, marginBottom: 6, display: 'block' }}>Ghi chú</label>
+                            <Input placeholder="Ghi chú điều chỉnh..." value={editForm.note}
+                                onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} />
+                        </div>
+                        <div style={{ padding: 12, background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa', fontSize: 14 }}>
+                            <div style={{ color: '#6b7280' }}>Hoa hồng: <strong style={{ color: '#E8890C' }}>{formatCurrency(Number(editLine.commissionAmount))}</strong></div>
+                            <div style={{ color: '#6b7280' }}>Lương CB: <strong>{formatCurrency(Number(editLine.fixedSalarySnapshot))}</strong></div>
+                            <div style={{ color: '#6b7280', fontWeight: 500 }}>→ Tính lại ngay sau khi lưu</div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Manager Breakdown Modal */}
+            <Modal
+                open={breakdownOpen}
+                onCancel={() => setBreakdownOpen(false)}
+                title={<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FileTextOutlined style={{ color: '#E8890C' }} /> Tab Lương Quản Lý</span>}
+                footer={[<Button key="close" onClick={() => setBreakdownOpen(false)}>Đóng</Button>]}
+                width={520}
+            >
+                {breakdownLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><Spin /></div>}
+                {breakdown && !breakdownLoading && (
+                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ padding: 12, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                            <div style={{ fontWeight: 600, color: '#1A2B5A' }}>{breakdown.employee?.user?.fullName}</div>
+                            <div style={{ fontSize: 14, color: '#6b7280' }}>{breakdown.employee?.employeeCode} · {breakdown.role?.name}</div>
+                            {breakdown.role?.commissionPercent && <div style={{ fontSize: 12, color: '#E8890C', marginTop: 2 }}>% HH: {Number(breakdown.role.commissionPercent).toFixed(2)}%</div>}
+                        </div>
+                        <div style={{ fontSize: 14 }}>
+                            {[
+                                { label: 'Lương CB', value: breakdown.fixedSalary, color: '#1A2B5A' },
+                                { label: 'Lương Nhiệm Vụ', value: breakdown.taskSalaryTotal, color: '#1A2B5A' },
+                                { label: 'Hoa hồng (Net × %)', value: breakdown.commissionAmount, color: '#E8890C' },
+                            ].map(item => (
+                                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px dashed #f0f0f0' }}>
+                                    <span style={{ color: '#6b7280' }}>{item.label}</span>
+                                    <strong style={{ color: item.color }}>{formatCurrency(item.value)}</strong>
+                                </div>
+                            ))}
+                            {breakdown.taskSalaryLines?.length > 0 && (
+                                <div style={{ paddingLeft: 12 }}>
+                                    {breakdown.taskSalaryLines.map((ts: any, i: number) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280', padding: '2px 0', textDecoration: ts.status !== 'ACHIEVED' ? 'line-through' : 'none', opacity: ts.status !== 'ACHIEVED' ? 0.5 : 1 }}>
+                                            <span>{ts.content}</span>
+                                            <span>{ts.status === 'ACHIEVED' ? formatCurrency(ts.salary) : '—'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontWeight: 500 }}>
+                                <span>+ Thưởng</span>
+                                <span style={{ color: '#16a34a' }}>+{formatCurrency(breakdown.bonus)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontWeight: 500 }}>
+                                <span>− Ứng lương</span>
+                                <span style={{ color: '#f97316' }}>-{formatCurrency(breakdown.advancePayment)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#eff6ff', borderRadius: 8, fontWeight: 700 }}>
+                                <span style={{ color: '#1A2B5A' }}>Tổng Trước Thuế</span>
+                                <span style={{ color: '#1A2B5A', fontSize: 15 }}>{formatCurrency(breakdown.preTaxIncome)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', color: '#ef4444' }}>
+                                <span>− Thuế TNCN {breakdown.isTaxExempt && <Tag color="green" style={{ marginLeft: 4, fontSize: 11 }}>Miễn</Tag>}</span>
+                                <span>-{formatCurrency(breakdown.taxAmount)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', color: '#6b7280' }}>
+                                <span>− BHXH ({breakdown.role?.socialInsurancePercent ?? 0}%)</span>
+                                <span>-{formatCurrency(breakdown.socialInsurance)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa' }}>
+                                <span style={{ fontWeight: 700, color: '#E8890C', fontSize: 15 }}>Thu nhập sau thuế</span>
+                                <span style={{ fontWeight: 700, color: '#E8890C', fontSize: 20 }}>{formatCurrency(breakdown.finalNetIncome)}</span>
                             </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setCalcOpen(false)}>Huỷ</Button>
-                        <Button onClick={handleCalculate} disabled={calculating}>
-                            {calculating ? <><div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2" />Đang tính...</> : <><Calculator className="h-4 w-4" /> Bắt đầu tính</>}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Edit Line Dialog */}
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Pencil className="h-5 w-5 text-[#E8890C]" /> Điều chỉnh bảng lương
-                        </DialogTitle>
-                    </DialogHeader>
-                    {editLine && (
-                        <div className="space-y-4 py-2">
-                            <div className="p-3 rounded-lg bg-gray-50 border">
-                                <p className="font-semibold text-[#1A2B5A]">{editLine.employee.user.fullName}</p>
-                                <p className="text-sm text-gray-500">{editLine.employee.employeeCode} · {editLine.role?.name ?? '—'}</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label>Thưởng / Bonus (VNĐ)</Label>
-                                    <Input type="number" min={0} value={editForm.bonus}
-                                        onChange={e => setEditForm(f => ({ ...f, bonus: e.target.value }))} />
-                                    {Number(editForm.bonus) > 0 && <p className="text-xs text-green-600">{formatCurrency(Number(editForm.bonus))}</p>}
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label>Ứng Lương / Trừ tiền (VNĐ)</Label>
-                                    <Input type="number" min={0} value={editForm.advancePayment}
-                                        onChange={e => setEditForm(f => ({ ...f, advancePayment: e.target.value }))} />
-                                    {Number(editForm.advancePayment) > 0 && <p className="text-xs text-orange-500">{formatCurrency(Number(editForm.advancePayment))}</p>}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200">
-                                <input type="checkbox" id="taxExempt" checked={editForm.isTaxExempt}
-                                    onChange={e => setEditForm(f => ({ ...f, isTaxExempt: e.target.checked }))}
-                                    className="h-4 w-4 accent-[#E8890C]" />
-                                <label htmlFor="taxExempt" className="text-sm font-medium cursor-pointer">Miễn thuế TNCN (có hợp đồng / cam kết)</label>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label>Ghi chú</Label>
-                                <Input placeholder="Ghi chú điều chỉnh..." value={editForm.note}
-                                    onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} />
-                            </div>
-                            <div className="p-3 rounded-lg bg-orange-50 border border-orange-100 text-sm space-y-1">
-                                <p className="text-gray-500">Hoa hồng: <strong className="text-[#E8890C]">{formatCurrency(Number(editLine.commissionAmount))}</strong></p>
-                                <p className="text-gray-500">Lương CB: <strong>{formatCurrency(Number(editLine.fixedSalarySnapshot))}</strong></p>
-                                <p className="text-gray-500 font-medium">→ Tính lại ngay sau khi lưu</p>
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditOpen(false)}>Huỷ</Button>
-                        <Button onClick={handleEditSave} disabled={editSaving}>
-                            {editSaving ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> : 'Lưu điều chỉnh'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Manager Breakdown Dialog */}
-            <Dialog open={breakdownOpen} onOpenChange={setBreakdownOpen}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <FileText className="h-5 w-5 text-[#E8890C]" /> Tab Lương Quản Lý
-                        </DialogTitle>
-                    </DialogHeader>
-                    {breakdownLoading && <div className="flex justify-center py-8"><div className="h-6 w-6 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" /></div>}
-                    {breakdown && !breakdownLoading && (
-                        <div className="space-y-3 py-2">
-                            <div className="p-3 rounded-lg bg-gray-50 border">
-                                <p className="font-semibold text-[#1A2B5A]">{breakdown.employee?.user?.fullName}</p>
-                                <p className="text-sm text-gray-500">{breakdown.employee?.employeeCode} · {breakdown.role?.name}</p>
-                                {breakdown.role?.commissionPercent && <p className="text-xs text-[#E8890C] mt-0.5">% HH: {Number(breakdown.role.commissionPercent).toFixed(2)}%</p>}
-                            </div>
-                            <div className="space-y-2 text-sm">
-                                {[
-                                    { label: 'Lương CB', value: breakdown.fixedSalary, color: '#1A2B5A' },
-                                    { label: 'Lương Nhiệm Vụ', value: breakdown.taskSalaryTotal, color: '#1A2B5A' },
-                                    { label: 'Hoa hồng (Net × %)', value: breakdown.commissionAmount, color: '#E8890C' },
-                                ].map(item => (
-                                    <div key={item.label} className="flex justify-between items-center py-2 border-b border-dashed border-gray-100">
-                                        <span className="text-gray-600">{item.label}</span>
-                                        <span className="font-bold" style={{ color: item.color }}>{formatCurrency(item.value)}</span>
-                                    </div>
-                                ))}
-                                {breakdown.taskSalaryLines?.length > 0 && (
-                                    <div className="pl-3 space-y-1">
-                                        {breakdown.taskSalaryLines.map((ts: any, i: number) => (
-                                            <div key={i} className="flex justify-between text-xs text-gray-500 py-0.5">
-                                                <span className={ts.status !== 'ACHIEVED' ? 'line-through opacity-50' : ''}>{ts.content}</span>
-                                                <span>{ts.status === 'ACHIEVED' ? formatCurrency(ts.salary) : '—'}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="flex justify-between items-center py-2 font-medium">
-                                    <span>+ Thưởng</span>
-                                    <span className="text-green-600">+{formatCurrency(breakdown.bonus)}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-2 font-medium">
-                                    <span>− Ứng lương</span>
-                                    <span className="text-orange-500">-{formatCurrency(breakdown.advancePayment)}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-2 bg-blue-50 rounded-lg px-3 font-bold">
-                                    <span className="text-[#1A2B5A]">Tổng Trước Thuế</span>
-                                    <span className="text-[#1A2B5A] text-base">{formatCurrency(breakdown.preTaxIncome)}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-2 text-red-500">
-                                    <span>− Thuế TNCN {breakdown.isTaxExempt && <Badge variant="success" className="ml-1 text-xs">Miễn</Badge>}</span>
-                                    <span>-{formatCurrency(breakdown.taxAmount)}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-2 text-gray-600">
-                                    <span>− BHXH ({breakdown.role?.socialInsurancePercent ?? 0}%)</span>
-                                    <span>-{formatCurrency(breakdown.socialInsurance)}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-3 bg-orange-50 rounded-lg px-3 border border-orange-200">
-                                    <span className="font-bold text-[#E8890C] text-base">Thu nhập sau thuế</span>
-                                    <span className="font-bold text-[#E8890C] text-xl">{formatCurrency(breakdown.finalNetIncome)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setBreakdownOpen(false)}>Đóng</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                )}
+            </Modal>
         </>
     );
 }
 
 export default function BangLuongPage() {
     return (
-        <Suspense fallback={<div className="flex justify-center py-20"><div className="h-8 w-8 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" /></div>}>
+        <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}><Spin size="large" /></div>}>
             <BangLuongContent />
         </Suspense>
     );

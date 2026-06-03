@@ -1,8 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Card, Statistic, Spin, Row, Col, Typography } from 'antd';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 const PIE_COLORS = ['#E8890C', '#F5B95A', '#FAD99A', '#FDECC8', '#C8720A'];
 
@@ -14,17 +17,19 @@ function MiniStatCard({ title, value, trend, isCurrency }: {
 }) {
     const isUp = trend >= 0;
     return (
-        <div className="bg-white rounded-lg border border-gray-200 p-4 h-full">
-            <p className="text-xs text-gray-500">{title}</p>
-            <div className="mt-1">
-                <span className="text-xl font-bold text-[#1A2B5A]">
-                    {isCurrency ? formatCurrency(value) : value}
-                </span>
-            </div>
-            <div className={`mt-1 text-xs ${isUp ? 'text-green-500' : 'text-red-500'}`}>
-                {isUp ? '↑' : '↓'} ~{Math.abs(trend)}%
-            </div>
-        </div>
+        <Card size="small" style={{ height: '100%' }}>
+            <Statistic
+                title={title}
+                value={isCurrency ? formatCurrency(value) : value}
+                formatter={isCurrency ? (val) => String(val) : undefined}
+                suffix={
+                    <span style={{ fontSize: 12, color: isUp ? '#52c41a' : '#ff4d4f' }}>
+                        {isUp ? '↑' : '↓'} ~{Math.abs(trend)}%
+                    </span>
+                }
+                valueStyle={{ fontSize: 20, fontWeight: 700, color: '#1A2B5A' }}
+            />
+        </Card>
     );
 }
 
@@ -79,27 +84,27 @@ export default function DashboardPage() {
     }, [fromDate, toDate]);
 
     return (
-        <div className={`relative ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
-            {loading && (
-                <div className="absolute inset-0 flex items-center justify-center z-10">
-                    <div className="h-8 w-8 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
+        <Spin spinning={loading}>
+            <Row gutter={[24, 24]}>
                 {/* Left column */}
-                <div className="lg:col-span-5 flex flex-col gap-6">
-                    {/* 2x2 stat grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <MiniStatCard title="Báo cáo doanh thu" value={stats.revenue} trend={2} isCurrency />
-                        <MiniStatCard title="Báo cáo giao dịch" value={stats.transactions} trend={6} />
-                        <MiniStatCard title="Giao dịch thành công" value={stats.success} trend={3} />
-                        <MiniStatCard title="Giao dịch đã huỷ" value={stats.cancelled} trend={-12} />
-                    </div>
+                <Col xs={24} lg={11}>
+                    <Row gutter={[16, 16]}>
+                        <Col span={12}>
+                            <MiniStatCard title="Báo cáo doanh thu" value={stats.revenue} trend={2} isCurrency />
+                        </Col>
+                        <Col span={12}>
+                            <MiniStatCard title="Báo cáo giao dịch" value={stats.transactions} trend={6} />
+                        </Col>
+                        <Col span={12}>
+                            <MiniStatCard title="Giao dịch thành công" value={stats.success} trend={3} />
+                        </Col>
+                        <Col span={12}>
+                            <MiniStatCard title="Giao dịch đã huỷ" value={stats.cancelled} trend={-12} />
+                        </Col>
+                    </Row>
 
-                    {/* Bar chart */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4">
-                        <h3 className="text-sm font-semibold text-[#1A2B5A] mb-3">Top 10 doanh thu cá nhân</h3>
+                    <Card style={{ marginTop: 24 }}>
+                        <Title level={5} style={{ color: '#1A2B5A', marginBottom: 12 }}>Top 10 doanh thu cá nhân</Title>
                         <ResponsiveContainer width="100%" height={320}>
                             <BarChart data={PERSONAL_DATA} layout="vertical" margin={{ left: 8, right: 40 }}>
                                 <XAxis type="number" unit=" triệu" tick={{ fontSize: 12 }} hide />
@@ -109,25 +114,25 @@ export default function DashboardPage() {
                                     background={{ fill: '#f5f5f5', radius: 4 }} barSize={12} />
                             </BarChart>
                         </ResponsiveContainer>
-                    </div>
-                </div>
+                    </Card>
+                </Col>
 
                 {/* Right column */}
-                <div className="lg:col-span-6">
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 h-full">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-[#1A2B5A]">Doanh thu chi nhánh</h2>
-                            <div className="flex items-center gap-2">
+                <Col xs={24} lg={13}>
+                    <Card style={{ height: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <Title level={5} style={{ color: '#1A2B5A', margin: 0 }}>Doanh thu chi nhánh</Title>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <input
                                     type="date"
-                                    className="h-8 px-2 rounded-md border border-gray-200 text-xs bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
+                                    style={{ height: 32, padding: '0 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: 'white' }}
                                     defaultValue={fromDate}
                                     onChange={(e) => setFromDate(e.target.value)}
                                 />
-                                <span className="text-gray-400 text-xs">→</span>
+                                <span style={{ color: '#999', fontSize: 12 }}>→</span>
                                 <input
                                     type="date"
-                                    className="h-8 px-2 rounded-md border border-gray-200 text-xs bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
+                                    style={{ height: 32, padding: '0 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 12, background: 'white' }}
                                     defaultValue={toDate}
                                     onChange={(e) => setToDate(e.target.value)}
                                 />
@@ -152,24 +157,24 @@ export default function DashboardPage() {
                                     </PieChart>
                                 </ResponsiveContainer>
 
-                                <div className="mt-6 space-y-0">
+                                <div style={{ marginTop: 24 }}>
                                     {branchRevenue.map((item, i) => (
-                                        <div key={i} className="flex justify-between items-center py-3 border-b border-gray-100 last:border-0">
-                                            <span className="text-sm font-medium text-gray-700">{item.name}</span>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-sm font-bold text-[#1A2B5A]">{formatCurrency(item.value)}</span>
-                                                <span className="text-xs text-green-500">~ 2.5%</span>
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i < branchRevenue.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                                            <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>{item.name}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                                <span style={{ fontSize: 14, fontWeight: 700, color: '#1A2B5A' }}>{formatCurrency(item.value)}</span>
+                                                <span style={{ fontSize: 12, color: '#52c41a' }}>~ 2.5%</span>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             </>
                         ) : (
-                            <div className="text-center py-16 text-gray-300">Chưa có dữ liệu doanh thu</div>
+                            <div style={{ textAlign: 'center', padding: '64px 0', color: '#d1d5db' }}>Chưa có dữ liệu doanh thu</div>
                         )}
-                    </div>
-                </div>
-            </div>
-        </div>
+                    </Card>
+                </Col>
+            </Row>
+        </Spin>
     );
 }

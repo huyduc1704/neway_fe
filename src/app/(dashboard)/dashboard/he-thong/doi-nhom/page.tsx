@@ -1,17 +1,14 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
-import { Pencil, Trash2, Search, PowerOff, Plus, X } from 'lucide-react';
+import { message } from 'antd';
+import { Pencil, Trash2, PowerOff, Plus, X } from 'lucide-react';
+import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 interface Branch { id: string; name: string; }
 interface Employee { id: string; fullName: string; }
@@ -20,8 +17,6 @@ interface Team {
     branch: { id: string; name: string } | null;
     leader: { id: string; fullName: string } | null;
 }
-
-const EMPTY_FORM = { name: '', code: '', branchId: '', leaderId: '' };
 
 export default function DoiNhomPage() {
     const [teams,    setTeams]    = useState<Team[]>([]);
@@ -35,9 +30,8 @@ export default function DoiNhomPage() {
 
     const [dialogOpen,  setDialogOpen]  = useState(false);
     const [editingId,   setEditingId]   = useState<string | null>(null);
-    const [form,        setForm]        = useState(EMPTY_FORM);
     const [saving,      setSaving]      = useState(false);
-    const [formErrors,  setFormErrors]  = useState<Record<string, string>>({});
+    const [form] = Form.useForm();
 
     const fetchTeams = useCallback(async () => {
         setLoading(true);
@@ -47,7 +41,7 @@ export default function DoiNhomPage() {
             });
             setTeams(data.data ?? data);
             if (data.meta) setPagination(p => ({ ...p, total: data.meta.total }));
-        } catch { toast.error('Không thể tải danh sách đội/nhóm'); }
+        } catch { message.error('Không thể tải danh sách đội/nhóm'); }
         finally { setLoading(false); }
     }, [pagination.page, pagination.limit, search, branchFilter]);
 
@@ -57,37 +51,29 @@ export default function DoiNhomPage() {
         api.get('/employees', { params: { limit: 500 } }).then(({ data }) => setEmployees(data.data ?? [])).catch(() => {});
     }, []);
 
-    const openCreate = () => { setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setDialogOpen(true); };
+    const openCreate = () => { setEditingId(null); form.resetFields(); setDialogOpen(true); };
     const openEdit   = (t: Team) => {
         setEditingId(t.id);
-        setForm({ name: t.name, code: t.code ?? '', branchId: t.branch?.id ?? '', leaderId: t.leader?.id ?? '' });
-        setFormErrors({});
+        form.setFieldsValue({ name: t.name, code: t.code ?? '', branchId: t.branch?.id ?? '', leaderId: t.leader?.id ?? '' });
         setDialogOpen(true);
     };
 
-    const validate = () => {
-        const e: Record<string, string> = {};
-        if (!form.name.trim()) e.name = 'Nhập tên đội/nhóm';
-        setFormErrors(e);
-        return Object.keys(e).length === 0;
-    };
-
     const handleSave = async () => {
-        if (!validate()) return;
-        setSaving(true);
         try {
-            const payload = { name: form.name, code: form.code || undefined, branchId: form.branchId || undefined, leaderId: form.leaderId || undefined };
+            const values = await form.validateFields();
+            setSaving(true);
+            const payload = { name: values.name, code: values.code || undefined, branchId: values.branchId || undefined, leaderId: values.leaderId || undefined };
             if (editingId) {
                 await api.patch(`/teams/${editingId}`, payload);
-                toast.success('Cập nhật đội/nhóm thành công');
+                message.success('Cập nhật đội/nhóm thành công');
             } else {
                 await api.post('/teams', payload);
-                toast.success('Tạo đội/nhóm thành công');
+                message.success('Tạo đội/nhóm thành công');
             }
             setDialogOpen(false);
             fetchTeams();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            if (err?.response) message.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally { setSaving(false); }
     };
 
@@ -95,116 +81,102 @@ export default function DoiNhomPage() {
         if (!window.confirm(isActive ? 'Vô hiệu hoá đội/nhóm này?' : 'Kích hoạt lại đội/nhóm này?')) return;
         try {
             await api.patch(`/teams/${id}/deactivate`);
-            toast.success('Đã cập nhật trạng thái');
+            message.success('Đã cập nhật trạng thái');
             fetchTeams();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
     };
 
     const handleDelete = async (id: string) => {
         if (!window.confirm('Xoá đội/nhóm này? Hành động không thể hoàn tác.')) return;
         try {
             await api.delete(`/teams/${id}`);
-            toast.success('Đã xoá đội/nhóm');
+            message.success('Đã xoá đội/nhóm');
             fetchTeams();
-        } catch (err: any) { toast.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
     };
 
-    const columns: Column<Team>[] = [
-        { key: 'stt', title: 'STT', width: 52, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
-        { key: 'name', title: 'Tên đội/nhóm', render: (_, r) => <span className="font-medium">{r.name}</span> },
-        { key: 'branch', title: 'Chi nhánh', width: 180, render: (_, r) => r.branch?.name || '—' },
-        { key: 'leader', title: 'Leader', width: 180, render: (_, r) => r.leader?.fullName || '—' },
-        { key: 'status', title: 'Trạng thái', width: 130, align: 'center', render: (_, r) => <Badge variant={r.isActive ? 'success' : 'secondary'}>{r.isActive ? 'Hoạt động' : 'Đã vô hiệu'}</Badge> },
-        { key: 'createdAt', title: 'Ngày tạo', width: 120, align: 'center', render: (_, r) => dayjs(r.createdAt).format('DD/MM/YYYY') },
+    const columns: ColumnsType<Team> = [
+        { title: 'STT', key: 'stt', width: 52, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
+        { title: 'Tên đội/nhóm', key: 'name', render: (_, r) => <span style={{ fontWeight: 500 }}>{r.name}</span> },
+        { title: 'Chi nhánh', key: 'branch', width: 180, render: (_, r) => r.branch?.name || '—' },
+        { title: 'Leader', key: 'leader', width: 180, render: (_, r) => r.leader?.fullName || '—' },
+        { title: 'Trạng thái', key: 'status', width: 130, align: 'center', render: (_, r) => <Tag color={r.isActive ? 'success' : 'default'}>{r.isActive ? 'Hoạt động' : 'Đã vô hiệu'}</Tag> },
+        { title: 'Ngày tạo', key: 'createdAt', width: 120, align: 'center', render: (_, r) => dayjs(r.createdAt).format('DD/MM/YYYY') },
         {
-            key: 'actions', title: 'Thao tác', width: 110, align: 'center',
+            title: 'Thao tác', key: 'actions', width: 110, align: 'center',
             render: (_, r) => (
-                <div className="flex items-center justify-center gap-1">
-                    <button title="Chỉnh sửa" className="p-1.5 rounded hover:bg-orange-50 text-gray-500 hover:text-[#E8890C]" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></button>
-                    <button title={r.isActive ? 'Vô hiệu hoá' : 'Kích hoạt'} className={`p-1.5 rounded transition-colors ${r.isActive ? 'hover:bg-yellow-50 text-gray-500 hover:text-yellow-600' : 'hover:bg-green-50 text-gray-400 hover:text-green-600'}`} onClick={() => handleDeactivate(r.id, r.isActive)}><PowerOff className="h-4 w-4" /></button>
-                    <button title="Xoá" className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-500" onClick={() => handleDelete(r.id)}><Trash2 className="h-4 w-4" /></button>
-                </div>
+                <Space>
+                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => openEdit(r)}><Pencil size={16} /></button>
+                    <button title={r.isActive ? 'Vô hiệu hoá' : 'Kích hoạt'} style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => handleDeactivate(r.id, r.isActive)}><PowerOff size={16} /></button>
+                    <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => handleDelete(r.id)}><Trash2 size={16} /></button>
+                </Space>
             ),
         },
     ];
 
     return (
         <>
-            <PageHeader title="Hệ thống / Quản lý đội nhóm" />
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex flex-wrap gap-2 mb-4">
-                    <Select value={branchFilter} onValueChange={v => { setBranchFilter(v); setPagination(p => ({ ...p, page: 1 })); }}>
-                        <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">Tất cả chi nhánh</SelectItem>
-                            {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    {branchFilter && <button onClick={() => setBranchFilter('')} className="flex items-center gap-1 h-9 px-2 rounded border border-gray-200 text-sm text-gray-500 hover:bg-gray-50"><X className="h-3.5 w-3.5" /></button>}
-                    <div className="ml-auto flex items-center gap-1 rounded-full border border-gray-200 px-3 h-9 w-60">
-                        <Search className="h-4 w-4 text-gray-400 shrink-0" />
-                        <input className="outline-none text-sm flex-1 bg-transparent placeholder-gray-400" placeholder="Tìm theo tên..." value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); } }} />
-                    </div>
-                    <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> Thêm mới</Button>
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Hệ thống / Quản lý đội nhóm</Title>
+            </div>
+            <Card>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16, alignItems: 'center' }}>
+                    <Select
+                        value={branchFilter || undefined}
+                        onChange={v => { setBranchFilter(v ?? ''); setPagination(p => ({ ...p, page: 1 })); }}
+                        placeholder="Chi nhánh"
+                        style={{ width: 176 }}
+                        allowClear
+                        options={[{ value: '', label: 'Tất cả chi nhánh' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
+                    />
+                    <Input
+                        prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                        placeholder="Tìm theo tên..."
+                        value={searchInput}
+                        onChange={e => setSearchInput(e.target.value)}
+                        onPressEnter={() => { setSearch(searchInput); setPagination(p => ({ ...p, page: 1 })); }}
+                        style={{ width: 240, marginLeft: 'auto' }}
+                    />
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Thêm mới</Button>
                 </div>
 
-                <DataTable columns={columns} data={teams} rowKey="id" loading={loading} pageSize={pagination.limit} />
+                <Table
+                    columns={columns}
+                    dataSource={teams}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{ pageSize: pagination.limit, total: pagination.total, current: pagination.page, onChange: (page) => setPagination(p => ({ ...p, page })), showTotal: (total) => `Tổng: ${total}` }}
+                    size="small"
+                />
+            </Card>
 
-                {pagination.total > pagination.limit && (
-                    <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
-                        <span>Tổng: {pagination.total}</span>
-                        <div className="flex items-center gap-1">
-                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page === 1} onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}>Trước</button>
-                            <span className="px-3 py-1">{pagination.page}</span>
-                            <button className="px-3 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-40" disabled={pagination.page * pagination.limit >= pagination.total} onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}>Sau</button>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader><DialogTitle>{editingId ? 'Chỉnh sửa đội/nhóm' : 'Thêm đội/nhóm mới'}</DialogTitle></DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div>
-                            <Label>Tên đội/nhóm <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1" placeholder="VD: Team Hà Nội 1" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                            {formErrors.name && <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>}
-                        </div>
-                        <div>
-                            <Label>Mã đội (tuỳ chọn)</Label>
-                            <Input className="mt-1 uppercase" placeholder="VD: HN01" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} />
-                        </div>
-                        <div>
-                            <Label>Chi nhánh</Label>
-                            <Select value={form.branchId} onValueChange={v => setForm(f => ({ ...f, branchId: v }))}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn chi nhánh" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Không chọn</SelectItem>
-                                    {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label>Leader phụ trách</Label>
-                            <Select value={form.leaderId} onValueChange={v => setForm(f => ({ ...f, leaderId: v }))}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn leader" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">Không chọn</SelectItem>
-                                    {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.fullName}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-                        <Button onClick={handleSave} disabled={saving}>
-                            {saving && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
-                            Lưu
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <Modal
+                open={dialogOpen}
+                onCancel={() => setDialogOpen(false)}
+                title={editingId ? 'Chỉnh sửa đội/nhóm' : 'Thêm đội/nhóm mới'}
+                width={520}
+                footer={[
+                    <Button key="cancel" onClick={() => setDialogOpen(false)}>Huỷ</Button>,
+                    <Button key="ok" type="primary" onClick={handleSave} loading={saving}>Lưu</Button>,
+                ]}
+            >
+                <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+                    <Form.Item name="name" label={<span>Tên đội/nhóm <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập tên đội/nhóm' }]}>
+                        <Input placeholder="VD: Team Hà Nội 1" />
+                    </Form.Item>
+                    <Form.Item name="code" label="Mã đội (tuỳ chọn)">
+                        <Input placeholder="VD: HN01" style={{ textTransform: 'uppercase' }} onChange={e => form.setFieldValue('code', e.target.value.toUpperCase())} />
+                    </Form.Item>
+                    <Form.Item name="branchId" label="Chi nhánh">
+                        <Select placeholder="Chọn chi nhánh" allowClear
+                            options={branches.map(b => ({ value: b.id, label: b.name }))} />
+                    </Form.Item>
+                    <Form.Item name="leaderId" label="Leader phụ trách">
+                        <Select placeholder="Chọn leader" allowClear
+                            options={employees.map(e => ({ value: e.id, label: e.fullName }))} />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </>
     );
 }

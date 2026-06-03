@@ -1,16 +1,15 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
-import { toast } from 'sonner';
-import { Download } from 'lucide-react';
+import { message } from 'antd';
+import { Button, Select, Tag, Table, Card, Typography, Space, Row, Col, Statistic } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { DownloadOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import { downloadExport } from '@/lib/export';
-import PageHeader from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 type GroupBy = 'BRANCH' | 'TEAM' | 'PROJECT';
 
@@ -68,7 +67,7 @@ export default function BaoCaoDoanhThuPage() {
             });
             setData(res);
         } catch {
-            toast.error('Không thể tải báo cáo doanh thu');
+            message.error('Không thể tải báo cáo doanh thu');
         } finally {
             setLoading(false);
         }
@@ -87,173 +86,189 @@ export default function BaoCaoDoanhThuPage() {
     const barData = sorted.slice(0, 10).map((r) => ({ name: getGroupName(r, groupBy), value: r.totalRevenue }));
     const pieData = sorted.slice(0, 6).map((r) => ({ name: getGroupName(r, groupBy), value: r.totalRevenue }));
 
-    const columns: Column<RevenueRow>[] = [
+    const columns: ColumnsType<RevenueRow> = [
         {
-            key: 'stt', title: 'STT', width: 60, align: 'center',
+            title: 'STT', key: 'stt', width: 60, align: 'center',
             render: (_, __, i) => i + 1,
         },
         {
-            key: 'group', title: groupBy === 'PROJECT' ? 'Mã dự án' : groupBy === 'BRANCH' ? 'Chi nhánh' : 'Team',
+            title: groupBy === 'PROJECT' ? 'Mã dự án' : groupBy === 'BRANCH' ? 'Chi nhánh' : 'Team',
+            key: 'group',
             render: (_, r) => {
                 const name = getGroupName(r, groupBy);
                 const sub = getGroupSub(r, groupBy);
                 return (
                     <div>
-                        <div className="font-medium">
+                        <div style={{ fontWeight: 500 }}>
                             {groupBy === 'PROJECT'
-                                ? <Badge variant="warning">{name}</Badge>
+                                ? <Tag color="orange">{name}</Tag>
                                 : name}
                         </div>
-                        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+                        {sub && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{sub}</div>}
                     </div>
                 );
             },
         },
         {
-            key: 'transactionCount', title: 'Số GD thành công', width: 160, align: 'center',
+            title: 'Số GD thành công', key: 'transactionCount', width: 160, align: 'center',
             dataIndex: 'transactionCount',
-            render: (v) => <Badge variant="secondary">{v}</Badge>,
+            render: (v) => <Tag color="default">{v}</Tag>,
         },
         {
-            key: 'totalRevenue', title: 'Doanh thu', width: 200, align: 'right',
+            title: 'Doanh thu', key: 'totalRevenue', width: 200, align: 'right',
             render: (_, r) => (
-                <span className="font-semibold text-[#E8890C]">{formatCurrency(r.totalRevenue)}</span>
+                <span style={{ fontWeight: 600, color: '#E8890C' }}>{formatCurrency(r.totalRevenue)}</span>
             ),
         },
         {
-            key: 'pct', title: '% Tổng', width: 100, align: 'center',
+            title: '% Tổng', key: 'pct', width: 100, align: 'center',
             render: (_, r) => totalRevenue > 0
                 ? `${((r.totalRevenue / totalRevenue) * 100).toFixed(1)}%`
                 : '—',
         },
     ];
 
-    const summaryRow = data.length > 0 ? (
-        <>
-            <td colSpan={2} className="px-4 py-2"><strong>Tổng cộng</strong></td>
-            <td className="px-4 py-2 text-center"><strong>{totalTransactions}</strong></td>
-            <td className="px-4 py-2 text-right"><strong className="text-[#E8890C]">{formatCurrency(totalRevenue)}</strong></td>
-            <td className="px-4 py-2 text-center"><strong>100%</strong></td>
-        </>
-    ) : undefined;
+    const summary = () => (
+        data.length > 0 ? (
+            <Table.Summary.Row>
+                <Table.Summary.Cell index={0} colSpan={2}><strong>Tổng cộng</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={2} align="center"><strong>{totalTransactions}</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={3} align="right"><strong style={{ color: '#E8890C' }}>{formatCurrency(totalRevenue)}</strong></Table.Summary.Cell>
+                <Table.Summary.Cell index={4} align="center"><strong>100%</strong></Table.Summary.Cell>
+            </Table.Summary.Row>
+        ) : null
+    );
 
     return (
         <>
-            <PageHeader title="Báo cáo / Doanh thu" actions={
-                <Button variant="outline" size="sm" onClick={async () => {
+            {/* Page Header */}
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Title level={4} style={{ margin: 0 }}>Báo cáo / Doanh thu</Title>
+                <Button icon={<DownloadOutlined />} onClick={async () => {
                     try {
                         await downloadExport('/reports/revenue/export', { groupBy, fromDate, toDate, branchId: branchFilter || undefined, teamId: teamFilter || undefined }, 'bao-cao-doanh-thu');
-                    } catch { toast.error('Xuất file thất bại'); }
+                    } catch { message.error('Xuất file thất bại'); }
                 }}>
-                    <Download className="h-4 w-4" /> Xuất Excel
+                    Xuất Excel
                 </Button>
-            } />
+            </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+            <Card style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     {/* Group by tabs */}
-                    <div className="flex rounded-md border border-gray-200 overflow-hidden">
+                    <div style={{ display: 'flex', borderRadius: 6, border: '1px solid #d9d9d9', overflow: 'hidden' }}>
                         {GROUP_OPTIONS.map((opt) => (
                             <button
                                 key={opt.value}
                                 onClick={() => setGroupBy(opt.value as GroupBy)}
-                                className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                                    groupBy === opt.value
-                                        ? 'bg-[#E8890C] text-white'
-                                        : 'bg-white text-gray-600 hover:bg-gray-50'
-                                }`}
+                                style={{
+                                    padding: '6px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer', border: 'none',
+                                    background: groupBy === opt.value ? '#E8890C' : 'white',
+                                    color: groupBy === opt.value ? 'white' : '#4b5563',
+                                    transition: 'all 0.2s',
+                                }}
                             >
                                 {opt.label}
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <input type="date" className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                        <span className="text-gray-400">→</span>
-                        <input type="date" className="h-9 px-3 rounded-md border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <Space wrap>
+                        <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                        <span style={{ color: '#9ca3af' }}>→</span>
+                        <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={toDate} onChange={(e) => setToDate(e.target.value)} />
 
-                        <Select value={branchFilter} onValueChange={setBranchFilter}>
-                            <SelectTrigger className="w-44"><SelectValue placeholder="Chi nhánh" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">Tất cả chi nhánh</SelectItem>
-                                {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <Select
+                            value={branchFilter || undefined}
+                            onChange={(v) => setBranchFilter(v ?? '')}
+                            placeholder="Chi nhánh"
+                            style={{ width: 176 }}
+                            allowClear
+                            options={[{ value: '', label: 'Tất cả chi nhánh' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+                        />
 
-                        <Select value={teamFilter} onValueChange={setTeamFilter}>
-                            <SelectTrigger className="w-40"><SelectValue placeholder="Team" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">Tất cả team</SelectItem>
-                                {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <Select
+                            value={teamFilter || undefined}
+                            onChange={(v) => setTeamFilter(v ?? '')}
+                            placeholder="Team"
+                            style={{ width: 160 }}
+                            allowClear
+                            options={[{ value: '', label: 'Tất cả team' }, ...teams.map((t) => ({ value: t.id, label: t.name }))]}
+                        />
+                    </Space>
                 </div>
-            </div>
+            </Card>
 
             {/* Summary cards */}
-            <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="text-xs text-gray-400 mb-1">Tổng doanh thu</div>
-                    <div className="text-2xl font-bold text-[#E8890C]">{formatCurrency(totalRevenue)}</div>
-                </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="text-xs text-gray-400 mb-1">Số {GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}</div>
-                    <div className="text-2xl font-bold text-[#1A2B5A]">{data.length}</div>
-                </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="text-xs text-gray-400 mb-1">Tổng GD thành công</div>
-                    <div className="text-2xl font-bold text-green-500">{totalTransactions}</div>
-                </div>
-            </div>
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col span={8}>
+                    <Card>
+                        <Statistic title="Tổng doanh thu" value={formatCurrency(totalRevenue)} formatter={(v) => String(v)} valueStyle={{ color: '#E8890C', fontSize: 24, fontWeight: 700 }} />
+                    </Card>
+                </Col>
+                <Col span={8}>
+                    <Card>
+                        <Statistic title={`Số ${GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}`} value={data.length} valueStyle={{ color: '#1A2B5A', fontSize: 24, fontWeight: 700 }} />
+                    </Card>
+                </Col>
+                <Col span={8}>
+                    <Card>
+                        <Statistic title="Tổng GD thành công" value={totalTransactions} valueStyle={{ color: '#52c41a', fontSize: 24, fontWeight: 700 }} />
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Charts */}
             {data.length > 0 && (
-                <div className="grid grid-cols-12 gap-4 mb-4">
-                    <div className="col-span-8 bg-white rounded-lg border border-gray-200 p-4">
-                        <h3 className="text-sm font-semibold text-[#1A2B5A] mb-3">
-                            Doanh thu theo {GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}
-                        </h3>
-                        <ResponsiveContainer width="100%" height={260}>
-                            <BarChart data={barData} margin={{ top: 8, right: 32, left: 8, bottom: 8 }}>
-                                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                <YAxis tick={{ fontSize: 11 }} tickFormatter={formatMillions} />
-                                <Tooltip formatter={(v) => [formatCurrency(Number(v)), 'Doanh thu']} />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                    {barData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                    <div className="col-span-4 bg-white rounded-lg border border-gray-200 p-4">
-                        <h3 className="text-sm font-semibold text-[#1A2B5A] mb-3">Tỷ trọng doanh thu</h3>
-                        <ResponsiveContainer width="100%" height={260}>
-                            <PieChart>
-                                <Pie data={pieData} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value"
-                                    label={({ percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-                                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                </Pie>
-                                <Legend formatter={(v) => <span className="text-xs">{v}</span>} />
-                                <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
+                <Row gutter={16} style={{ marginBottom: 16 }}>
+                    <Col span={16}>
+                        <Card>
+                            <Title level={5} style={{ color: '#1A2B5A', marginBottom: 12 }}>
+                                Doanh thu theo {GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}
+                            </Title>
+                            <ResponsiveContainer width="100%" height={260}>
+                                <BarChart data={barData} margin={{ top: 8, right: 32, left: 8, bottom: 8 }}>
+                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                    <YAxis tick={{ fontSize: 11 }} tickFormatter={formatMillions} />
+                                    <Tooltip formatter={(v) => [formatCurrency(Number(v)), 'Doanh thu']} />
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        {barData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </Card>
+                    </Col>
+                    <Col span={8}>
+                        <Card>
+                            <Title level={5} style={{ color: '#1A2B5A', marginBottom: 12 }}>Tỷ trọng doanh thu</Title>
+                            <ResponsiveContainer width="100%" height={260}>
+                                <PieChart>
+                                    <Pie data={pieData} cx="50%" cy="45%" innerRadius={55} outerRadius={90} dataKey="value"
+                                        label={({ percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                                        {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    </Pie>
+                                    <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
+                                    <Tooltip formatter={(v) => formatCurrency(Number(v))} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </Card>
+                    </Col>
+                </Row>
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <DataTable
+            <Card>
+                <Table
                     columns={columns}
-                    data={sorted}
+                    dataSource={sorted}
                     rowKey={(r) => r.group?.id ?? r.group?.code ?? 'no-group'}
                     loading={loading}
-                    pageSize={20}
-                    summary={summaryRow}
+                    pagination={{ pageSize: 20 }}
+                    summary={summary}
+                    size="small"
                 />
-            </div>
+            </Card>
         </>
     );
 }

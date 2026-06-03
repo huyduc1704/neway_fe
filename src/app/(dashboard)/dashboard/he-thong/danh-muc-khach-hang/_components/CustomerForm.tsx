@@ -1,13 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { message } from 'antd';
 import { useRouter } from 'next/navigation';
+import { Button, Input, Select, Form, Card, Typography } from 'antd';
 import api from '@/lib/api';
-import PageHeader from '@/components/common/PageHeader';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const { Title } = Typography;
 
 interface Props {
     mode: 'create' | 'edit';
@@ -16,60 +14,44 @@ interface Props {
 
 export default function CustomerForm({ mode, customerId }: Props) {
     const router = useRouter();
+    const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-
-    const [code, setCode] = useState('');
-    const [fullName, setFullName] = useState('');
-    const [phone, setPhone] = useState('');
-    const [email, setEmail] = useState('');
-    const [address, setAddress] = useState('');
-    const [note, setNote] = useState('');
-    const [isActive, setIsActive] = useState<string>('true');
-    const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (mode === 'edit' && customerId) {
             setLoading(true);
             api.get(`/customers/${customerId}`)
                 .then(({ data }) => {
-                    setCode(data.code || '');
-                    setFullName(data.fullName || '');
-                    setPhone(data.phone || '');
-                    setEmail(data.email || '');
-                    setAddress(data.address || '');
-                    setNote(data.note || '');
-                    setIsActive(String(data.isActive ?? true));
+                    form.setFieldsValue({
+                        code: data.code || '',
+                        fullName: data.fullName || '',
+                        phone: data.phone || '',
+                        email: data.email || '',
+                        address: data.address || '',
+                        note: data.note || '',
+                        isActive: String(data.isActive ?? true),
+                    });
                 })
-                .catch(() => toast.error('Không thể tải thông tin khách hàng'))
+                .catch(() => message.error('Không thể tải thông tin khách hàng'))
                 .finally(() => setLoading(false));
         }
     }, [mode, customerId]);
 
-    const validate = () => {
-        const e: Record<string, string> = {};
-        if (!code.trim()) e.code = 'Nhập mã khách hàng';
-        if (!fullName.trim()) e.fullName = 'Nhập họ tên';
-        if (!phone.trim()) e.phone = 'Nhập số điện thoại';
-        setErrors(e);
-        return Object.keys(e).length === 0;
-    };
-
-    const onSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validate()) return;
-        setSubmitting(true);
+    const onSubmit = async () => {
         try {
+            const values = await form.validateFields();
+            setSubmitting(true);
             if (mode === 'create') {
-                await api.post('/customers', { code, fullName, phone, email: email || undefined, address: address || undefined, note: note || undefined });
-                toast.success('Tạo khách hàng thành công');
+                await api.post('/customers', { code: values.code, fullName: values.fullName, phone: values.phone, email: values.email || undefined, address: values.address || undefined, note: values.note || undefined });
+                message.success('Tạo khách hàng thành công');
             } else {
-                await api.patch(`/customers/${customerId}`, { fullName, phone, email: email || undefined, address: address || undefined, note: note || undefined, isActive: isActive === 'true' });
-                toast.success('Cập nhật thành công');
+                await api.patch(`/customers/${customerId}`, { fullName: values.fullName, phone: values.phone, email: values.email || undefined, address: values.address || undefined, note: values.note || undefined, isActive: values.isActive === 'true' });
+                message.success('Cập nhật thành công');
             }
             router.push('/dashboard/he-thong/danh-muc-khach-hang' as any);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            if (err?.response) message.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally {
             setSubmitting(false);
         }
@@ -79,91 +61,71 @@ export default function CustomerForm({ mode, customerId }: Props) {
         if (!window.confirm('Xoá khách hàng này?')) return;
         try {
             await api.delete(`/customers/${customerId}`);
-            toast.success('Đã xoá khách hàng');
+            message.success('Đã xoá khách hàng');
             router.push('/dashboard/he-thong/danh-muc-khach-hang' as any);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            message.error(err?.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20">
-                <div className="h-5 w-5 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+                <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E8890C', borderTop: '2px solid transparent', animation: 'spin 1s linear infinite' }} />
             </div>
         );
     }
 
     return (
         <>
-            <PageHeader title="Danh mục khách hàng / Tạo mới · Chỉnh sửa" />
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <form onSubmit={onSubmit}>
-                    <div className="grid grid-cols-3 gap-6">
-                        <div>
-                            <Label>Mã khách hàng <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1" placeholder="VD: KH001" value={code} onChange={(e) => setCode(e.target.value)} disabled={mode === 'edit'} />
-                            {errors.code && <p className="text-red-500 text-xs mt-1">{errors.code}</p>}
-                        </div>
-                        <div>
-                            <Label>Họ tên <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1" placeholder="Nhập họ tên khách hàng" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                            {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
-                        </div>
-                        <div>
-                            <Label>Số điện thoại <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1" placeholder="Nhập số điện thoại" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-                        </div>
+            <div style={{ marginBottom: 24 }}>
+                <Title level={4} style={{ margin: 0 }}>Danh mục khách hàng / Tạo mới · Chỉnh sửa</Title>
+            </div>
+            <Card>
+                <Form form={form} layout="vertical" initialValues={{ isActive: 'true' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
+                        <Form.Item name="code" label={<span>Mã khách hàng <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập mã khách hàng' }]}>
+                            <Input placeholder="VD: KH001" disabled={mode === 'edit'} />
+                        </Form.Item>
+                        <Form.Item name="fullName" label={<span>Họ tên <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập họ tên' }]}>
+                            <Input placeholder="Nhập họ tên khách hàng" />
+                        </Form.Item>
+                        <Form.Item name="phone" label={<span>Số điện thoại <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập số điện thoại' }]}>
+                            <Input placeholder="Nhập số điện thoại" />
+                        </Form.Item>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 mt-5">
-                        <div>
-                            <Label>Email</Label>
-                            <Input type="email" className="mt-1" placeholder="Nhập email (không bắt buộc)" value={email} onChange={(e) => setEmail(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label>Địa chỉ</Label>
-                            <Input className="mt-1" placeholder="Nhập địa chỉ (không bắt buộc)" value={address} onChange={(e) => setAddress(e.target.value)} />
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginTop: 20 }}>
+                        <Form.Item name="email" label="Email">
+                            <Input type="email" placeholder="Nhập email (không bắt buộc)" />
+                        </Form.Item>
+                        <Form.Item name="address" label="Địa chỉ">
+                            <Input placeholder="Nhập địa chỉ (không bắt buộc)" />
+                        </Form.Item>
                         {mode === 'edit' && (
-                            <div>
-                                <Label>Trạng thái</Label>
-                                <Select value={isActive} onValueChange={setIsActive}>
-                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="true">Hoạt động</SelectItem>
-                                        <SelectItem value="false">Không hoạt động</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <Form.Item name="isActive" label="Trạng thái">
+                                <Select options={[{ value: 'true', label: 'Hoạt động' }, { value: 'false', label: 'Không hoạt động' }]} />
+                            </Form.Item>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6 mt-5">
-                        <div>
-                            <Label>Ghi chú</Label>
-                            <textarea
-                                className="mt-1 w-full h-24 px-3 py-2 rounded-md border border-gray-200 text-sm resize-none focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
-                                placeholder="Ghi chú thêm..."
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                            />
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 20 }}>
+                        <Form.Item name="note" label="Ghi chú">
+                            <Input.TextArea placeholder="Ghi chú thêm..." rows={4} />
+                        </Form.Item>
                     </div>
 
-                    <div className="flex justify-end gap-2 mt-6">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
                         {mode === 'edit' && (
-                            <Button type="button" variant="destructive" onClick={handleDelete}>Xoá</Button>
+                            <Button danger onClick={handleDelete}>Xoá</Button>
                         )}
-                        <Button type="button" variant="outline" onClick={() => router.back()}>Huỷ</Button>
-                        <Button type="submit" disabled={submitting}>
-                            {submitting && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
+                        <Button onClick={() => router.back()}>Huỷ</Button>
+                        <Button type="primary" onClick={onSubmit} loading={submitting}>
                             Lưu thay đổi
                         </Button>
                     </div>
-                </form>
-            </div>
+                </Form>
+            </Card>
         </>
     );
 }
