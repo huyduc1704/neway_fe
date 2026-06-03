@@ -1,20 +1,24 @@
+'use client';
+import { Layout } from 'antd';
 import Sidebar from '@/components/layout/Sidebar';
 import AppHeader from '@/components/layout/AppHeader';
 
+const { Content, Footer } = Layout;
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen bg-[#f0f2f5]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <AppHeader />
-        <main className="flex-1 p-6">
-          {children}
-        </main>
-        <footer className="text-center text-[11px] text-gray-400 py-3 px-6 border-t border-gray-200 bg-white">
-          ĐC: 64 Bình Long, Phường Phú Thạnh, TP.HCM | Email: newayhome267@gmail.com | Hotline: 0916 793 576
-          <br />Copyright ©2026. Bản quyền thuộc về <strong className="text-gray-600">Neway Home</strong>. Web Design by Vinasoftware (VNS)
-        </footer>
-      </div>
-    </div>
-  );
+    return (
+        <Layout style={{ minHeight: '100vh' }}>
+            <Sidebar />
+            <Layout>
+                <AppHeader />
+                <Content style={{ padding: 24, minHeight: 'calc(100vh - 64px - 60px)' }}>
+                    {children}
+                </Content>
+                <Footer style={{ textAlign: 'center', fontSize: 12, color: '#888', padding: '12px 24px' }}>
+                    ĐC: 64 Bình Long, Phường Phú Thạnh, TP.HCM | Email: newayhome267@gmail.com | Hotline: 0916 793 576
+                    <br />Copyright ©2026. Bản quyền thuộc về <strong>Neway Home</strong>. Web Design by Vinasoftware (VNS)
+                </Footer>
+            </Layout>
+        </Layout>
+    );
 }
