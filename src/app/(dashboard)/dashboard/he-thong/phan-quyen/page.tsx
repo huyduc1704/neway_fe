@@ -1,62 +1,159 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { message } from 'antd';
-import { Plus, Trash2, ShieldCheck } from 'lucide-react';
-import { Button, Input, Tag, Card, Modal, Form, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Tag, Typography, Checkbox, Spin, Tooltip, message, Modal, Form, Select, Input } from 'antd';
+import { SafetyCertificateOutlined, ThunderboltOutlined, PlusOutlined, KeyOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
-interface Permission { id: string; action: string; resource: string; description: string | null; }
-interface Role       { id: string; code: string; name: string; isActive: boolean; }
+const ACTION_LABELS: Record<string, string> = {
+    VIEW:    'Xem',
+    CREATE:  'Tạo mới',
+    EDIT:    'Chỉnh sửa',
+    DELETE:  'Xoá',
+    EXPORT:  'Xuất file',
+    LOCK:    'Khoá',
+    APPROVE: 'Duyệt',
+    CANCEL:  'Huỷ',
+};
+
+interface ActionDef { code: string; label: string; }
+interface ModuleDef  { resource: string; label: string; actions: ActionDef[]; }
+
+const MODULES: ModuleDef[] = [
+    { resource: 'EMPLOYEE',     label: 'Quản lý nhân sự',      actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'PROJECT',      label: 'Quản lý dự án',         actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'TRANSACTION',  label: 'Quản lý giao dịch',     actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'REVENUE',      label: 'Quản lý doanh thu',     actions: ['VIEW','EDIT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'REPORT',       label: 'Báo cáo & Thống kê',    actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'PAYROLL',      label: 'Tính lương & Hoa hồng', actions: ['VIEW','CREATE','EDIT','LOCK'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'DISBURSEMENT', label: 'Uỷ nhiệm chi',          actions: ['VIEW','CREATE','EDIT','APPROVE','CANCEL'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'ROLE',         label: 'Quản lý vai trò',       actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'PERMISSION',   label: 'Phân quyền',            actions: ['VIEW','EDIT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'BRANCH',       label: 'Chi nhánh',             actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'TEAM',         label: 'Đội / Nhóm',            actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'REGION',       label: 'Khu vực',               actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'CUSTOMER',     label: 'Danh mục khách hàng',   actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'KPI',          label: 'KPI Targets',           actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+];
+
+type PermKey = string;
+
+const CASCADE_UP: Record<string, string[]> = {
+    CREATE: ['VIEW'], EDIT: ['VIEW'], DELETE: ['VIEW','EDIT'],
+    EXPORT: ['VIEW'], LOCK: ['VIEW'], APPROVE: ['VIEW'], CANCEL: ['VIEW'],
+};
+const CASCADE_DOWN: Record<string, string[]> = {
+    VIEW: ['CREATE','EDIT','DELETE','EXPORT','LOCK','APPROVE','CANCEL'],
+    EDIT: ['DELETE'],
+};
+
+interface Permission { id: string; key: string; module: string; action: string; description?: string; }
+interface Role        { id: string; code: string; name: string; isActive: boolean; }
 
 export default function PhanQuyenPage() {
     const [roles,        setRoles]        = useState<Role[]>([]);
-    const [permissions,  setPermissions]  = useState<Permission[]>([]);
+    const [allPerms,     setAllPerms]     = useState<Permission[]>([]);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+    const [checkedKeys,  setCheckedKeys]  = useState<Set<PermKey>>(new Set());
     const [loadingPerms, setLoadingPerms] = useState(false);
     const [saving,       setSaving]       = useState(false);
-    const [checkedIds,   setCheckedIds]   = useState<Set<string>>(new Set());
-
-    const [addDialog,   setAddDialog]   = useState(false);
-    const [creating,    setCreating]    = useState(false);
-    const [addForm] = Form.useForm();
+    const [seeding,      setSeeding]      = useState(false);
+    const [addModal,     setAddModal]     = useState(false);
+    const [addForm]                       = Form.useForm();
+    const [creating,     setCreating]     = useState(false);
+    const [permMap,      setPermMap]      = useState<Map<PermKey, string>>(new Map());
 
     useEffect(() => {
-        api.get('/roles',       { params: { limit: 200 } }).then(({ data }) => setRoles(data.data ?? [])).catch(() => {});
-        api.get('/permissions').then(({ data }) => setPermissions(data.data ?? data ?? [])).catch(() => {});
+        api.get('/roles', { params: { limit: 200 } }).then(({ data }) => setRoles(data.data ?? [])).catch(() => {});
+        loadAllPerms();
     }, []);
+
+    const loadAllPerms = async () => {
+        try {
+            const { data } = await api.get('/permissions');
+            const perms: Permission[] = Array.isArray(data) ? data : (data.data ?? []);
+            setAllPerms(perms);
+            const map = new Map<PermKey, string>();
+            perms.forEach(p => map.set(`${p.module}::${p.action}`, p.id));
+            setPermMap(map);
+        } catch { /* silent */ }
+    };
 
     const loadRolePerms = useCallback(async (role: Role) => {
         setSelectedRole(role);
         setLoadingPerms(true);
         try {
             const { data } = await api.get(`/roles/${role.id}/permissions`);
-            const perms: Permission[] = data.data ?? data ?? [];
-            setRolePerms(perms);
-            setCheckedIds(new Set(perms.map((p: Permission) => p.id)));
-        } catch { message.error('Không thể tải quyền của vai trò'); }
-        finally { setLoadingPerms(false); }
+            const perms: Permission[] = Array.isArray(data) ? data : (data.data ?? []);
+            setCheckedKeys(new Set(perms.map(p => `${p.module}::${p.action}`)));
+        } catch {
+            message.error('Không thể tải quyền của vai trò');
+        } finally { setLoadingPerms(false); }
     }, []);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_rolePerms, setRolePerms] = useState<Permission[]>([]);
-
-    const togglePerm = (id: string) => {
-        setCheckedIds(prev => {
+    const togglePerm = (resource: string, action: string) => {
+        const key: PermKey = `${resource}::${action}`;
+        setCheckedKeys(prev => {
             const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
+            if (next.has(key)) {
+                next.delete(key);
+                (CASCADE_DOWN[action] ?? []).forEach(dep => next.delete(`${resource}::${dep}`));
+            } else {
+                next.add(key);
+                (CASCADE_UP[action] ?? []).forEach(dep => next.add(`${resource}::${dep}`));
+            }
             return next;
         });
     };
 
+    const toggleModule = (mod: ModuleDef) => {
+        const allKeys = mod.actions.map(a => `${mod.resource}::${a.code}`);
+        const allChecked = allKeys.every(k => checkedKeys.has(k));
+        setCheckedKeys(prev => {
+            const next = new Set(prev);
+            if (allChecked) {
+                allKeys.forEach(k => next.delete(k));
+            } else {
+                allKeys.forEach(k => next.add(k));
+                mod.actions.forEach(a => {
+                    (CASCADE_UP[a.code] ?? []).forEach(dep => next.add(`${mod.resource}::${dep}`));
+                });
+            }
+            return next;
+        });
+    };
+
+    const handleSeed = async () => {
+        const missing: { key: string; module: string; action: string; description: string }[] = [];
+        MODULES.forEach(mod => {
+            mod.actions.forEach(a => {
+                if (!permMap.has(`${mod.resource}::${a.code}`)) {
+                    missing.push({ key: `${mod.resource}_${a.code}`, module: mod.resource, action: a.code, description: `${mod.label} — ${a.label}` });
+                }
+            });
+        });
+        if (missing.length === 0) { message.info('Tất cả quyền đã được seed rồi'); return; }
+        setSeeding(true);
+        try {
+            for (const m of missing) {
+                try { await api.post('/permissions', m); } catch { /* bỏ qua nếu đã tồn tại */ }
+            }
+            message.success(`Đã seed ${missing.length} quyền mới`);
+            await loadAllPerms();
+        } catch {
+            message.error('Seed thất bại, vui lòng thử lại');
+        } finally { setSeeding(false); }
+    };
+
     const handleSave = async () => {
         if (!selectedRole) return;
+        const ids: string[] = [];
+        checkedKeys.forEach(key => { const id = permMap.get(key); if (id) ids.push(id); });
         setSaving(true);
         try {
-            await api.put(`/roles/${selectedRole.id}/permissions`, { permissionIds: [...checkedIds] });
-            message.success(`Đã cập nhật quyền cho vai trò "${selectedRole.name}"`);
+            await api.put(`/roles/${selectedRole.id}/permissions`, { permissionIds: ids });
+            message.success(`Đã lưu quyền cho vai trò "${selectedRole.name}"`);
         } catch (err: any) {
             message.error(err?.response?.data?.message || 'Lưu thất bại');
         } finally { setSaving(false); }
@@ -66,179 +163,232 @@ export default function PhanQuyenPage() {
         try {
             const values = await addForm.validateFields();
             setCreating(true);
-            await api.post('/permissions', { action: values.action.trim().toUpperCase(), resource: values.resource.trim().toUpperCase(), description: values.desc || undefined });
-            message.success('Đã thêm permission');
-            const { data } = await api.get('/permissions');
-            setPermissions(data.data ?? data ?? []);
+            await api.post('/permissions', {
+                key: values.key, module: values.module, action: values.action,
+                description: values.description || undefined,
+            });
+            message.success('Đã tạo quyền mới');
+            await loadAllPerms();
             addForm.resetFields();
-            setAddDialog(false);
+            setAddModal(false);
         } catch (err: any) {
-            if (err?.response) message.error(err?.response?.data?.message || 'Tạo thất bại');
+            if (err?.response?.status === 409) {
+                addForm.setFields([{ name: 'key', errors: ['Mã quyền này đã tồn tại'] }]);
+            } else if (err?.response) {
+                const msg = err.response.data?.message;
+                message.error(Array.isArray(msg) ? msg[0] : msg || 'Tạo thất bại');
+            }
         } finally { setCreating(false); }
     };
 
-    const handleDeletePermission = async (id: string) => {
-        if (!window.confirm('Xoá permission này?')) return;
-        try {
-            await api.delete(`/permissions/${id}`);
-            message.success('Đã xoá permission');
-            setPermissions(p => p.filter(x => x.id !== id));
-            setCheckedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Xoá thất bại'); }
+    const handleModuleOrActionChange = () => {
+        const mod    = addForm.getFieldValue('module');
+        const action = addForm.getFieldValue('action');
+        if (mod && action) addForm.setFieldValue('key', `${mod}_${action}`);
     };
 
-    const grouped = permissions.reduce<Record<string, Permission[]>>((acc, p) => {
-        const key = p.resource || 'Khác';
-        (acc[key] ??= []).push(p);
-        return acc;
-    }, {});
+    const missingCount = MODULES.reduce((n, mod) =>
+        n + mod.actions.filter(a => !permMap.has(`${mod.resource}::${a.code}`)).length, 0);
 
     return (
         <>
-            <div style={{ marginBottom: 24 }}>
-                <Title level={4} style={{ margin: 0 }}>Hệ thống / Phân quyền</Title>
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Title level={4} style={{ margin: 0 }}>Phân quyền theo vai trò</Title>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    {missingCount > 0 && (
+                        <Tooltip title={`${missingCount} quyền chưa được tạo trong database`}>
+                            <Button icon={<ThunderboltOutlined />} onClick={handleSeed} loading={seeding}>
+                                Seed {missingCount} quyền còn thiếu
+                            </Button>
+                        </Tooltip>
+                    )}
+                    <Button type="primary" icon={<PlusOutlined />}
+                        style={{ background: '#E8890C', borderColor: '#E8890C' }}
+                        onClick={() => { addForm.resetFields(); setAddModal(true); }}>
+                        Tạo quyền mới
+                    </Button>
+                </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
-                {/* Role list */}
-                <Card>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: '#1A2B5A', marginBottom: 12 }}>Chọn vai trò</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'start' }}>
+                <Card bodyStyle={{ padding: 12 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8, paddingLeft: 4 }}>Chọn vai trò</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         {roles.map(r => (
-                            <button
-                                key={r.id}
-                                onClick={() => loadRolePerms(r)}
-                                style={{
-                                    width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8, fontSize: 14, cursor: 'pointer', border: 'none',
-                                    background: selectedRole?.id === r.id ? '#fff7ed' : 'transparent',
-                                    color: selectedRole?.id === r.id ? '#E8890C' : '#4b5563',
-                                    fontWeight: selectedRole?.id === r.id ? 500 : 400,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    transition: 'all 0.2s',
-                                }}
-                            >
+                            <button key={r.id} onClick={() => loadRolePerms(r)} style={{
+                                width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: 8,
+                                fontSize: 13, cursor: 'pointer', border: 'none',
+                                background: selectedRole?.id === r.id ? '#fff7ed' : 'transparent',
+                                color:      selectedRole?.id === r.id ? '#E8890C' : '#4b5563',
+                                fontWeight: selectedRole?.id === r.id ? 600 : 400,
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <ShieldCheck size={16} style={{ flexShrink: 0 }} />
+                                    <SafetyCertificateOutlined />
                                     {r.name}
                                 </span>
-                                <Tag color={r.isActive ? 'success' : 'default'} style={{ fontSize: 10 }}>
+                                <Tag color={r.isActive ? 'success' : 'default'} style={{ fontSize: 10, lineHeight: '18px' }}>
                                     {r.isActive ? 'Active' : 'Off'}
                                 </Tag>
                             </button>
                         ))}
-                        {roles.length === 0 && <p style={{ fontSize: 14, color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>Chưa có vai trò</p>}
+                        {roles.length === 0 && (
+                            <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '16px 0' }}>Chưa có vai trò</p>
+                        )}
                     </div>
                 </Card>
 
-                {/* Permissions */}
                 <Card>
                     {!selectedRole ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', color: '#9ca3af' }}>
-                            <ShieldCheck size={40} style={{ marginBottom: 12, opacity: 0.3 }} />
+                        <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
+                            <SafetyCertificateOutlined style={{ fontSize: 40, opacity: 0.3, display: 'block', marginBottom: 12 }} />
                             <p style={{ fontSize: 14 }}>Chọn một vai trò bên trái để phân quyền</p>
                         </div>
+                    ) : loadingPerms ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spin size="large" /></div>
                     ) : (
                         <>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                                 <div>
-                                    <p style={{ fontSize: 14, fontWeight: 600, color: '#1A2B5A', margin: 0 }}>
+                                    <Text strong style={{ fontSize: 15 }}>
                                         Quyền của: <span style={{ color: '#E8890C' }}>{selectedRole.name}</span>
-                                    </p>
-                                    <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{checkedIds.size} / {permissions.length} quyền được chọn</p>
+                                    </Text>
+                                    <br />
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                        {checkedKeys.size} / {permMap.size} quyền được chọn
+                                    </Text>
                                 </div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <Button icon={<PlusOutlined />} onClick={() => { addForm.resetFields(); setAddDialog(true); }}>
-                                        Thêm permission
-                                    </Button>
-                                    <Button type="primary" onClick={handleSave} loading={saving} style={{ background: '#E8890C', borderColor: '#E8890C' }}>
-                                        Lưu thay đổi
-                                    </Button>
-                                </div>
+                                <Button type="primary" loading={saving} onClick={handleSave}
+                                    style={{ background: '#E8890C', borderColor: '#E8890C' }}>
+                                    Lưu thay đổi
+                                </Button>
                             </div>
 
-                            {loadingPerms ? (
-                                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-                                    <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E8890C', borderTop: '2px solid transparent', animation: 'spin 1s linear infinite' }} />
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', paddingRight: 4 }}>
-                                    {Object.entries(grouped).sort().map(([resource, perms]) => (
-                                        <div key={resource}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                                <span style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>{resource}</span>
-                                                <div style={{ flex: 1, height: 1, background: '#f3f4f6' }} />
-                                                <button
-                                                    style={{ fontSize: 12, color: '#E8890C', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                                    onClick={() => {
-                                                        const allChecked = perms.every(p => checkedIds.has(p.id));
-                                                        setCheckedIds(prev => {
-                                                            const next = new Set(prev);
-                                                            perms.forEach(p => allChecked ? next.delete(p.id) : next.add(p.id));
-                                                            return next;
-                                                        });
-                                                    }}
-                                                >
-                                                    {perms.every(p => checkedIds.has(p.id)) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                                                </button>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                {MODULES.map((mod, i) => {
+                                    const allKeys = mod.actions.map(a => `${mod.resource}::${a.code}`);
+                                    const checkedCount = allKeys.filter(k => checkedKeys.has(k)).length;
+                                    const allChecked = checkedCount === mod.actions.length;
+                                    const partial = checkedCount > 0 && !allChecked;
+                                    return (
+                                        <div key={mod.resource} style={{
+                                            display: 'grid', gridTemplateColumns: '220px 1fr',
+                                            borderTop: i === 0 ? '1px solid #f0f0f0' : undefined,
+                                            borderBottom: '1px solid #f0f0f0',
+                                        }}>
+                                            <div style={{
+                                                padding: '12px 16px', borderRight: '1px solid #f0f0f0',
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                background: checkedCount > 0 ? '#fffbf5' : 'transparent',
+                                            }}>
+                                                <Checkbox checked={allChecked} indeterminate={partial} onChange={() => toggleModule(mod)} />
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{mod.label}</div>
+                                                    {checkedCount > 0 && (
+                                                        <div style={{ fontSize: 11, color: '#E8890C' }}>{checkedCount}/{mod.actions.length} quyền</div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                                                {perms.map(p => (
-                                                    <label key={p.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid #f3f4f6', cursor: 'pointer' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: '#E8890C' }}
-                                                            checked={checkedIds.has(p.id)}
-                                                            onChange={() => togglePerm(p.id)}
-                                                        />
-                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ fontSize: 14, fontWeight: 500, color: '#1f2937' }}>{p.action}</div>
-                                                            {p.description && <div style={{ fontSize: 12, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>}
-                                                        </div>
-                                                        <button
-                                                            style={{ padding: 2, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
-                                                            title="Xoá permission"
-                                                            onClick={e => { e.preventDefault(); handleDeletePermission(p.id); }}
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </label>
-                                                ))}
+                                            <div style={{ padding: '12px 16px', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                {mod.actions.map(a => {
+                                                    const key = `${mod.resource}::${a.code}`;
+                                                    const checked = checkedKeys.has(key);
+                                                    const missing = !permMap.has(key);
+                                                    return (
+                                                        <Tooltip key={a.code} title={missing ? 'Quyền này chưa được seed vào database' : undefined}>
+                                                            <Checkbox checked={checked} disabled={missing}
+                                                                onChange={() => togglePerm(mod.resource, a.code)}
+                                                                style={{ userSelect: 'none' }}>
+                                                                <span style={{ fontSize: 13, color: missing ? '#d1d5db' : checked ? '#E8890C' : '#374151', fontWeight: checked ? 500 : 400 }}>
+                                                                    {a.label}
+                                                                </span>
+                                                            </Checkbox>
+                                                        </Tooltip>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                    ))}
-                                    {permissions.length === 0 && (
-                                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 14 }}>
-                                            Chưa có permission nào. Nhấn "Thêm permission" để bắt đầu.
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                    );
+                                })}
+                            </div>
+
+                            <div style={{ marginTop: 16, padding: '10px 14px', background: '#f9fafb', borderRadius: 8, fontSize: 12, color: '#6b7280' }}>
+                                <strong>Quy tắc tự động: </strong>
+                                Tick <em>Xoá</em> → tự tick <em>Xem + Chỉnh sửa</em> &nbsp;|&nbsp;
+                                Tick <em>Chỉnh sửa / Tạo mới</em> → tự tick <em>Xem</em> &nbsp;|&nbsp;
+                                Bỏ <em>Xem</em> → tự bỏ tất cả quyền của nhóm đó
+                            </div>
                         </>
                     )}
                 </Card>
             </div>
 
-            {/* Add Permission Modal */}
-            <Modal
-                open={addDialog}
-                onCancel={() => setAddDialog(false)}
-                title="Thêm permission mới"
-                width={400}
-                footer={[
-                    <Button key="cancel" onClick={() => setAddDialog(false)}>Huỷ</Button>,
-                    <Button key="ok" type="primary" onClick={handleCreatePermission} loading={creating}>Tạo</Button>,
-                ]}
-            >
-                <Form form={addForm} layout="vertical" style={{ marginTop: 16 }}>
-                    <Form.Item name="resource" label={<span>Resource <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập resource' }]}>
-                        <Input placeholder="VD: PROJECT, USER..." style={{ textTransform: 'uppercase' }} onChange={e => addForm.setFieldValue('resource', e.target.value.toUpperCase())} />
+            {/* ── Modal tạo quyền mới ── */}
+            <Modal open={addModal} onCancel={() => setAddModal(false)}
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <KeyOutlined style={{ color: '#E8890C' }} />
+                        <span>Tạo quyền tuỳ chỉnh</span>
+                    </div>
+                }
+                width={500} footer={null} destroyOnClose>
+                <Form form={addForm} layout="vertical" style={{ marginTop: 16 }} onFinish={handleCreatePermission}>
+
+                    <Form.Item name="module" label="Nhóm chức năng"
+                        rules={[{ required: true, message: 'Vui lòng chọn nhóm chức năng' }]}
+                        extra="Quyền này thuộc về nhóm chức năng nào trong hệ thống">
+                        <Select showSearch allowClear placeholder="Chọn nhóm chức năng..."
+                            onChange={handleModuleOrActionChange}
+                            options={MODULES.map(m => ({ value: m.resource, label: m.label }))}
+                            filterOption={(input, opt) =>
+                                (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                        />
                     </Form.Item>
-                    <Form.Item name="action" label={<span>Action <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập action' }]}>
-                        <Input placeholder="VD: READ, CREATE, UPDATE..." style={{ textTransform: 'uppercase' }} onChange={e => addForm.setFieldValue('action', e.target.value.toUpperCase())} />
+
+                    <Form.Item name="action" label="Hành động"
+                        rules={[{ required: true, message: 'Vui lòng chọn hành động' }]}
+                        extra="Hành động cụ thể được phép thực hiện">
+                        <Select showSearch allowClear placeholder="Chọn hành động..."
+                            onChange={handleModuleOrActionChange}
+                            options={Object.entries(ACTION_LABELS).map(([value, label]) => ({
+                                value,
+                                label: (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                                        <span>{label}</span>
+                                        <span style={{ color: '#d1d5db', fontSize: 12 }}>{value}</span>
+                                    </div>
+                                ),
+                            }))}
+                            filterOption={(input, opt) =>
+                                (opt?.value as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                        />
                     </Form.Item>
-                    <Form.Item name="desc" label="Mô tả">
-                        <Input placeholder="Mô tả ngắn về quyền này..." />
+
+                    <Form.Item name="key"
+                        label={
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                Mã quyền &nbsp;
+                                <Tag color="orange" style={{ fontSize: 11, marginRight: 0 }}>không trùng</Tag>
+                            </span>
+                        }
+                        rules={[{ required: true, message: 'Mã quyền không được để trống' }]}
+                        extra="Tự sinh từ Nhóm chức năng + Hành động. Có thể chỉnh tay nếu cần.">
+                        <Input placeholder="VD: EMPLOYEE_VIEW" style={{ fontFamily: 'monospace' }}
+                            onChange={e => addForm.setFieldValue('key', e.target.value.toUpperCase().replace(/\s+/g, '_'))}
+                        />
                     </Form.Item>
+
+                    <Form.Item name="description" label="Mô tả">
+                        <Input.TextArea rows={2} placeholder="Mô tả ngắn về quyền này (tuỳ chọn)..." />
+                    </Form.Item>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                        <Button onClick={() => setAddModal(false)}>Huỷ</Button>
+                        <Button type="primary" htmlType="submit" loading={creating}
+                            style={{ background: '#E8890C', borderColor: '#E8890C' }}>
+                            Tạo quyền
+                        </Button>
+                    </div>
                 </Form>
             </Modal>
         </>

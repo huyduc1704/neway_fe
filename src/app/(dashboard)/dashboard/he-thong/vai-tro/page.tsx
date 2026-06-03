@@ -1,11 +1,9 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2 } from 'lucide-react';
-import { Button, Input, Tag, Table, Card, Typography, Space } from 'antd';
+import { Table, Input, Tag, Typography, Card, Space, Button, Tooltip, Popconfirm, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 
 const { Title } = Typography;
@@ -14,81 +12,122 @@ interface Role {
     id: string;
     code: string;
     name: string;
-    description: string;
+    description: string | null;
+    commissionPercent: string | null;
+    fixedSalary: string | null;
+    kpi: string | null;
     isActive: boolean;
-    createdAt: string;
+    taskSalaries: { id: string }[];
     _count: { users: number };
 }
 
+const fmtCurrency = (v: string | null) =>
+    v ? new Intl.NumberFormat('vi-VN').format(Number(v)) + 'đ' : '—';
+
 export default function VaiTroPage() {
     const router = useRouter();
-    const [roles, setRoles] = useState<Role[]>([]);
+    const [roles, setRoles]     = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState('');
-    const [searchInput, setSearchInput] = useState('');
-    const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
+    const [search, setSearch]   = useState('');
+    const [total, setTotal]     = useState(0);
+    const [page, setPage]       = useState(1);
+    const limit = 20;
 
-    const fetchRoles = useCallback(async () => {
+    const fetchRoles = useCallback(async (p = 1, q = search) => {
         setLoading(true);
         try {
             const { data } = await api.get('/roles', {
-                params: { page: pagination.page, limit: pagination.limit, search: search || undefined },
+                params: { page: p, limit, search: q || undefined },
             });
             setRoles(data.data);
-            setPagination((p) => ({ ...p, total: data.meta.total }));
+            setTotal(data.meta.total);
         } catch {
             message.error('Không thể tải danh sách vai trò');
         } finally {
             setLoading(false);
         }
-    }, [pagination.page, pagination.limit, search]);
+    }, [search]);
 
-    useEffect(() => { fetchRoles(); }, [fetchRoles]);
+    useEffect(() => { fetchRoles(1); }, []);
 
     const handleDelete = async (id: string, userCount: number) => {
         if (userCount > 0) {
-            message.error(`Vai trò đang được gán cho ${userCount} người dùng, không thể xoá`);
+            message.error(`Vai trò đang có ${userCount} người dùng, không thể xoá`);
             return;
         }
-        if (!window.confirm('Xoá vai trò này?')) return;
         try {
             await api.delete(`/roles/${id}`);
             message.success('Đã xoá vai trò');
-            fetchRoles();
+            fetchRoles(page);
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
+            message.error(err?.response?.data?.message || 'Xoá thất bại');
         }
     };
 
     const columns: ColumnsType<Role> = [
         {
-            title: 'STT', key: 'stt', width: 60, align: 'center',
-            render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1,
+            title: 'STT', key: 'stt', width: 56, align: 'center' as const,
+            render: (_, __, i) => (page - 1) * limit + i + 1,
         },
-        { title: 'Mã vai trò', key: 'code', width: 140, render: (_, r) => <Tag color="orange">{r.code}</Tag> },
-        { title: 'Tên vai trò', key: 'name', render: (_, r) => <span style={{ fontWeight: 500 }}>{r.name}</span> },
-        { title: 'Mô tả', key: 'description', render: (_, r) => r.description || '—' },
-        { title: 'Số người dùng', key: 'userCount', width: 130, align: 'center', render: (_, r) => r._count?.users ?? 0 },
         {
-            title: 'Trạng thái', key: 'status', width: 140, align: 'center',
+            title: 'Tên vai trò', key: 'name',
             render: (_, r) => (
-                <Tag color={r.isActive ? 'success' : 'default'}>
-                    {r.isActive ? 'Hoạt động' : 'Không hoạt động'}
-                </Tag>
+                <div>
+                    <div style={{ fontWeight: 600 }}>{r.name}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>{r.code}</div>
+                </div>
             ),
         },
         {
-            title: 'Thao tác', key: 'actions', width: 100, align: 'center',
+            title: 'Lương cố định', key: 'fixedSalary', width: 160,
             render: (_, r) => (
-                <Space>
-                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => router.push(`/dashboard/he-thong/vai-tro/${r.id}` as any)}>
-                        <Pencil size={16} />
-                    </button>
-                    <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: r._count?.users > 0 ? 'not-allowed' : 'pointer', color: r._count?.users > 0 ? '#d1d5db' : '#6b7280', opacity: r._count?.users > 0 ? 0.4 : 1 }}
-                        onClick={() => handleDelete(r.id, r._count?.users ?? 0)}>
-                        <Trash2 size={16} />
-                    </button>
+                <span style={{ color: '#E8890C', fontWeight: 500 }}>
+                    {fmtCurrency(r.fixedSalary)}
+                </span>
+            ),
+        },
+        {
+            title: 'Hoa hồng', key: 'commission', width: 100, align: 'center' as const,
+            render: (_, r) => r.commissionPercent != null
+                ? <Tag color="orange">{Number(r.commissionPercent)}%</Tag>
+                : '—',
+        },
+        {
+            title: 'Lương Nhiệm Vụ', key: 'taskSalaries', width: 140, align: 'center' as const,
+            render: (_, r) => r.taskSalaries?.length
+                ? <Tag color="blue">{r.taskSalaries.length} nhiệm vụ</Tag>
+                : <span style={{ color: '#d1d5db' }}>—</span>,
+        },
+        {
+            title: 'KPI', key: 'kpi', width: 200,
+            render: (_, r) => r.kpi
+                ? <Tooltip title={r.kpi}><span style={{ fontSize: 13 }}>{r.kpi.length > 40 ? r.kpi.slice(0, 40) + '…' : r.kpi}</span></Tooltip>
+                : '—',
+        },
+        {
+            title: 'Ghi chú', key: 'description', width: 200,
+            render: (_, r) => r.description
+                ? <Tooltip title={r.description}><span style={{ fontSize: 13, color: '#6b7280' }}>{r.description.length > 40 ? r.description.slice(0, 40) + '…' : r.description}</span></Tooltip>
+                : '—',
+        },
+        {
+            title: 'Thao tác', key: 'actions', width: 90, align: 'center' as const,
+            render: (_, r) => (
+                <Space size={4}>
+                    <Tooltip title="Chỉnh sửa">
+                        <Button size="small" type="text" icon={<EditOutlined />}
+                            onClick={() => router.push(`/dashboard/he-thong/vai-tro/${r.id}`)} />
+                    </Tooltip>
+                    <Popconfirm
+                        title={r._count?.users > 0
+                            ? `Vai trò đang có ${r._count.users} người dùng, không thể xoá`
+                            : 'Xác nhận xoá vai trò này?'}
+                        okText="Xoá" cancelText="Huỷ"
+                        okButtonProps={{ danger: true, disabled: r._count?.users > 0 }}
+                        onConfirm={() => handleDelete(r.id, r._count?.users ?? 0)}>
+                        <Button size="small" type="text" icon={<DeleteOutlined />} danger
+                            disabled={r._count?.users > 0} />
+                    </Popconfirm>
                 </Space>
             ),
         },
@@ -97,31 +136,39 @@ export default function VaiTroPage() {
     return (
         <>
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Title level={4} style={{ margin: 0 }}>Vai trò / Danh sách</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/vai-tro/tao-moi' as any)}>
-                    Tạo mới vai trò
+                <Title level={4} style={{ margin: 0 }}>Quản lý vai trò</Title>
+                <Button type="primary" icon={<PlusOutlined />}
+                    style={{ background: '#E8890C', borderColor: '#E8890C' }}
+                    onClick={() => router.push('/dashboard/he-thong/vai-tro/tao-moi')}>
+                    Tạo vai trò mới
                 </Button>
             </div>
 
             <Card>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
                     <Input
                         prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
-                        placeholder="Tìm kiếm mã hoặc tên vai trò..."
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        onPressEnter={() => { setSearch(searchInput); setPagination((p) => ({ ...p, page: 1 })); }}
-                        style={{ width: 320 }}
+                        placeholder="Tìm mã hoặc tên vai trò..."
+                        style={{ width: 280 }}
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        onPressEnter={() => { setPage(1); fetchRoles(1, search); }}
+                        allowClear
+                        onClear={() => { setSearch(''); fetchRoles(1, ''); }}
                     />
                 </div>
-
                 <Table
                     columns={columns}
                     dataSource={roles}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: pagination.limit, total: pagination.total, current: pagination.page, onChange: (page) => setPagination((p) => ({ ...p, page })), showTotal: (total) => `Tổng: ${total} vai trò` }}
                     size="small"
+                    pagination={{
+                        current: page, pageSize: limit, total,
+                        showSizeChanger: false,
+                        showTotal: t => `Tổng: ${t} vai trò`,
+                        onChange: p => { setPage(p); fetchRoles(p); },
+                    }}
                 />
             </Card>
         </>

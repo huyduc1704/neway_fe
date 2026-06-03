@@ -40,7 +40,6 @@ const menuItems = [
         label: 'Quản lý dự án',
         children: [
             { key: '/dashboard/quan-ly-du-an/thong-tin', label: 'Quản lý thông tin dự án' },
-            { key: '/dashboard/quan-ly-du-an/doanh-thu', label: 'Quản lý doanh thu' },
             { key: '/dashboard/quan-ly-du-an/giao-dich', label: 'Quản lý giao dịch' },
         ],
     },
@@ -49,10 +48,8 @@ const menuItems = [
         icon: <SettingOutlined />,
         label: 'Quản lý hệ thống',
         children: [
-            { key: '/dashboard/he-thong/nguoi-dung', label: 'Người dùng' },
             { key: '/dashboard/he-thong/vai-tro', label: 'Vai trò' },
             { key: '/dashboard/he-thong/phan-quyen', label: 'Phân quyền' },
-            { key: '/dashboard/he-thong/danh-muc-du-an', label: 'Danh mục dự án' },
             { key: '/dashboard/he-thong/danh-muc-khach-hang', label: 'Danh mục khách hàng' },
             { key: '/dashboard/he-thong/danh-muc-nhan-su', label: 'Danh mục nhân sự' },
             { key: '/dashboard/he-thong/chi-nhanh', label: 'Chi nhánh' },
