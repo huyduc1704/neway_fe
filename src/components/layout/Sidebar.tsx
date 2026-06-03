@@ -12,18 +12,21 @@ const menuItems = [
         label: 'Bảng điều khiển',
     },
     {
-        key: 'bao-cao',
-        icon: <BarChartOutlined />,
-        label: 'Báo cáo',
+        key: 'he-thong',
+        icon: <SettingOutlined />,
+        label: 'Quản lý hệ thống',
         children: [
-            { key: '/dashboard/bao-cao/doanh-thu', label: 'Báo cáo doanh thu' },
-            { key: '/dashboard/bao-cao/hoa-hong', label: 'Báo cáo hoa hồng' },
-            { key: '/dashboard/bao-cao/giao-dich', label: 'Báo cáo giao dịch' },
-            { key: '/dashboard/bao-cao/nguon-khach', label: 'Báo cáo nguồn khách' },
-            { key: '/dashboard/bao-cao/khu-vuc', label: 'Báo cáo khu vực' },
-            { key: '/dashboard/bao-cao/giai-thuong', label: 'Báo cáo giải thưởng' },
+            { key: '/dashboard/he-thong/vai-tro', label: 'Vai trò' },
+            { key: '/dashboard/he-thong/phan-quyen', label: 'Phân quyền' },
+            { key: '/dashboard/he-thong/danh-muc-khach-hang', label: 'Danh mục khách hàng' },
+            { key: '/dashboard/he-thong/danh-muc-nhan-su', label: 'Danh mục nhân sự' },
+            { key: '/dashboard/he-thong/chi-nhanh', label: 'Chi nhánh' },
+            { key: '/dashboard/he-thong/kpi', label: 'KPI Targets' },
+            { key: '/dashboard/he-thong/quan-ly-khu-vuc', label: 'Khu vực' },
+            { key: '/dashboard/he-thong/doi-nhom', label: 'Đội/Nhóm' },
         ],
     },
+
     {
         key: 'tinh-luong',
         icon: <CalculatorOutlined />,
@@ -44,20 +47,19 @@ const menuItems = [
         ],
     },
     {
-        key: 'he-thong',
-        icon: <SettingOutlined />,
-        label: 'Quản lý hệ thống',
+        key: 'bao-cao',
+        icon: <BarChartOutlined />,
+        label: 'Báo cáo',
         children: [
-            { key: '/dashboard/he-thong/vai-tro', label: 'Vai trò' },
-            { key: '/dashboard/he-thong/phan-quyen', label: 'Phân quyền' },
-            { key: '/dashboard/he-thong/danh-muc-khach-hang', label: 'Danh mục khách hàng' },
-            { key: '/dashboard/he-thong/danh-muc-nhan-su', label: 'Danh mục nhân sự' },
-            { key: '/dashboard/he-thong/chi-nhanh', label: 'Chi nhánh' },
-            { key: '/dashboard/he-thong/kpi', label: 'KPI Targets' },
-            { key: '/dashboard/he-thong/quan-ly-khu-vuc', label: 'Khu vực' },
-            { key: '/dashboard/he-thong/doi-nhom', label: 'Đội/Nhóm' },
+            { key: '/dashboard/bao-cao/doanh-thu', label: 'Báo cáo doanh thu' },
+            { key: '/dashboard/bao-cao/hoa-hong', label: 'Báo cáo hoa hồng' },
+            { key: '/dashboard/bao-cao/giao-dich', label: 'Báo cáo giao dịch' },
+            { key: '/dashboard/bao-cao/nguon-khach', label: 'Báo cáo nguồn khách' },
+            { key: '/dashboard/bao-cao/khu-vuc', label: 'Báo cáo khu vực' },
+            { key: '/dashboard/bao-cao/giai-thuong', label: 'Báo cáo giải thưởng' },
         ],
     },
+
 ];
 
 export default function Sidebar() {
