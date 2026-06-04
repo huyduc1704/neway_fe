@@ -15,7 +15,7 @@ interface Employee { id: string; fullName: string; }
 interface Team {
     id: string; name: string; code: string; isActive: boolean; createdAt: string;
     branch: { id: string; name: string } | null;
-    leader: { id: string; fullName: string } | null;
+    leader: { id: string; user: { id: string; fullName: string } } | null;
 }
 
 export default function DoiNhomPage() {
@@ -48,7 +48,15 @@ export default function DoiNhomPage() {
     useEffect(() => { fetchTeams(); }, [fetchTeams]);
     useEffect(() => {
         api.get('/branches',  { params: { limit: 200 } }).then(({ data }) => setBranches(data.data ?? [])).catch(() => {});
-        api.get('/employees', { params: { limit: 500 } }).then(({ data }) => setEmployees(data.data ?? [])).catch(() => {});
+        api.get('/employees', { params: { limit: 500, roleCode: 'LEADER' } })
+            .then(({ data }) => {
+                const list = data.data ?? [];
+                setEmployees(list.map((u: any) => ({
+                    id: u.employeeProfile?.id,
+                    fullName: u.fullName
+                })).filter((e: any) => e.id));
+            })
+            .catch(() => {});
     }, []);
 
     const openCreate = () => { setEditingId(null); form.resetFields(); setDialogOpen(true); };
@@ -99,7 +107,7 @@ export default function DoiNhomPage() {
         { title: 'STT', key: 'stt', width: 52, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
         { title: 'Tên đội/nhóm', key: 'name', render: (_, r) => <span style={{ fontWeight: 500 }}>{r.name}</span> },
         { title: 'Chi nhánh', key: 'branch', width: 180, render: (_, r) => r.branch?.name || '—' },
-        { title: 'Leader', key: 'leader', width: 180, render: (_, r) => r.leader?.fullName || '—' },
+        { title: 'Leader', key: 'leader', width: 180, render: (_, r) => r.leader?.user?.fullName || '—' },
         { title: 'Trạng thái', key: 'status', width: 130, align: 'center', render: (_, r) => <Tag color={r.isActive ? 'success' : 'default'}>{r.isActive ? 'Hoạt động' : 'Đã vô hiệu'}</Tag> },
         { title: 'Ngày tạo', key: 'createdAt', width: 120, align: 'center', render: (_, r) => dayjs(r.createdAt).format('DD/MM/YYYY') },
         {

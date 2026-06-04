@@ -1,6 +1,6 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
-import { Layout, Menu } from 'antd';
+import { Layout, Menu, ConfigProvider } from 'antd';
 import { DashboardOutlined, BarChartOutlined, ProjectOutlined, SettingOutlined, CalculatorOutlined } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -71,20 +71,40 @@ export default function Sidebar() {
 
     return (
         <Sider width={245} style={{ background: '#fff', minHeight: '100vh' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ color: '#E8890C', fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>
-                    NEWAY
-                </div>
-                <div style={{ color: '#888', fontSize: 11 }}>Niềm tin mới - Khởi đầu mới</div>
+            <div style={{
+                height: 64,
+                padding: '0 20px',
+                display: 'flex',
+                alignItems: 'center',
+                borderBottom: '1px solid #f0f0f0',
+                color: '#161B44',
+            }}>
+                <img
+                    src="/neway-logo.png"
+                    alt="Neway Logo"
+                    style={{ maxHeight: 40, width: 'auto' }}
+                />
             </div>
-            <Menu
-                mode="inline"
-                selectedKeys={[pathname]}
-                defaultOpenKeys={openKeys}
-                items={menuItems}
-                onClick={({ key }) => router.push(key as any)}
-                style={{ border: 'none', marginTop: 8 }}
-            />
+            <ConfigProvider
+                theme={{
+                    components: {
+                        Menu: {
+                            itemColor: '#161B44',
+                            itemHoverColor: '#E8890C',
+                            itemSelectedColor: '#E8890C',
+                        },
+                    },
+                }}
+            >
+                <Menu
+                    mode="inline"
+                    selectedKeys={[pathname]}
+                    defaultOpenKeys={openKeys}
+                    items={menuItems}
+                    onClick={({ key }) => router.push(key as any)}
+                    style={{ border: 'none', marginTop: 8 }}
+                />
+            </ConfigProvider>
         </Sider>
     );
 }
