@@ -4,7 +4,7 @@ import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
-import { Button, Input, Select, Typography, Space, Card } from 'antd';
+import { Button, Input, Select, Typography, Space, Card, InputNumber } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
@@ -341,7 +341,15 @@ export default function CreateProjectPage() {
                         </Field>
 
                         <Field label="Giá thuê (VNĐ)">
-                            <Input type="number" min={0} placeholder="VD: 5000000" value={rentalPrice} onChange={e => setRentalPrice(e.target.value)} />
+                            <InputNumber
+                                min={0}
+                                placeholder="VD: 5000000"
+                                value={rentalPrice ? Number(rentalPrice) : null}
+                                onChange={v => setRentalPrice(v ? String(v) : '')}
+                                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                style={{ width: '100%' }}
+                            />
                         </Field>
 
                         <Field label="Ngày bắt đầu HĐ">
@@ -377,11 +385,27 @@ export default function CreateProjectPage() {
                         <Section title="Cụm ngày cọc" />
 
                         <Field label="Tiền cọc lần 1 (VNĐ)" required error={errors.deposit1}>
-                            <Input type="number" min={0} placeholder="VD: 3000000" value={deposit1} onChange={e => setDeposit1(e.target.value)} />
+                            <InputNumber
+                                min={0}
+                                placeholder="VD: 3000000"
+                                value={deposit1 ? Number(deposit1) : null}
+                                onChange={v => setDeposit1(v ? String(v) : '')}
+                                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                style={{ width: '100%' }}
+                            />
                         </Field>
 
                         <Field label="Tiền cọc bổ sung (VNĐ)">
-                            <Input type="number" min={0} placeholder="Không bắt buộc" value={deposit2} onChange={e => setDeposit2(e.target.value)} />
+                            <InputNumber
+                                min={0}
+                                placeholder="Không bắt buộc"
+                                value={deposit2 ? Number(deposit2) : null}
+                                onChange={v => setDeposit2(v ? String(v) : '')}
+                                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                style={{ width: '100%' }}
+                            />
                         </Field>
 
                         <Field label="Ngày bổ sung cọc">
@@ -398,11 +422,19 @@ export default function CreateProjectPage() {
                         <Section title="Cụm doanh thu" />
 
                         <Field label="Hoa hồng ước tính (%)">
-                            <Input type="number" min={0} max={100} step={0.01} placeholder="VD: 5" value={estimatedCommissionPercent} onChange={e => setEstimatedCommissionPercent(e.target.value)} />
+                            <InputNumber min={0} max={100} step={0.01} placeholder="VD: 5" value={estimatedCommissionPercent ? Number(estimatedCommissionPercent) : null} onChange={v => setEstimatedCommissionPercent(v ? String(v) : '')} style={{ width: '100%' }} />
                         </Field>
 
                         <Field label="Hỗ trợ khách (VNĐ)">
-                            <Input type="number" min={0} placeholder="VD: 500000" value={customerSupport} onChange={e => setCustomerSupport(e.target.value)} />
+                            <InputNumber
+                                min={0}
+                                placeholder="VD: 500000"
+                                value={customerSupport ? Number(customerSupport) : null}
+                                onChange={v => setCustomerSupport(v ? String(v) : '')}
+                                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                style={{ width: '100%' }}
+                            />
                         </Field>
 
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>

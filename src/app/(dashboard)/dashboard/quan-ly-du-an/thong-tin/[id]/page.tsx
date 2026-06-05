@@ -1,16 +1,12 @@
 'use client';
 import { use, useEffect, useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { message, Card, Button, Input, Tag, Modal, Table, Upload, Descriptions, Spin, Space, Popconfirm, Typography, InputNumber } from 'antd';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Pencil, Trash2, Upload, ExternalLink } from 'lucide-react';
+import { ArrowLeftOutlined, PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, LinkOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
-import { DataTable, Column } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import dayjs from 'dayjs';
+
+const { Title } = Typography;
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface Room {
@@ -51,12 +47,12 @@ interface ProjectDetail {
 }
 
 /* ─── Constants ──────────────────────────────────────────── */
-const STATUS_MAP: Record<string, { label: string; variant: 'secondary' | 'success' | 'warning' | 'destructive' }> = {
-    DRAFT:     { label: 'Nháp',           variant: 'secondary' },
-    ACTIVE:    { label: 'Đang hoạt động', variant: 'success' },
-    ON_HOLD:   { label: 'Tạm dừng',       variant: 'warning' },
-    CLOSED:    { label: 'Đã đóng',        variant: 'destructive' },
-    CANCELLED: { label: 'Đã huỷ',        variant: 'secondary' },
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    DRAFT:     { label: 'Nháp',           color: 'default' },
+    ACTIVE:    { label: 'Đang hoạt động', color: 'success' },
+    ON_HOLD:   { label: 'Tạm dừng',       color: 'warning' },
+    CLOSED:    { label: 'Đã đóng',        color: 'error' },
+    CANCELLED: { label: 'Đã huỷ',        color: 'default' },
 };
 
 const LEAD_SOURCE_MAP: Record<string, string> = {
@@ -65,61 +61,31 @@ const LEAD_SOURCE_MAP: Record<string, string> = {
     REFERRAL: 'Giới Thiệu', ZALO: 'Zalo', OTHER: 'Khác',
 };
 
-const fmtCurrency = (v: number | null) =>
-    v != null ? new Intl.NumberFormat('vi-VN').format(v) + 'đ' : '—';
+const fmtCurrency = (v: number | null) => v != null ? new Intl.NumberFormat('vi-VN').format(v) + 'đ' : '—';
 const fmtDate    = (v: string | null)  => v ? dayjs(v).format('DD/MM/YYYY') : '—';
 const fmtPct     = (v: number | null)  => v != null ? `${v}%` : '—';
-
-/* ─── Info row component ─────────────────────────────────── */
-function InfoRow({ items }: { items: [string, React.ReactNode][] }) {
-    return (
-        <tr className="border-b border-gray-100">
-            {items.map(([label, value], i) => (
-                <>
-                    <td key={`l${i}`} className="bg-orange-50 text-[#E8890C] font-medium px-4 py-2.5 text-sm whitespace-nowrap w-44">{label}</td>
-                    <td key={`v${i}`} className="px-4 py-2.5 text-sm">{value ?? '—'}</td>
-                </>
-            ))}
-        </tr>
-    );
-}
 
 /* ─── Staff slot table ───────────────────────────────────── */
 function StaffSlotTable({ slot }: { slot: StaffSlot }) {
     const rows = [
-        { role: 'm nhỏ',  emp: slot.mEmployee?.fullName,  rate: slot.mRate,  leader: slot.mLeader?.fullName,  lRate: slot.mLeaderRate,  color: 'text-[#E8890C]' },
-        { role: 'M lớn 1', emp: slot.m1Employee?.fullName, rate: slot.m1Rate, leader: slot.m1Leader?.fullName, lRate: slot.m1LeaderRate, color: 'text-[#1A2B5A]' },
-        { role: 'M lớn 2', emp: slot.m2Employee?.fullName, rate: slot.m2Rate, leader: slot.m2Leader?.fullName, lRate: slot.m2LeaderRate, color: 'text-[#1A2B5A]' },
-        { role: 'S1',       emp: slot.s1Employee?.fullName, rate: slot.s1Rate, leader: slot.s1Leader?.fullName, lRate: slot.s1LeaderRate, color: 'text-green-700' },
-        { role: 'S2',       emp: slot.s2Employee?.fullName, rate: slot.s2Rate, leader: slot.s2Leader?.fullName, lRate: slot.s2LeaderRate, color: 'text-green-700' },
+        { role: 'm nhỏ',  emp: slot.mEmployee?.fullName,  rate: slot.mRate,  leader: slot.mLeader?.fullName,  lRate: slot.mLeaderRate,  color: '#E8890C' },
+        { role: 'M lớn 1', emp: slot.m1Employee?.fullName, rate: slot.m1Rate, leader: slot.m1Leader?.fullName, lRate: slot.m1LeaderRate, color: '#1A2B5A' },
+        { role: 'M lớn 2', emp: slot.m2Employee?.fullName, rate: slot.m2Rate, leader: slot.m2Leader?.fullName, lRate: slot.m2LeaderRate, color: '#1A2B5A' },
+        { role: 'S1',       emp: slot.s1Employee?.fullName, rate: slot.s1Rate, leader: slot.s1Leader?.fullName, lRate: slot.s1LeaderRate, color: '#16a34a' },
+        { role: 'S2',       emp: slot.s2Employee?.fullName, rate: slot.s2Rate, leader: slot.s2Leader?.fullName, lRate: slot.s2LeaderRate, color: '#16a34a' },
     ].filter(r => r.emp);
 
-    if (!rows.length) return <p className="text-sm text-gray-400">Chưa có nhân sự</p>;
+    if (!rows.length) return <p style={{ color: '#9ca3af', fontSize: 14 }}>Chưa có nhân sự</p>;
 
-    return (
-        <table className="w-full text-sm border-collapse">
-            <thead>
-                <tr className="bg-gray-50 text-gray-600 font-medium">
-                    <th className="text-left px-3 py-2">Vai trò</th>
-                    <th className="text-left px-3 py-2">Nhân viên</th>
-                    <th className="text-center px-3 py-2">Tỉ lệ</th>
-                    <th className="text-left px-3 py-2">Leader</th>
-                    <th className="text-center px-3 py-2">Tỉ lệ Leader</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-                {rows.map(r => (
-                    <tr key={r.role}>
-                        <td className={`px-3 py-2 font-semibold ${r.color}`}>{r.role}</td>
-                        <td className="px-3 py-2">{r.emp || '—'}</td>
-                        <td className="px-3 py-2 text-center font-medium">{r.rate != null ? `${(r.rate * 100).toFixed(0)}%` : '—'}</td>
-                        <td className="px-3 py-2">{r.leader || '—'}</td>
-                        <td className="px-3 py-2 text-center">{r.lRate != null ? `${(r.lRate * 100).toFixed(0)}%` : '—'}</td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    );
+    const columns = [
+        { title: 'Vai trò', dataIndex: 'role', key: 'role', render: (text: string, record: any) => <span style={{ fontWeight: 600, color: record.color }}>{text}</span> },
+        { title: 'Nhân viên', dataIndex: 'emp', key: 'emp' },
+        { title: 'Tỉ lệ', dataIndex: 'rate', key: 'rate', align: 'center' as const, render: (r: number) => r != null ? `${(r * 100).toFixed(0)}%` : '—' },
+        { title: 'Leader', dataIndex: 'leader', key: 'leader' },
+        { title: 'Tỉ lệ Leader', dataIndex: 'lRate', key: 'lRate', align: 'center' as const, render: (r: number) => r != null ? `${(r * 100).toFixed(0)}%` : '—' },
+    ];
+
+    return <Table dataSource={rows} columns={columns} pagination={false} size="small" rowKey="role" />;
 }
 
 /* ─── Main component ─────────────────────────────────────── */
@@ -146,7 +112,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             const { data } = await api.get(`/projects/${id}`);
             setProject(data);
         } catch {
-            toast.error('Không thể tải thông tin dự án');
+            message.error('Không thể tải thông tin dự án');
         } finally {
             setLoading(false);
         }
@@ -184,32 +150,32 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             };
             if (roomModal.room) {
                 await api.patch(`/projects/${id}/rooms/${roomModal.room.id}`, payload);
-                toast.success('Cập nhật phòng thành công');
+                message.success('Cập nhật phòng thành công');
             } else {
                 await api.post(`/projects/${id}/rooms`, payload);
-                toast.success('Thêm phòng thành công');
+                message.success('Thêm phòng thành công');
             }
             setRoomModal({ open: false });
             fetchProject();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            message.error(err?.response?.data?.message || 'Thao tác thất bại');
         } finally {
             setSubmitting(false);
         }
     };
     const handleDeleteRoom = async (roomId: string) => {
-        if (!window.confirm('Xoá phòng này?')) return;
         try {
             await api.delete(`/projects/${id}/rooms/${roomId}`);
-            toast.success('Đã xoá phòng');
+            message.success('Đã xoá phòng');
             fetchProject();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+            message.error(err?.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
     /* ── Contract image upload ── */
-    const handleContractImageUpload = async (file: File) => {
+    const handleContractImageUpload = async (options: any) => {
+        const { file } = options;
         setUploadingImg(true);
         try {
             const fd = new FormData();
@@ -217,215 +183,168 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             await api.patch(`/projects/${id}/contract-image`, fd, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            toast.success('Upload ảnh hợp đồng thành công');
+            message.success('Upload ảnh hợp đồng thành công');
             fetchProject();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Upload thất bại');
+            message.error(err?.response?.data?.message || 'Upload thất bại');
         } finally {
             setUploadingImg(false);
         }
     };
 
-    const roomColumns: Column<Room>[] = [
-        { key: 'roomCode', title: 'Mã phòng', width: 120, render: (_, r) => <Badge variant="secondary">{r.roomCode}</Badge> },
-        { key: 'houseNumber', title: 'Số nhà', width: 100, render: (_, r) => r.houseNumber || '—' },
-        { key: 'rentalPrice',  title: 'Giá thuê',   width: 150, render: (_, r) => fmtCurrency(r.rentalPrice) },
-        { key: 'depositPrice', title: 'Giá đặt cọc', width: 150, render: (_, r) => fmtCurrency(r.depositPrice) },
-        { key: 'rentalInfo',   title: 'Thông tin thêm', render: (_, r) => r.rentalInfo || '—' },
+    const roomColumns = [
+        { title: 'Mã phòng', dataIndex: 'roomCode', key: 'roomCode', render: (text: string) => <Tag color="blue">{text}</Tag> },
+        { title: 'Số nhà', dataIndex: 'houseNumber', key: 'houseNumber', render: (t: string) => t || '—' },
+        { title: 'Giá thuê', dataIndex: 'rentalPrice', key: 'rentalPrice', render: (t: number) => fmtCurrency(t) },
+        { title: 'Giá đặt cọc', dataIndex: 'depositPrice', key: 'depositPrice', render: (t: number) => fmtCurrency(t) },
+        { title: 'Thông tin thêm', dataIndex: 'rentalInfo', key: 'rentalInfo', render: (t: string) => t || '—' },
         {
-            key: 'actions', title: 'Thao tác', width: 90, align: 'center',
-            render: (_, r) => (
-                <div className="flex items-center justify-center gap-1">
-                    <button className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-[#E8890C]" onClick={() => openEditRoom(r)}>
-                        <Pencil className="h-4 w-4" />
-                    </button>
-                    <button className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-500" onClick={() => handleDeleteRoom(r.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </button>
-                </div>
+            title: 'Thao tác', key: 'actions', align: 'center' as const,
+            render: (_: any, r: Room) => (
+                <Space>
+                    <Button type="text" icon={<EditOutlined style={{ color: '#E8890C' }} />} onClick={() => openEditRoom(r)} />
+                    <Popconfirm title="Xoá phòng này?" onConfirm={() => handleDeleteRoom(r.id)}>
+                        <Button type="text" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                </Space>
             ),
         },
     ];
 
-    if (loading) return (
-        <div className="flex items-center justify-center py-24">
-            <div className="h-6 w-6 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
-        </div>
-    );
-
+    if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}><Spin size="large" /></div>;
     if (!project) return null;
 
-    const statusInfo = STATUS_MAP[project.status] ?? { label: project.status, variant: 'secondary' as const };
+    const statusInfo = STATUS_MAP[project.status] ?? { label: project.status, color: 'default' };
+
+    const headStyle = { background: '#fff7ed', color: '#E8890C', fontWeight: 600, borderBottom: '1px solid #fed7aa' };
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center gap-3">
-                <button className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 text-sm" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4" /> Quay lại
-                </button>
-                <span className="text-lg font-semibold text-[#1A2B5A]">Thông tin dự án — {project.code}</span>
-                <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.back()} style={{ color: '#6b7280' }} />
+                <Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>Thông tin dự án — {project.code}</Title>
+                <Tag color={statusInfo.color}>{statusInfo.label}</Tag>
             </div>
 
-            {/* ── Thông tin dự án ── */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
-                    <h3 className="text-sm font-semibold text-[#E8890C]">Thông tin dự án</h3>
-                </div>
-                <table className="w-full">
-                    <tbody>
-                        <InfoRow items={[
-                            ['Ngày đặt cọc',   fmtDate(project.depositDate)],
-                            ['Tên khách hàng', project.customerName || project.customer?.fullName || '—'],
-                            ['SĐT khách',      project.customerPhone || project.customer?.phone || '—'],
-                        ]} />
-                        <InfoRow items={[
-                            ['Nguồn khách',   project.leadSource ? (LEAD_SOURCE_MAP[project.leadSource] ?? project.leadSource) : '—'],
-                            ['Chi nhánh',     project.managedBranch?.name || '—'],
-                            ['Khu vực',       project.team?.name || '—'],
-                        ]} />
-                        <InfoRow items={[
-                            ['Người tạo', project.createdBy?.fullName || '—'],
-                        ]} />
-                    </tbody>
-                </table>
-            </div>
+            <Card title="Thông tin dự án" size="small" styles={{ header: headStyle }}>
+                <Descriptions column={3} size="small" bordered>
+                    <Descriptions.Item label="Ngày đặt cọc" labelStyle={{ background: '#f9fafb', width: 150 }}>{fmtDate(project.depositDate)}</Descriptions.Item>
+                    <Descriptions.Item label="Tên khách hàng" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.customerName || project.customer?.fullName || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="SĐT khách" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.customerPhone || project.customer?.phone || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Nguồn khách">{project.leadSource ? (LEAD_SOURCE_MAP[project.leadSource] ?? project.leadSource) : '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Chi nhánh">{project.managedBranch?.name || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Khu vực">{project.team?.name || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Người tạo">{project.createdBy?.fullName || '—'}</Descriptions.Item>
+                </Descriptions>
+            </Card>
 
-            {/* ── Thông tin phòng ── */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
-                    <h3 className="text-sm font-semibold text-[#E8890C]">Thông tin phòng</h3>
-                </div>
-                <table className="w-full">
-                    <tbody>
-                        <InfoRow items={[
-                            ['Tỉnh/Thành phố', project.province || '—'],
-                            ['Phường/Xã',      project.ward],
-                            ['Số nhà',         project.houseNumber || '—'],
-                        ]} />
-                        <InfoRow items={[
-                            ['Giá thuê', fmtCurrency(null)],
-                            ['Ngày bắt đầu HĐ', fmtDate(project.contractStartAt)],
-                            ['Ngày kết thúc HĐ', fmtDate(project.contractEndAt)],
-                        ]} />
-                        <InfoRow items={[
-                            ['Ngày nhận phòng', fmtDate(project.checkInDate)],
-                        ]} />
-                    </tbody>
-                </table>
+            <Card title="Thông tin phòng" size="small" styles={{ header: headStyle }}>
+                <Descriptions column={3} size="small" bordered>
+                    <Descriptions.Item label="Tỉnh/Thành phố" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.province || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Phường/Xã" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.ward}</Descriptions.Item>
+                    <Descriptions.Item label="Số nhà" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.houseNumber || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Giá thuê">{fmtCurrency(null)}</Descriptions.Item>
+                    <Descriptions.Item label="Ngày bắt đầu HĐ">{fmtDate(project.contractStartAt)}</Descriptions.Item>
+                    <Descriptions.Item label="Ngày kết thúc HĐ">{fmtDate(project.contractEndAt)}</Descriptions.Item>
+                    <Descriptions.Item label="Ngày nhận phòng">{fmtDate(project.checkInDate)}</Descriptions.Item>
+                    <Descriptions.Item label="Ảnh hợp đồng" span={2}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {project.contractImageUrl ? (
+                                <a href={project.contractImageUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#1677ff' }}>
+                                    <LinkOutlined /> Xem ảnh hợp đồng
+                                </a>
+                            ) : (
+                                <span style={{ color: '#9ca3af' }}>Chưa có</span>
+                            )}
+                            <Upload customRequest={handleContractImageUpload} showUploadList={false} accept="image/*" disabled={uploadingImg}>
+                                <Button size="small" icon={<UploadOutlined />} loading={uploadingImg}>
+                                    {project.contractImageUrl ? 'Thay ảnh' : 'Upload ảnh'}
+                                </Button>
+                            </Upload>
+                        </div>
+                    </Descriptions.Item>
+                </Descriptions>
+            </Card>
 
-                {/* Contract image */}
-                <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-3">
-                    <span className="text-sm font-medium text-[#E8890C] w-44 shrink-0">Ảnh hợp đồng</span>
-                    {project.contractImageUrl ? (
-                        <a href={project.contractImageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
-                            <ExternalLink className="h-4 w-4" /> Xem ảnh hợp đồng
-                        </a>
-                    ) : (
-                        <span className="text-sm text-gray-400">Chưa có</span>
-                    )}
-                    <label className={`ml-2 flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs cursor-pointer ${uploadingImg ? 'opacity-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                        <Upload className="h-3.5 w-3.5" />
-                        {uploadingImg ? 'Đang upload...' : (project.contractImageUrl ? 'Thay ảnh' : 'Upload ảnh')}
-                        <input type="file" accept="image/*" className="hidden" disabled={uploadingImg}
-                            onChange={e => e.target.files?.[0] && handleContractImageUpload(e.target.files[0])} />
-                    </label>
-                </div>
-            </div>
+            <Card title="Thông tin cọc" size="small" styles={{ header: headStyle }}>
+                <Descriptions column={3} size="small" bordered>
+                    <Descriptions.Item label="Tiền cọc lần 1" labelStyle={{ background: '#f9fafb', width: 150 }}>{fmtCurrency(project.deposit1)}</Descriptions.Item>
+                    <Descriptions.Item label="Tiền cọc bổ sung" labelStyle={{ background: '#f9fafb', width: 150 }}>{fmtCurrency(project.deposit2)}</Descriptions.Item>
+                    <Descriptions.Item label="Ngày bổ sung cọc" labelStyle={{ background: '#f9fafb', width: 150 }}>{fmtDate(project.deposit2Date)}</Descriptions.Item>
+                </Descriptions>
+            </Card>
 
-            {/* ── Ngày cọc ── */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
-                    <h3 className="text-sm font-semibold text-[#E8890C]">Thông tin cọc</h3>
-                </div>
-                <table className="w-full">
-                    <tbody>
-                        <InfoRow items={[
-                            ['Tiền cọc lần 1',  fmtCurrency(project.deposit1)],
-                            ['Tiền cọc bổ sung', fmtCurrency(project.deposit2)],
-                            ['Ngày bổ sung cọc', fmtDate(project.deposit2Date)],
-                        ]} />
-                    </tbody>
-                </table>
-            </div>
+            <Card title="Doanh thu ước tính" size="small" styles={{ header: headStyle }}>
+                <Descriptions column={3} size="small" bordered>
+                    <Descriptions.Item label="Hoa hồng ước tính" labelStyle={{ background: '#f9fafb', width: 150 }}>{fmtPct(project.estimatedCommissionPercent)}</Descriptions.Item>
+                    <Descriptions.Item label="Hỗ trợ khách" labelStyle={{ background: '#f9fafb', width: 150 }}>{fmtCurrency(project.customerSupport)}</Descriptions.Item>
+                    <Descriptions.Item label="Doanh thu ước tính" labelStyle={{ background: '#f9fafb', width: 150 }}>
+                        <span style={{ fontWeight: 600, color: '#E8890C' }}>{fmtCurrency(project.estimatedRevenue)}</span>
+                    </Descriptions.Item>
+                </Descriptions>
+            </Card>
 
-            {/* ── Doanh thu ── */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
-                    <h3 className="text-sm font-semibold text-[#E8890C]">Doanh thu ước tính</h3>
-                </div>
-                <table className="w-full">
-                    <tbody>
-                        <InfoRow items={[
-                            ['Hoa hồng ước tính', fmtPct(project.estimatedCommissionPercent)],
-                            ['Hỗ trợ khách',      fmtCurrency(project.customerSupport)],
-                            ['Doanh thu ước tính', <span className="font-semibold text-[#E8890C]">{fmtCurrency(project.estimatedRevenue)}</span>],
-                        ]} />
-                    </tbody>
-                </table>
-            </div>
-
-            {/* ── Nhân sự ── */}
             {project.staffSlot && (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
-                        <h3 className="text-sm font-semibold text-[#E8890C]">Cụm nhân sự</h3>
-                    </div>
-                    <div className="p-4">
-                        <StaffSlotTable slot={project.staffSlot} />
-                    </div>
-                </div>
+                <Card title="Cụm nhân sự" size="small" styles={{ header: headStyle }}>
+                    <StaffSlotTable slot={project.staffSlot} />
+                </Card>
             )}
 
-            {/* ── Danh sách phòng ── */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-sm font-semibold text-[#1A2B5A]">Danh sách phòng ({project.rooms.length})</h3>
-                    <Button size="sm" onClick={openAddRoom}>
-                        <Plus className="h-4 w-4 mr-1" /> Thêm phòng
-                    </Button>
-                </div>
-                <DataTable columns={roomColumns} data={project.rooms} rowKey="id" pageSize={50} />
-            </div>
+            <Card
+                title={<span style={{ fontSize: 14, fontWeight: 600, color: '#1A2B5A' }}>Danh sách phòng ({project.rooms.length})</span>}
+                size="small"
+                extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={openAddRoom}>Thêm phòng</Button>}
+            >
+                <Table dataSource={project.rooms} columns={roomColumns} rowKey="id" pagination={{ pageSize: 50 }} size="small" />
+            </Card>
 
-            {/* ── Room Dialog ── */}
-            <Dialog open={roomModal.open} onOpenChange={open => setRoomModal({ open })}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{roomModal.room ? 'Chỉnh sửa phòng' : 'Thêm phòng mới'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-3 py-2">
-                        <div>
-                            <Label>Mã phòng <span className="text-red-500">*</span></Label>
-                            <Input className="mt-1" placeholder="VD: P101" value={roomCode} onChange={e => setRoomCode(e.target.value)} disabled={!!roomModal.room} />
-                            {roomErrors.roomCode && <p className="text-red-500 text-xs mt-1">{roomErrors.roomCode}</p>}
-                        </div>
-                        <div>
-                            <Label>Số nhà</Label>
-                            <Input className="mt-1" placeholder="VD: 12B" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label>Giá thuê (VNĐ)</Label>
-                            <Input type="number" className="mt-1" min={0} value={rentalPrice} onChange={e => setRentalPrice(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label>Giá đặt cọc (VNĐ)</Label>
-                            <Input type="number" className="mt-1" min={0} value={depositPrice} onChange={e => setDepositPrice(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label>Thông tin thêm</Label>
-                            <textarea className="mt-1 w-full h-16 px-3 py-2 rounded-md border border-gray-200 text-sm resize-none focus:ring-2 focus:ring-[#E8890C] focus:outline-none" value={rentalInfo} onChange={e => setRentalInfo(e.target.value)} />
-                        </div>
+            <Modal
+                title={roomModal.room ? 'Chỉnh sửa phòng' : 'Thêm phòng mới'}
+                open={roomModal.open}
+                onCancel={() => setRoomModal({ open: false })}
+                onOk={handleRoomSubmit}
+                confirmLoading={submitting}
+                okText="Lưu"
+                cancelText="Huỷ"
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12 }}>
+                    <div>
+                        <div style={{ marginBottom: 4 }}>Mã phòng <span style={{ color: 'red' }}>*</span></div>
+                        <Input placeholder="VD: P101" value={roomCode} onChange={e => setRoomCode(e.target.value)} disabled={!!roomModal.room} />
+                        {roomErrors.roomCode && <div style={{ color: 'red', fontSize: 12, marginTop: 4 }}>{roomErrors.roomCode}</div>}
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setRoomModal({ open: false })}>Huỷ</Button>
-                        <Button onClick={handleRoomSubmit} disabled={submitting}>
-                            {submitting && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
-                            Lưu
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    <div>
+                        <div style={{ marginBottom: 4 }}>Số nhà</div>
+                        <Input placeholder="VD: 12B" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
+                    </div>
+                    <div>
+                        <div style={{ marginBottom: 4 }}>Giá thuê (VNĐ)</div>
+                        <InputNumber
+                            min={0}
+                            value={rentalPrice ? Number(rentalPrice) : null}
+                            onChange={v => setRentalPrice(v ? String(v) : '')}
+                            formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                            style={{ width: '100%' }}
+                        />
+                    </div>
+                    <div>
+                        <div style={{ marginBottom: 4 }}>Giá đặt cọc (VNĐ)</div>
+                        <InputNumber
+                            min={0}
+                            value={depositPrice ? Number(depositPrice) : null}
+                            onChange={v => setDepositPrice(v ? String(v) : '')}
+                            formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                            style={{ width: '100%' }}
+                        />
+                    </div>
+                    <div>
+                        <div style={{ marginBottom: 4 }}>Thông tin thêm</div>
+                        <Input.TextArea rows={3} value={rentalInfo} onChange={e => setRentalInfo(e.target.value)} />
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
