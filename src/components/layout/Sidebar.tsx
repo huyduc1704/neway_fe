@@ -1,5 +1,6 @@
 'use client';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Layout, Menu, ConfigProvider } from 'antd';
 import { DashboardOutlined, BarChartOutlined, ProjectOutlined, SettingOutlined, CalculatorOutlined } from '@ant-design/icons';
 
@@ -9,15 +10,15 @@ const menuItems = [
     {
         key: '/dashboard',
         icon: <DashboardOutlined />,
-        label: 'Bảng điều khiển',
+        label: <Link href="/dashboard">Bảng điều khiển</Link>,
     },
     {
         key: 'quan-ly-du-an',
         icon: <ProjectOutlined />,
         label: 'Quản lý dự án',
         children: [
-            { key: '/dashboard/quan-ly-du-an/thong-tin', label: 'Quản lý thông tin dự án' },
-            { key: '/dashboard/quan-ly-du-an/giao-dich', label: 'Quản lý giao dịch' },
+            { key: '/dashboard/quan-ly-du-an/thong-tin', label: <Link href="/dashboard/quan-ly-du-an/thong-tin">Quản lý thông tin dự án</Link> },
+            { key: '/dashboard/quan-ly-du-an/giao-dich', label: <Link href="/dashboard/quan-ly-du-an/giao-dich">Quản lý giao dịch</Link> },
         ],
     },
     {
@@ -25,9 +26,9 @@ const menuItems = [
         icon: <CalculatorOutlined />,
         label: 'Tính lương & Hoa hồng',
         children: [
-            { key: '/dashboard/tinh-luong/ky-luong', label: 'Kỳ lương' },
-            { key: '/dashboard/tinh-luong/bang-luong', label: 'Bảng lương' },
-            { key: '/dashboard/tinh-luong/chinh-sach-hoa-hong', label: 'Chính sách hoa hồng' },
+            { key: '/dashboard/tinh-luong/ky-luong', label: <Link href="/dashboard/tinh-luong/ky-luong">Kỳ lương</Link> },
+            { key: '/dashboard/tinh-luong/bang-luong', label: <Link href="/dashboard/tinh-luong/bang-luong">Bảng lương</Link> },
+            { key: '/dashboard/tinh-luong/chinh-sach-hoa-hong', label: <Link href="/dashboard/tinh-luong/chinh-sach-hoa-hong">Chính sách hoa hồng</Link> },
         ],
     },
     {
@@ -35,12 +36,12 @@ const menuItems = [
         icon: <BarChartOutlined />,
         label: 'Báo cáo',
         children: [
-            { key: '/dashboard/bao-cao/doanh-thu', label: 'Báo cáo doanh thu' },
-            { key: '/dashboard/bao-cao/hoa-hong', label: 'Báo cáo hoa hồng' },
-            { key: '/dashboard/bao-cao/giao-dich', label: 'Báo cáo giao dịch' },
-            { key: '/dashboard/bao-cao/nguon-khach', label: 'Báo cáo nguồn khách' },
-            { key: '/dashboard/bao-cao/khu-vuc', label: 'Báo cáo khu vực' },
-            { key: '/dashboard/bao-cao/giai-thuong', label: 'Báo cáo giải thưởng' },
+            { key: '/dashboard/bao-cao/doanh-thu', label: <Link href="/dashboard/bao-cao/doanh-thu">Báo cáo doanh thu</Link> },
+            { key: '/dashboard/bao-cao/hoa-hong', label: <Link href="/dashboard/bao-cao/hoa-hong">Báo cáo hoa hồng</Link> },
+            { key: '/dashboard/bao-cao/giao-dich', label: <Link href="/dashboard/bao-cao/giao-dich">Báo cáo giao dịch</Link> },
+            { key: '/dashboard/bao-cao/nguon-khach', label: <Link href="/dashboard/bao-cao/nguon-khach">Báo cáo nguồn khách</Link> },
+            { key: '/dashboard/bao-cao/khu-vuc', label: <Link href="/dashboard/bao-cao/khu-vuc">Báo cáo khu vực</Link> },
+            { key: '/dashboard/bao-cao/giai-thuong', label: <Link href="/dashboard/bao-cao/giai-thuong">Báo cáo giải thưởng</Link> },
         ],
     },
     {
@@ -48,14 +49,14 @@ const menuItems = [
         icon: <SettingOutlined />,
         label: 'Quản lý hệ thống',
         children: [
-            { key: '/dashboard/he-thong/vai-tro', label: 'Vai trò' },
-            { key: '/dashboard/he-thong/phan-quyen', label: 'Phân quyền' },
-            { key: '/dashboard/he-thong/danh-muc-khach-hang', label: 'Danh mục khách hàng' },
-            { key: '/dashboard/he-thong/danh-muc-nhan-su', label: 'Danh mục nhân sự' },
-            { key: '/dashboard/he-thong/chi-nhanh', label: 'Chi nhánh' },
-            { key: '/dashboard/he-thong/kpi', label: 'KPI Targets' },
-            { key: '/dashboard/he-thong/quan-ly-khu-vuc', label: 'Khu vực' },
-            { key: '/dashboard/he-thong/doi-nhom', label: 'Đội/Nhóm' },
+            { key: '/dashboard/he-thong/vai-tro', label: <Link href="/dashboard/he-thong/vai-tro">Vai trò</Link> },
+            { key: '/dashboard/he-thong/phan-quyen', label: <Link href="/dashboard/he-thong/phan-quyen">Phân quyền</Link> },
+            { key: '/dashboard/he-thong/danh-muc-khach-hang', label: <Link href="/dashboard/he-thong/danh-muc-khach-hang">Danh mục khách hàng</Link> },
+            { key: '/dashboard/he-thong/danh-muc-nhan-su', label: <Link href="/dashboard/he-thong/danh-muc-nhan-su">Danh mục nhân sự</Link> },
+            { key: '/dashboard/he-thong/chi-nhanh', label: <Link href="/dashboard/he-thong/chi-nhanh">Chi nhánh</Link> },
+            { key: '/dashboard/he-thong/kpi', label: <Link href="/dashboard/he-thong/kpi">KPI Targets</Link> },
+            { key: '/dashboard/he-thong/quan-ly-khu-vuc', label: <Link href="/dashboard/he-thong/quan-ly-khu-vuc">Khu vực</Link> },
+            { key: '/dashboard/he-thong/doi-nhom', label: <Link href="/dashboard/he-thong/doi-nhom">Đội/Nhóm</Link> },
         ],
     },
 
@@ -63,7 +64,6 @@ const menuItems = [
 
 export default function Sidebar() {
     const pathname = usePathname();
-    const router = useRouter();
 
     const openKeys = menuItems
         .filter((item) => item.children?.some((c) => pathname.startsWith(c.key)))
@@ -101,7 +101,6 @@ export default function Sidebar() {
                     selectedKeys={[pathname]}
                     defaultOpenKeys={openKeys}
                     items={menuItems}
-                    onClick={({ key }) => router.push(key as any)}
                     style={{ border: 'none', marginTop: 8 }}
                 />
             </ConfigProvider>

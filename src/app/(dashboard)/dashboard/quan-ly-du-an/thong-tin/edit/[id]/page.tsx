@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { use, useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
-import { Button, Input, Select, Typography, Space, Card, InputNumber } from 'antd';
+import { Button, Input, Select, Typography, Card, InputNumber, Spin } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
@@ -34,6 +35,14 @@ const VIETNAM_PROVINCES = [
     'Sóc Trăng','Sơn La','Tây Ninh','Thái Bình','Thái Nguyên','Thanh Hóa',
     'Thừa Thiên Huế','Tiền Giang','TP Hồ Chí Minh','Trà Vinh','Tuyên Quang',
     'Vĩnh Long','Vĩnh Phúc','Yên Bái',
+];
+
+const STATUS_OPTIONS = [
+    { value: 'DRAFT', label: 'Nháp' },
+    { value: 'ACTIVE', label: 'Đang hoạt động' },
+    { value: 'ON_HOLD', label: 'Tạm dừng' },
+    { value: 'CLOSED', label: 'Đã đóng' },
+    { value: 'CANCELLED', label: 'Đã huỷ' },
 ];
 
 /* ─── Types ──────────────────────────────────────────────── */
@@ -83,9 +92,11 @@ function Section({ title }: { title: string }) {
 }
 
 /* ─── Main component ─────────────────────────────────────── */
-export default function CreateProjectPage() {
+export default function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [initLoading, setInitLoading] = useState(true);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     /* lookup data */
@@ -107,13 +118,11 @@ export default function CreateProjectPage() {
     const [s2Leader, setS2Leader] = useState('');
 
     /* ── Cụm thông tin phòng ── */
-    const [roomCode,       setRoomCode]       = useState('');
-    const [houseNumber,    setHouseNumber]     = useState('');
+    const [status,         setStatus]          = useState('');
     const [province,       setProvince]        = useState('');
     const [ward,           setWard]            = useState('');
     const [managedBranchId, setManagedBranchId] = useState('');
     const [teamId,         setTeamId]          = useState('');
-    const [rentalPrice,    setRentalPrice]      = useState('');
     const [contractStartAt, setContractStartAt] = useState('');
     const [contractEndAt,  setContractEndAt]   = useState('');
     const [leadSource,     setLeadSource]       = useState('');
@@ -135,29 +144,7 @@ export default function CreateProjectPage() {
     const [customerPhone,  setCustomerPhone]  = useState('');
     const [note,           setNote]           = useState('');
 
-    const estimatedRevenue = (() => {
-        const price = parseFloat(rentalPrice) || 0;
-        const pct   = parseFloat(estimatedCommissionPercent) || 0;
-        const sup   = parseFloat(customerSupport) || 0;
-        if (!price || !pct) return null;
-        return price * (pct / 100) - sup;
-    })();
-
-    const formatCurrencyLocal = (v: number) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
-
-    /* ── Load lookups ── */
-    useEffect(() => {
-        Promise.all([
-            api.get('/branches',  { params: { limit: 200 } }),
-            api.get('/teams',     { params: { limit: 200 } }),
-            api.get('/employees', { params: { limit: 500 } }),
-        ]).then(([b, t, e]) => {
-            setBranches(b.data?.data ?? []);
-            setTeams(t.data?.data ?? []);
-            setEmployees(e.data?.data ?? []);
-        }).catch(() => {});
-    }, []);
+    const [projectCode, setProjectCode] = useState('');
 
     /* ── Auto-load leader when employee selected ── */
     const getLeaderName = useCallback(async (empId: string): Promise<string> => {
@@ -167,6 +154,59 @@ export default function CreateProjectPage() {
             return data?.employeeProfile?.team?.leader?.fullName ?? data?.team?.leader?.fullName ?? data?.team?.leaderName ?? '';
         } catch { return ''; }
     }, []);
+
+    /* ── Load lookups and Project ── */
+    useEffect(() => {
+        Promise.all([
+            api.get('/branches',  { params: { limit: 200 } }),
+            api.get('/teams',     { params: { limit: 200 } }),
+            api.get('/employees', { params: { limit: 500 } }),
+            api.get(`/projects/${id}`)
+        ]).then(([b, t, e, pRes]) => {
+            setBranches(b.data?.data ?? []);
+            setTeams(t.data?.data ?? []);
+            setEmployees(e.data?.data ?? []);
+            
+            const p = pRes.data;
+            setProjectCode(p.code);
+            setStatus(p.status || 'DRAFT');
+            setDepositDate(p.depositDate ? dayjs(p.depositDate).format('YYYY-MM-DD') : '');
+            setCustomerName(p.customerName || p.customer?.fullName || '');
+            setCustomerPhone(p.customerPhone || p.customer?.phone || '');
+            setProvince(p.province || '');
+            setWard(p.ward || '');
+            setManagedBranchId(p.managedBranch?.id || p.managedBranchId || '');
+            setTeamId(p.team?.id || p.teamId || '');
+            setContractStartAt(p.contractStartAt ? dayjs(p.contractStartAt).format('YYYY-MM-DD') : '');
+            setContractEndAt(p.contractEndAt ? dayjs(p.contractEndAt).format('YYYY-MM-DD') : '');
+            setLeadSource(p.leadSource || '');
+            setDeposit1(p.deposit1 ? String(p.deposit1) : '');
+            setDeposit2(p.deposit2 ? String(p.deposit2) : '');
+            setDeposit2Date(p.deposit2Date ? dayjs(p.deposit2Date).format('YYYY-MM-DD') : '');
+            setCheckInDate(p.checkInDate ? dayjs(p.checkInDate).format('YYYY-MM-DD') : '');
+            setEstimatedCommissionPercent(p.estimatedCommissionPercent ? String(p.estimatedCommissionPercent) : '');
+            setCustomerSupport(p.customerSupport ? String(p.customerSupport) : '');
+            setNote(p.note || '');
+
+            if (p.staffSlot) {
+                setMId(p.staffSlot.mEmployeeId || '');
+                setM1Id(p.staffSlot.m1EmployeeId || '');
+                setM2Id(p.staffSlot.m2EmployeeId || '');
+                setS1Id(p.staffSlot.s1EmployeeId || '');
+                setS2Id(p.staffSlot.s2EmployeeId || '');
+                
+                if (p.staffSlot.mEmployeeId) getLeaderName(p.staffSlot.mEmployeeId).then(setMLeader);
+                if (p.staffSlot.m1EmployeeId) getLeaderName(p.staffSlot.m1EmployeeId).then(setM1Leader);
+                if (p.staffSlot.m2EmployeeId) getLeaderName(p.staffSlot.m2EmployeeId).then(setM2Leader);
+                if (p.staffSlot.s1EmployeeId) getLeaderName(p.staffSlot.s1EmployeeId).then(setS1Leader);
+                if (p.staffSlot.s2EmployeeId) getLeaderName(p.staffSlot.s2EmployeeId).then(setS2Leader);
+            }
+        }).catch(() => {
+            message.error('Lỗi khi tải thông tin dự án');
+        }).finally(() => {
+            setInitLoading(false);
+        });
+    }, [id, getLeaderName]);
 
     const handleMChange = async (id: string) => {
         setMId(id); setM1Id(''); setM2Id('');
@@ -210,54 +250,55 @@ export default function CreateProjectPage() {
     /* ── Submit ── */
     const onSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
+        if (!validate()) {
+            message.error('Vui lòng kiểm tra lại các trường bắt buộc');
+            return;
+        }
         setLoading(true);
         try {
-            const staffSlot: Record<string, string | number | undefined> = {};
-            if (mId)  { staffSlot.mEmployeeId  = mId;  staffSlot.mRate  = rates.mRate; }
-            if (m1Id) { staffSlot.m1EmployeeId = m1Id; staffSlot.m1Rate = rates.m1Rate; }
-            if (m2Id) { staffSlot.m2EmployeeId = m2Id; staffSlot.m2Rate = rates.m2Rate; }
-            if (s1Id) { staffSlot.s1EmployeeId = s1Id; staffSlot.s1Rate = rates.s1Rate; }
-            if (s2Id) { staffSlot.s2EmployeeId = s2Id; staffSlot.s2Rate = rates.s2Rate; }
+            const staffSlot: Record<string, string | number | undefined | null> = {};
+            if (mId)  { staffSlot.mEmployeeId  = mId;  staffSlot.mRate  = rates.mRate; } else { staffSlot.mEmployeeId = null; staffSlot.mRate = null; staffSlot.mLeaderId = null; staffSlot.mLeaderRate = null; }
+            if (m1Id) { staffSlot.m1EmployeeId = m1Id; staffSlot.m1Rate = rates.m1Rate; } else { staffSlot.m1EmployeeId = null; staffSlot.m1Rate = null; staffSlot.m1LeaderId = null; staffSlot.m1LeaderRate = null; }
+            if (m2Id) { staffSlot.m2EmployeeId = m2Id; staffSlot.m2Rate = rates.m2Rate; } else { staffSlot.m2EmployeeId = null; staffSlot.m2Rate = null; staffSlot.m2LeaderId = null; staffSlot.m2LeaderRate = null; }
+            if (s1Id) { staffSlot.s1EmployeeId = s1Id; staffSlot.s1Rate = rates.s1Rate; } else { staffSlot.s1EmployeeId = null; staffSlot.s1Rate = null; staffSlot.s1LeaderId = null; staffSlot.s1LeaderRate = null; }
+            if (s2Id) { staffSlot.s2EmployeeId = s2Id; staffSlot.s2Rate = rates.s2Rate; } else { staffSlot.s2EmployeeId = null; staffSlot.s2Rate = null; staffSlot.s2LeaderId = null; staffSlot.s2LeaderRate = null; }
 
             const payload: Record<string, unknown> = {
+                status,
                 ward,
                 province,
                 managedBranchId,
-                teamId:           teamId || undefined,
-                houseNumber:      houseNumber || undefined,
-                roomCode:         roomCode || undefined,
-                rentalPrice:      rentalPrice ? Number(rentalPrice) : undefined,
-                contractStartAt:  contractStartAt ? new Date(contractStartAt).toISOString() : undefined,
-                contractEndAt:    contractEndAt  ? new Date(contractEndAt).toISOString()  : undefined,
-                leadSource:       leadSource || undefined,
+                teamId:           teamId || null,
+                contractStartAt:  contractStartAt ? new Date(contractStartAt).toISOString() : null,
+                contractEndAt:    contractEndAt  ? new Date(contractEndAt).toISOString()  : null,
+                leadSource:       leadSource || null,
                 deposit1:         Number(deposit1),
-                deposit2:         deposit2 ? Number(deposit2) : undefined,
-                deposit2Date:     deposit2Date ? new Date(deposit2Date).toISOString() : undefined,
-                checkInDate:      checkInDate ? new Date(checkInDate).toISOString() : undefined,
+                deposit2:         deposit2 ? Number(deposit2) : null,
+                deposit2Date:     deposit2Date ? new Date(deposit2Date).toISOString() : null,
+                checkInDate:      checkInDate ? new Date(checkInDate).toISOString() : null,
                 depositDate:      new Date(depositDate).toISOString(),
                 customerName,
                 customerPhone,
-                estimatedCommissionPercent: estimatedCommissionPercent ? Number(estimatedCommissionPercent) : undefined,
-                customerSupport:  customerSupport ? Number(customerSupport) : undefined,
-                note:             note || undefined,
-                staffSlot:        Object.keys(staffSlot).length ? staffSlot : undefined,
+                estimatedCommissionPercent: estimatedCommissionPercent ? Number(estimatedCommissionPercent) : null,
+                customerSupport:  customerSupport ? Number(customerSupport) : null,
+                note:             note || null,
+                staffSlot:        staffSlot,
             };
 
-            const { data: created } = await api.post('/projects', payload);
+            await api.patch(`/projects/${id}`, payload);
 
-            if (contractFile && created?.id) {
+            if (contractFile) {
                 const fd = new FormData();
                 fd.append('file', contractFile);
-                await api.patch(`/projects/${created.id}/contract-image`, fd, {
+                await api.patch(`/projects/${id}/contract-image`, fd, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
             }
 
-            message.success('Tạo mới dự án thành công!');
-            router.push('/dashboard/quan-ly-du-an/thong-tin');
+            message.success('Cập nhật dự án thành công!');
+            router.push(`/dashboard/quan-ly-du-an/thong-tin/${id}`);
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Không thể tạo dự án, vui lòng thử lại.');
+            message.error(err?.response?.data?.message || 'Không thể cập nhật, vui lòng thử lại.');
         } finally {
             setLoading(false);
         }
@@ -266,18 +307,29 @@ export default function CreateProjectPage() {
     const empOptions = employees.map(em => ({ value: em.id, label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})` }));
     const dateInputStyle: React.CSSProperties = { height: 32, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 };
 
+    if (initLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}><Spin size="large" /></div>;
+
     return (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
                 <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.back()} style={{ color: '#6b7280' }} />
-                <Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>Tạo dự án mới</Title>
+                <Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>Chỉnh sửa dự án {projectCode}</Title>
             </div>
 
             <form onSubmit={onSubmit}>
                 <Card>
                     {/* ── Cụm thông tin dự án ─────────────────────────── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm thông tin dự án" />
+
+                        <Field label="Trạng thái" required>
+                            <Select
+                                value={status}
+                                onChange={setStatus}
+                                style={{ width: '100%' }}
+                                options={STATUS_OPTIONS}
+                            />
+                        </Field>
 
                         <Field label="Ngày đặt cọc" required error={errors.depositDate}>
                             <input type="date" style={dateInputStyle} value={depositDate} onChange={e => setDepositDate(e.target.value)} />
@@ -293,16 +345,8 @@ export default function CreateProjectPage() {
                     </div>
 
                     {/* ── Cụm thông tin phòng ─────────────────────────── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm thông tin phòng" />
-
-                        <Field label="Mã phòng">
-                            <Input placeholder="VD: P101" value={roomCode} onChange={e => setRoomCode(e.target.value)} />
-                        </Field>
-
-                        <Field label="Số nhà">
-                            <Input placeholder="VD: 12B" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
-                        </Field>
 
                         <Field label="Tỉnh / Thành phố" required error={errors.province}>
                             <Select
@@ -340,18 +384,6 @@ export default function CreateProjectPage() {
                             />
                         </Field>
 
-                        <Field label="Giá thuê (VNĐ)">
-                            <InputNumber
-                                min={0}
-                                placeholder="VD: 5000000"
-                                value={rentalPrice ? Number(rentalPrice) : null}
-                                onChange={v => setRentalPrice(v ? String(v) : '')}
-                                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
-                                style={{ width: '100%' }}
-                            />
-                        </Field>
-
                         <Field label="Ngày bắt đầu HĐ">
                             <input type="date" style={dateInputStyle} value={contractStartAt} onChange={e => setContractStartAt(e.target.value)} />
                         </Field>
@@ -381,7 +413,7 @@ export default function CreateProjectPage() {
                     </div>
 
                     {/* ── Cụm ngày cọc ────────────────────────────────── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm ngày cọc" />
 
                         <Field label="Tiền cọc lần 1 (VNĐ)" required error={errors.deposit1}>
@@ -418,8 +450,8 @@ export default function CreateProjectPage() {
                     </div>
 
                     {/* ── Cụm doanh thu ───────────────────────────────── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-                        <Section title="Cụm doanh thu" />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+                        <Section title="Cụm doanh thu (Tuỳ chọn)" />
 
                         <Field label="Hoa hồng ước tính (%)">
                             <InputNumber min={0} max={100} step={0.01} placeholder="VD: 5" value={estimatedCommissionPercent ? Number(estimatedCommissionPercent) : null} onChange={v => setEstimatedCommissionPercent(v ? String(v) : '')} style={{ width: '100%' }} />
@@ -436,19 +468,6 @@ export default function CreateProjectPage() {
                                 style={{ width: '100%' }}
                             />
                         </Field>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                            <label style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 4 }}>Doanh thu ước tính</label>
-                            <div style={{
-                                height: 32, display: 'flex', alignItems: 'center', padding: '0 12px', borderRadius: 6, border: '1px solid',
-                                borderColor: estimatedRevenue != null ? '#fed7aa' : '#d9d9d9',
-                                background: estimatedRevenue != null ? '#fff7ed' : '#f9fafb',
-                                color: estimatedRevenue != null ? '#E8890C' : '#9ca3af',
-                                fontSize: 14, fontWeight: estimatedRevenue != null ? 500 : 400,
-                            }}>
-                                {estimatedRevenue != null ? formatCurrencyLocal(estimatedRevenue) : '— (chưa đủ dữ liệu)'}
-                            </div>
-                        </div>
                     </div>
 
                     {/* ── Cụm nhân sự ─────────────────────────────────── */}
@@ -495,6 +514,9 @@ export default function CreateProjectPage() {
                                                     options={[{ value: '', label: 'Không chọn' }, ...empOptions]}
                                                     showSearch
                                                     size="small"
+                                                    filterOption={(input, option) =>
+                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                    }
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 12px', textAlign: 'center' }}>
@@ -509,10 +531,6 @@ export default function CreateProjectPage() {
                                 </tbody>
                             </table>
                         </div>
-
-                        <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>
-                            * Tỉ lệ tự tính theo quy tắc: m nhỏ=0.3 | M1=0.5 | M1+M2=0.25 mỗi. Leader tự động load từ team của nhân viên.
-                        </p>
                     </div>
 
                     {/* ── Ghi chú ────────────────────────────────────── */}
@@ -530,7 +548,7 @@ export default function CreateProjectPage() {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 8, borderTop: '1px solid #f0f0f0' }}>
                         <Button onClick={() => router.back()}>Huỷ</Button>
                         <Button type="primary" htmlType="submit" loading={loading} style={{ minWidth: 120, background: '#E8890C', borderColor: '#E8890C' }}>
-                            Tạo dự án
+                            Lưu thay đổi
                         </Button>
                     </div>
                 </Card>

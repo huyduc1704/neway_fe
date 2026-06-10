@@ -68,7 +68,7 @@ export default function ChiNhanhPage() {
     };
     const openEdit = (b: Branch) => {
         setEditingId(b.id);
-        form.setFieldsValue({ code: b.code, name: b.name, province: b.province ?? '', ward: b.ward ?? '', regionId: b.regionId ?? '' });
+        form.setFieldsValue({ code: b.code, name: b.name, province: b.province ?? '', ward: b.ward ?? '', regionId: b.region?.id ?? '' });
         setDialogOpen(true);
     };
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Eye } from 'lucide-react';
 import { Button, Input, Select, Tag, Table, Card, Typography, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
 
@@ -126,12 +126,22 @@ export default function ThongTinDuAnPage() {
         {
             title: 'Thao tác', key: 'actions', width: 70, align: 'center',
             render: (_, r) => (
-                <button
-                    style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/quan-ly-du-an/thong-tin/${r.id}` as any); }}
-                >
-                    <Eye size={16} />
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
+                    <button
+                        style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                        onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/quan-ly-du-an/thong-tin/${r.id}` as any); }}
+                        title="Xem chi tiết"
+                    >
+                        <Eye size={16} />
+                    </button>
+                    <button
+                        style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#E8890C' }}
+                        onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/quan-ly-du-an/thong-tin/edit/${r.id}` as any); }}
+                        title="Chỉnh sửa"
+                    >
+                        <EditOutlined style={{ fontSize: 16 }} />
+                    </button>
+                </div>
             ),
         },
     ];

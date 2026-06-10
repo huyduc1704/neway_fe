@@ -2,14 +2,13 @@
 import { use, useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle, Upload, ExternalLink, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Upload as UploadIcon, ExternalLink, AlertTriangle } from 'lucide-react';
 import api from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Button, Input, Select, Tag, InputNumber, Checkbox, Spin, Card, Row, Col, Descriptions, Typography, Space, Divider, Upload, DatePicker, Table, Modal } from 'antd';
 import dayjs from 'dayjs';
+
+const { TextArea } = Input;
+const { Title, Text } = Typography;
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface TransactionDetail {
@@ -37,9 +36,9 @@ interface TransactionDetail {
         deposit2: number | null;
         deposit2Date: string | null;
         checkInDate: string | null;
-        rentalPrice: number | null;
         customerSupport: number | null;
         estimatedRevenue: number | null;
+        rooms?: Array<{ rentalPrice: number | null }>;
     } | null;
     room: { id: string; roomCode: string; rentalPrice: number | null } | null;
     customer: { id: string; fullName: string; phone: string } | null;
@@ -50,45 +49,44 @@ interface TransactionDetail {
 
 /* ─── Constants ──────────────────────────────────────────── */
 const STATUS_OPTIONS = [
-    { value: 'SUCCESS',   label: 'Thành công' },
+    { value: 'PENDING', label: 'Chờ xử lý' },
+    { value: 'SUCCESS', label: 'Thành công' },
     { value: 'CANCELLED', label: 'Huỷ cọc - Hoàn cọc' },
-    { value: 'FAILED',    label: 'Thất bại' },
+    { value: 'FAILED', label: 'Thất bại' },
 ];
+
+const ROLE_MAP: Record<string, string> = {
+    'ADMIN': 'Quản trị viên (Admin)',
+    'SALE': 'Nhân viên Kinh doanh (Sale)',
+    'LEADER': 'Trưởng nhóm (Leader)',
+    'KE_TOAN': 'Kế toán',
+};
+const fmtRole = (name: string) => ROLE_MAP[name] || name;
 
 const fmtCurrency = (v: number | null | undefined) =>
     v != null ? new Intl.NumberFormat('vi-VN').format(v) + 'đ' : '—';
 const fmtDate = (v: string | null | undefined) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '—';
 
-/* ─── Info row ───────────────────────────────────────────── */
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div className="flex">
-            <span className="w-52 shrink-0 text-sm font-medium text-[#E8890C] bg-orange-50 px-4 py-2.5">{label}</span>
-            <span className="px-4 py-2.5 text-sm flex-1">{children}</span>
-        </div>
-    );
-}
-
 /* ─── Main component ─────────────────────────────────────── */
 export default function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
-    const [tx, setTx]           = useState<TransactionDetail | null>(null);
+    const [tx, setTx] = useState<TransactionDetail | null>(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving]   = useState(false);
+    const [saving, setSaving] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const [uploadingImg, setUploadingImg] = useState(false);
 
     /* form state */
-    const [status,                   setStatus]                   = useState('');
-    const [hasFullDeposit,           setHasFullDeposit]           = useState(false);
-    const [addDeposit2,              setAddDeposit2]              = useState(false);
-    const [supplementDeposit2,       setSupplementDeposit2]       = useState('');
-    const [transactedAt,             setTransactedAt]             = useState('');
-    const [actualCommissionPercent,  setActualCommissionPercent]  = useState('');
-    const [manualActualRevenue,      setManualActualRevenue]      = useState('');
-    const [collectionStatus,         setCollectionStatus]         = useState('NOT_COLLECTED');
-    const [note,                     setNote]                     = useState('');
+    const [status, setStatus] = useState('');
+    const [hasFullDeposit, setHasFullDeposit] = useState(false);
+    const [addDeposit2, setAddDeposit2] = useState(false);
+    const [supplementDeposit2, setSupplementDeposit2] = useState<number | null>(null);
+    const [transactedAt, setTransactedAt] = useState('');
+    const [actualCommissionPercent, setActualCommissionPercent] = useState<number | null>(null);
+    const [manualActualRevenue, setManualActualRevenue] = useState<number | null>(null);
+    const [collectionStatus, setCollectionStatus] = useState('NOT_COLLECTED');
+    const [note, setNote] = useState('');
 
     /* ── Fetch ── */
     const fetchTx = useCallback(async () => {
@@ -99,10 +97,10 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
             setStatus(data.status ?? '');
             setHasFullDeposit(data.hasFullDeposit ?? false);
             setAddDeposit2(!!data.supplementDeposit2);
-            setSupplementDeposit2(data.supplementDeposit2 ? String(data.supplementDeposit2) : '');
+            setSupplementDeposit2(data.supplementDeposit2 ? Number(data.supplementDeposit2) : null);
             setTransactedAt(data.transactedAt ? dayjs(data.transactedAt).format('YYYY-MM-DDTHH:mm') : '');
-            setActualCommissionPercent(data.actualCommissionPercent != null ? String(data.actualCommissionPercent) : '');
-            setManualActualRevenue(data.actualRevenue != null ? String(data.actualRevenue) : '');
+            setActualCommissionPercent(data.actualCommissionPercent != null ? Number(data.actualCommissionPercent) : null);
+            setManualActualRevenue(data.actualRevenue != null ? Number(data.actualRevenue) : null);
             setCollectionStatus(data.collectionStatus ?? 'NOT_COLLECTED');
             setNote(data.note ?? '');
         } catch {
@@ -115,32 +113,32 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
     useEffect(() => { fetchTx(); }, [fetchTx]);
 
     /* ── Computed values ── */
-    const rentalPrice = tx?.room?.rentalPrice ?? tx?.project?.rentalPrice ?? 0;
-    const deposit1    = tx?.project?.deposit1 ?? 0;
-    const deposit2    = tx?.project?.deposit2 ?? 0;
-    const customerSupport = tx?.project?.customerSupport ?? 0;
+    const rentalPrice = Number(tx?.room?.rentalPrice ?? tx?.project?.rooms?.[0]?.rentalPrice ?? 0);
+    const deposit1 = Number(tx?.project?.deposit1 ?? 0);
+    const deposit2 = Number(tx?.project?.deposit2 ?? 0);
+    const customerSupport = Number(tx?.project?.customerSupport ?? 0);
 
     // tổng tiền cọc
     const totalDeposit = (() => {
         if (hasFullDeposit) return deposit1 + deposit2;
-        if (addDeposit2 && supplementDeposit2) return deposit1 + Number(supplementDeposit2);
+        if (addDeposit2 && supplementDeposit2 != null) return deposit1 + supplementDeposit2;
         return deposit1;
     })();
 
     // doanh thu thực tế (auto-calc khi SUCCESS)
     const autoActualRevenue = (() => {
         if (status !== 'SUCCESS') return null;
-        const pct = parseFloat(actualCommissionPercent) || 0;
+        const pct = actualCommissionPercent || 0;
         if (!pct || !rentalPrice) return null;
         return rentalPrice * (pct / 100) - customerSupport;
     })();
     const displayActualRevenue = status === 'CANCELLED'
-        ? (manualActualRevenue ? Number(manualActualRevenue) : null)
+        ? (manualActualRevenue != null ? manualActualRevenue : null)
         : autoActualRevenue;
 
     // chênh lệch
     const revenueDiff = displayActualRevenue != null && tx?.project?.estimatedRevenue != null
-        ? displayActualRevenue - tx.project.estimatedRevenue
+        ? displayActualRevenue - Number(tx.project.estimatedRevenue)
         : null;
 
     // khớp lệnh
@@ -157,10 +155,10 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
             const payload: Record<string, unknown> = {
                 status,
                 hasFullDeposit,
-                supplementDeposit2: addDeposit2 && supplementDeposit2 ? Number(supplementDeposit2) : undefined,
+                supplementDeposit2: addDeposit2 && supplementDeposit2 != null ? supplementDeposit2 : 0,
                 transactedAt: transactedAt ? new Date(transactedAt).toISOString() : undefined,
-                actualCommissionPercent: actualCommissionPercent ? Number(actualCommissionPercent) : undefined,
-                actualRevenue: status === 'CANCELLED' && manualActualRevenue ? Number(manualActualRevenue) : undefined,
+                actualCommissionPercent: actualCommissionPercent != null ? actualCommissionPercent : undefined,
+                actualRevenue: status === 'CANCELLED' && manualActualRevenue != null ? manualActualRevenue : undefined,
                 collectionStatus,
                 note: note || undefined,
             };
@@ -175,18 +173,26 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
     };
 
     /* ── Kế toán xác nhận ── */
-    const handleConfirm = async () => {
-        if (!window.confirm('Xác nhận giao dịch này với tư cách kế toán?')) return;
-        setConfirming(true);
-        try {
-            await api.patch(`/transactions/${id}/confirm`);
-            toast.success('Đã xác nhận giao dịch');
-            fetchTx();
-        } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
-        } finally {
-            setConfirming(false);
-        }
+    const handleConfirm = () => {
+        Modal.confirm({
+            title: 'Xác nhận giao dịch',
+            content: 'Bạn có chắc chắn muốn xác nhận giao dịch này với tư cách kế toán?',
+            okText: 'Xác nhận',
+            cancelText: 'Huỷ',
+            okButtonProps: { style: { backgroundColor: '#52c41a', borderColor: '#52c41a' } },
+            onOk: async () => {
+                setConfirming(true);
+                try {
+                    await api.patch(`/transactions/${id}/confirm`);
+                    toast.success('Đã xác nhận giao dịch');
+                    fetchTx();
+                } catch (err: any) {
+                    toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+                } finally {
+                    setConfirming(false);
+                }
+            }
+        });
     };
 
     /* ── Upload ảnh ── */
@@ -210,7 +216,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
     /* ── Render ── */
     if (loading) return (
         <div className="flex items-center justify-center py-24">
-            <div className="h-6 w-6 rounded-full border-2 border-[#E8890C] border-t-transparent animate-spin" />
+            <Spin size="large" />
         </div>
     );
     if (!tx) return null;
@@ -218,297 +224,317 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
     const isLocked = tx.accountantConfirmed || tx.status === 'SUCCESS';
 
     return (
-        <div className="space-y-4 pb-8">
+        <div className="space-y-4 pb-8" style={{ padding: '0 24px', backgroundColor: '#f0f2f5', minHeight: '100vh', paddingTop: '24px' }}>
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 text-sm" onClick={() => router.back()}>
-                        <ArrowLeft className="h-4 w-4" /> Quay lại
-                    </button>
-                    <span className="text-lg font-semibold text-[#1A2B5A]">
-                        Giao dịch — <Badge variant="warning">{tx.transactionCode}</Badge>
-                    </span>
-                </div>
-                <div className="flex items-center gap-2">
-                    {!tx.accountantConfirmed && (
-                        <Button
-                            variant="outline"
-                            className="border-green-500 text-green-700 hover:bg-green-50"
-                            onClick={handleConfirm}
-                            disabled={confirming}
+            <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
+                <Col>
+                    <Space size="middle" align="center">
+                        <Button 
+                            icon={<ArrowLeft className="h-4 w-4" />} 
+                            onClick={() => router.back()}
                         >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            {confirming ? 'Đang xác nhận...' : 'Kế toán xác nhận'}
+                            Quay lại
                         </Button>
-                    )}
-                    {tx.accountantConfirmed && (
-                        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-1.5">
-                            <CheckCircle className="h-4 w-4" />
-                            KT đã xác nhận — {fmtDate(tx.accountantConfirmedAt)}
-                            {tx.accountantConfirmedBy && ` (${tx.accountantConfirmedBy.fullName})`}
-                        </div>
-                    )}
-                    <Button onClick={handleSave} disabled={saving} className="bg-[#E8890C] hover:bg-[#C8720A]">
-                        {saving && <span className="mr-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block" />}
-                        Lưu thay đổi
-                    </Button>
-                </div>
-            </div>
+                        <Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>
+                            Giao dịch — <Tag color="orange" style={{ fontSize: '14px', padding: '2px 8px' }}>{tx.transactionCode}</Tag>
+                        </Title>
+                    </Space>
+                </Col>
+                <Col>
+                    <Space>
+                        {!tx.accountantConfirmed && (
+                            <Button
+                                onClick={handleConfirm}
+                                disabled={confirming}
+                                icon={<CheckCircle className="h-4 w-4" />}
+                                style={{ borderColor: '#52c41a', color: '#52c41a' }}
+                            >
+                                {confirming ? 'Đang xác nhận...' : 'Kế toán xác nhận'}
+                            </Button>
+                        )}
+                        {tx.accountantConfirmed && (
+                            <Tag icon={<CheckCircle className="h-3 w-3" />} color="success" style={{ padding: '6px 12px', fontSize: '14px' }}>
+                                KT đã xác nhận — {fmtDate(tx.accountantConfirmedAt)}
+                                {tx.accountantConfirmedBy && ` (${tx.accountantConfirmedBy.fullName})`}
+                            </Tag>
+                        )}
+                        <Button type="primary" onClick={handleSave} loading={saving} style={{ backgroundColor: '#E8890C', borderColor: '#E8890C' }}>
+                            Lưu thay đổi
+                        </Button>
+                    </Space>
+                </Col>
+            </Row>
 
-            <div className="grid grid-cols-2 gap-4">
+            <Row gutter={[24, 24]}>
                 {/* ── Cột trái: Thông tin giao dịch ── */}
-                <div className="space-y-4">
-
-                    {/* Thông tin cơ bản */}
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        <div className="bg-orange-50 px-4 py-2 border-b border-orange-100">
-                            <h3 className="text-sm font-semibold text-[#E8890C]">Thông tin cơ bản</h3>
-                        </div>
-                        <div className="divide-y divide-gray-100">
-                            <InfoRow label="Mã giao dịch">{tx.transactionCode}</InfoRow>
-                            <InfoRow label="Dự án">{tx.project?.code || '—'}</InfoRow>
-                            <InfoRow label="Phòng">{tx.room?.roomCode || '—'}</InfoRow>
-                            <InfoRow label="Khách hàng">
-                                <div>
-                                    <div>{tx.customer?.fullName || '—'}</div>
-                                    {tx.customer?.phone && <div className="text-xs text-gray-400">{tx.customer.phone}</div>}
-                                </div>
-                            </InfoRow>
-                            <InfoRow label="Chi nhánh">{tx.branch?.name || '—'}</InfoRow>
-                            <InfoRow label="Khu vực">{tx.team?.name || '—'}</InfoRow>
-                        </div>
-                    </div>
-
-                    {/* Tiền cọc */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-                        <h3 className="text-sm font-semibold text-[#E8890C]">Tiền cọc</h3>
-
-                        <div className="flex items-center gap-3 text-sm">
-                            <span className="text-gray-600 w-36">Tiền cọc lần 1</span>
-                            <span className="font-medium">{fmtCurrency(deposit1 || null)}</span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <label className="flex items-center gap-2 cursor-pointer text-sm">
-                                <input
-                                    type="checkbox"
-                                    className="h-4 w-4 accent-[#E8890C]"
-                                    checked={hasFullDeposit}
-                                    onChange={e => { setHasFullDeposit(e.target.checked); if (e.target.checked) setAddDeposit2(false); }}
-                                />
-                                <span>Đã bổ sung cọc đủ</span>
-                            </label>
-                            {hasFullDeposit && deposit2 > 0 && (
-                                <span className="text-xs text-gray-500">
-                                    (+ {fmtCurrency(deposit2 || null)} bổ sung)
-                                </span>
-                            )}
-                        </div>
-
-                        {!hasFullDeposit && (
-                            <div className="space-y-2">
-                                <label className="flex items-center gap-2 cursor-pointer text-sm">
-                                    <input
-                                        type="checkbox"
-                                        className="h-4 w-4 accent-[#E8890C]"
-                                        checked={addDeposit2}
-                                        onChange={e => { setAddDeposit2(e.target.checked); if (!e.target.checked) setSupplementDeposit2(''); }}
-                                    />
-                                    <span>Bổ sung cọc lần 2</span>
-                                </label>
-                                {addDeposit2 && (
+                <Col xs={24} md={12}>
+                    <Space direction="vertical" size="large" style={{ display: 'flex' }}>
+                        
+                        {/* Thông tin cơ bản */}
+                        <Card title={<span style={{ color: '#E8890C' }}>Thông tin cơ bản</span>} bordered={false}>
+                            <Descriptions column={1} bordered size="small" labelStyle={{ width: '160px', backgroundColor: '#fff7e6', color: '#E8890C', fontWeight: 500 }}>
+                                <Descriptions.Item label="Mã giao dịch">{tx.transactionCode}</Descriptions.Item>
+                                <Descriptions.Item label="Dự án">{tx.project?.code || '—'}</Descriptions.Item>
+                                <Descriptions.Item label="Phòng">{tx.room?.roomCode || '—'}</Descriptions.Item>
+                                <Descriptions.Item label="Khách hàng">
                                     <div>
-                                        <Label className="text-xs">Số tiền bổ sung (VNĐ)</Label>
-                                        <Input
-                                            type="number" className="mt-1 h-8" min={0}
-                                            placeholder="Nhập số tiền"
-                                            value={supplementDeposit2}
-                                            onChange={e => setSupplementDeposit2(e.target.value)}
+                                        <div>{tx.customer?.fullName || '—'}</div>
+                                        {tx.customer?.phone && <Text type="secondary" style={{ fontSize: '12px' }}>{tx.customer.phone}</Text>}
+                                    </div>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Chi nhánh">{tx.branch?.name || '—'}</Descriptions.Item>
+                                <Descriptions.Item label="Khu vực">{tx.team?.name || '—'}</Descriptions.Item>
+                            </Descriptions>
+                        </Card>
+
+                        {/* Tiền cọc */}
+                        <Card title={<span style={{ color: '#E8890C' }}>Tiền cọc</span>} bordered={false}>
+                            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                <Row justify="space-between">
+                                    <Col><Text type="secondary">Tiền cọc lần 1</Text></Col>
+                                    <Col><Text strong>{fmtCurrency(deposit1 || null)}</Text></Col>
+                                </Row>
+
+                                <div>
+                                    <Checkbox
+                                        checked={hasFullDeposit}
+                                        onChange={e => { setHasFullDeposit(e.target.checked); if (e.target.checked) setAddDeposit2(false); }}
+                                    >
+                                        Đã bổ sung cọc đủ
+                                    </Checkbox>
+                                    {hasFullDeposit && deposit2 > 0 && (
+                                        <Text type="secondary" style={{ fontSize: '12px', marginLeft: 8 }}>
+                                            (+ {fmtCurrency(deposit2 || null)} bổ sung)
+                                        </Text>
+                                    )}
+                                </div>
+
+                                {!hasFullDeposit && (
+                                    <div style={{ paddingLeft: 24 }}>
+                                        <Checkbox
+                                            checked={addDeposit2}
+                                            onChange={e => { setAddDeposit2(e.target.checked); if (!e.target.checked) setSupplementDeposit2(null); }}
+                                        >
+                                            Bổ sung cọc lần 2
+                                        </Checkbox>
+                                        {addDeposit2 && (
+                                            <div style={{ marginTop: 8 }}>
+                                                <div style={{ marginBottom: 4, fontSize: '12px' }}>Số tiền bổ sung (VNĐ)</div>
+                                                <InputNumber
+                                                    style={{ width: '100%' }}
+                                                    min={0}
+                                                    placeholder="Nhập số tiền"
+                                                    value={supplementDeposit2}
+                                                    onChange={val => setSupplementDeposit2(val)}
+                                                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                                                    parser={(value) => value?.replace(/\./g, '') as unknown as number}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <Divider style={{ margin: '8px 0' }} />
+                                
+                                <Row justify="space-between">
+                                    <Col><Text strong>Tổng tiền cọc</Text></Col>
+                                    <Col><Text strong style={{ color: '#E8890C', fontSize: '16px' }}>{fmtCurrency(totalDeposit || null)}</Text></Col>
+                                </Row>
+                            </Space>
+                        </Card>
+
+                        {/* Ảnh giao dịch */}
+                        <Card title={<span style={{ color: '#E8890C' }}>Ảnh giao dịch</span>} bordered={false}>
+                            <Space size="middle" align="center">
+                                {tx.transactionImageUrl ? (
+                                    <a href={tx.transactionImageUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <ExternalLink className="h-4 w-4" /> Xem ảnh
+                                    </a>
+                                ) : (
+                                    <Text type="secondary">Chưa có ảnh</Text>
+                                )}
+                                <Upload
+                                    showUploadList={false}
+                                    beforeUpload={(file) => {
+                                        handleImageUpload(file);
+                                        return false;
+                                    }}
+                                    disabled={uploadingImg}
+                                >
+                                    <Button icon={<UploadIcon className="h-4 w-4" />} loading={uploadingImg}>
+                                        {tx.transactionImageUrl ? 'Thay ảnh' : 'Upload ảnh'}
+                                    </Button>
+                                </Upload>
+                            </Space>
+                        </Card>
+                    </Space>
+                </Col>
+
+                {/* ── Cột phải: Nghiệp vụ ── */}
+                <Col xs={24} md={12}>
+                    <Space direction="vertical" size="large" style={{ display: 'flex' }}>
+                        
+                        {/* Tình trạng & Ngày GD */}
+                        <Card title={<span style={{ color: '#E8890C' }}>Tình trạng giao dịch</span>} bordered={false}>
+                            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                <div>
+                                    <div style={{ marginBottom: 4 }}>Tình trạng</div>
+                                    <Select 
+                                        style={{ width: '100%' }}
+                                        value={status} 
+                                        onChange={setStatus} 
+                                        disabled={isLocked}
+                                        options={STATUS_OPTIONS}
+                                    />
+                                </div>
+
+                                <div>
+                                    <div style={{ marginBottom: 4 }}>Ngày GDTC / GDHC</div>
+                                    <DatePicker 
+                                        showTime 
+                                        format="DD/MM/YYYY HH:mm"
+                                        style={{ width: '100%' }}
+                                        value={transactedAt ? dayjs(transactedAt) : null}
+                                        onChange={(date) => setTransactedAt(date ? date.toISOString() : '')}
+                                        disabled={isLocked}
+                                        placeholder="Chọn ngày giờ"
+                                    />
+                                </div>
+
+                                {/* Khớp lệnh */}
+                                <div style={{ padding: '12px', backgroundColor: '#f9f9f9', borderRadius: '6px', border: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <Text type="secondary" style={{ width: '80px' }}>Khớp lệnh</Text>
+                                    {!transactedAt || !tx.project?.checkInDate ? (
+                                        <Text type="secondary" style={{ fontSize: '12px' }}>— (chưa đủ dữ liệu)</Text>
+                                    ) : isMatched ? (
+                                        <Tag color="success">Khớp</Tag>
+                                    ) : (
+                                        <Space align="center">
+                                            <Tag color="error">Không khớp</Tag>
+                                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                                                Ngày nhận phòng: {dayjs(tx.project.checkInDate).format('DD/MM/YYYY')}
+                                            </Text>
+                                        </Space>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <div style={{ marginBottom: 4 }}>Trạng thái thu</div>
+                                    <Select 
+                                        style={{ width: '100%' }}
+                                        value={collectionStatus} 
+                                        onChange={setCollectionStatus}
+                                        options={[
+                                            { value: 'NOT_COLLECTED', label: 'Chưa thu' },
+                                            { value: 'COLLECTED', label: 'Đã thu' }
+                                        ]}
+                                    />
+                                </div>
+                            </Space>
+                        </Card>
+
+                        {/* Doanh thu */}
+                        <Card title={<span style={{ color: '#E8890C' }}>Doanh thu</span>} bordered={false}>
+                            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                <Row justify="space-between">
+                                    <Col><Text type="secondary">Doanh thu ước tính</Text></Col>
+                                    <Col><Text strong>{fmtCurrency(tx.project?.estimatedRevenue ?? null)}</Text></Col>
+                                </Row>
+
+                                {status === 'SUCCESS' && (
+                                    <div>
+                                        <div style={{ marginBottom: 4 }}>Hoa hồng thực tế (%)</div>
+                                        <InputNumber
+                                            style={{ width: '100%' }}
+                                            min={0} max={100} step={0.01}
+                                            placeholder="VD: 5"
+                                            value={actualCommissionPercent}
+                                            onChange={val => setActualCommissionPercent(val)}
+                                            disabled={isLocked}
+                                        />
+                                        <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: 4 }}>
+                                            Doanh thu TT = Giá phòng × Hoa hồng% − Hỗ trợ khách
+                                        </Text>
+                                    </div>
+                                )}
+
+                                {status === 'CANCELLED' && (
+                                    <div>
+                                        <div style={{ marginBottom: 4 }}>Doanh thu thực tế (VNĐ)</div>
+                                        <InputNumber
+                                            style={{ width: '100%' }}
+                                            min={0}
+                                            placeholder="Nhập doanh thu thực tế"
+                                            value={manualActualRevenue}
+                                            onChange={val => setManualActualRevenue(val)}
+                                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                                            parser={(value) => value?.replace(/\./g, '') as unknown as number}
                                         />
                                     </div>
                                 )}
-                            </div>
-                        )}
 
-                        <div className="flex items-center gap-3 pt-1 border-t border-gray-100 text-sm font-semibold">
-                            <span className="text-gray-600 w-36">Tổng tiền cọc</span>
-                            <span className="text-[#E8890C]">{fmtCurrency(totalDeposit || null)}</span>
-                        </div>
-                    </div>
+                                <Divider style={{ margin: '8px 0' }} />
 
-                    {/* Ảnh giao dịch */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-4">
-                        <h3 className="text-sm font-semibold text-[#E8890C] mb-3">Ảnh giao dịch</h3>
-                        <div className="flex items-center gap-3">
-                            {tx.transactionImageUrl ? (
-                                <a href={tx.transactionImageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
-                                    <ExternalLink className="h-4 w-4" /> Xem ảnh
-                                </a>
-                            ) : (
-                                <span className="text-sm text-gray-400">Chưa có ảnh</span>
-                            )}
-                            <label className={`flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs cursor-pointer ${uploadingImg ? 'opacity-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                                <Upload className="h-3.5 w-3.5" />
-                                {uploadingImg ? 'Đang upload...' : (tx.transactionImageUrl ? 'Thay ảnh' : 'Upload ảnh')}
-                                <input type="file" accept="image/*" className="hidden" disabled={uploadingImg}
-                                    onChange={e => e.target.files?.[0] && handleImageUpload(e.target.files[0])} />
-                            </label>
-                        </div>
-                    </div>
-                </div>
+                                <Row justify="space-between">
+                                    <Col><Text strong>Doanh thu thực tế</Text></Col>
+                                    <Col>
+                                        <Text strong style={{ color: displayActualRevenue != null ? '#E8890C' : '#bfbfbf', fontSize: '16px' }}>
+                                            {fmtCurrency(displayActualRevenue ?? null)}
+                                        </Text>
+                                    </Col>
+                                </Row>
 
-                {/* ── Cột phải: Nghiệp vụ ── */}
-                <div className="space-y-4">
-
-                    {/* Tình trạng & Ngày GD */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-                        <h3 className="text-sm font-semibold text-[#E8890C]">Tình trạng giao dịch</h3>
-
-                        <div>
-                            <Label className="text-sm">Tình trạng</Label>
-                            <Select value={status} onValueChange={setStatus} disabled={isLocked}>
-                                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <Label className="text-sm">Ngày GDTC / GDHC</Label>
-                            <input
-                                type="datetime-local"
-                                className="mt-1 h-9 w-full px-3 rounded-md border border-gray-200 text-sm focus:ring-2 focus:ring-[#E8890C] focus:outline-none disabled:bg-gray-50"
-                                value={transactedAt}
-                                onChange={e => setTransactedAt(e.target.value)}
-                                disabled={isLocked}
-                            />
-                        </div>
-
-                        {/* Khớp lệnh */}
-                        <div className="flex items-center gap-3 p-3 rounded-md border border-gray-200 bg-gray-50">
-                            <span className="text-sm text-gray-600 w-24 shrink-0">Khớp lệnh</span>
-                            {!transactedAt || !tx.project?.checkInDate ? (
-                                <span className="text-xs text-gray-400">— (chưa đủ dữ liệu)</span>
-                            ) : isMatched ? (
-                                <Badge variant="success">Khớp</Badge>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="destructive">Không khớp</Badge>
-                                    <span className="text-xs text-gray-400">
-                                        Ngày nhận phòng: {dayjs(tx.project.checkInDate).format('DD/MM/YYYY')}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label className="text-sm">Trạng thái thu</Label>
-                            <Select value={collectionStatus} onValueChange={setCollectionStatus}>
-                                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="NOT_COLLECTED">Chưa thu</SelectItem>
-                                    <SelectItem value="COLLECTED">Đã thu</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    {/* Doanh thu */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-                        <h3 className="text-sm font-semibold text-[#E8890C]">Doanh thu</h3>
-
-                        <div className="flex items-center gap-3 text-sm">
-                            <span className="text-gray-600 w-44 shrink-0">Doanh thu ước tính</span>
-                            <span className="font-medium">{fmtCurrency(tx.project?.estimatedRevenue ?? null)}</span>
-                        </div>
-
-                        {status === 'SUCCESS' && (
-                            <div>
-                                <Label className="text-sm">Hoa hồng thực tế (%)</Label>
-                                <Input
-                                    type="number" className="mt-1 h-9" min={0} max={100} step={0.01}
-                                    placeholder="VD: 5"
-                                    value={actualCommissionPercent}
-                                    onChange={e => setActualCommissionPercent(e.target.value)}
-                                    disabled={isLocked}
-                                />
-                                <p className="text-xs text-gray-400 mt-1">
-                                    Doanh thu TT = Giá phòng × Hoa hồng% − Hỗ trợ khách
-                                </p>
-                            </div>
-                        )}
-
-                        {status === 'CANCELLED' && (
-                            <div>
-                                <Label className="text-sm">Doanh thu thực tế (VNĐ)</Label>
-                                <Input
-                                    type="number" className="mt-1 h-9" min={0}
-                                    placeholder="Nhập doanh thu thực tế"
-                                    value={manualActualRevenue}
-                                    onChange={e => setManualActualRevenue(e.target.value)}
-                                />
-                            </div>
-                        )}
-
-                        <div className="pt-2 border-t border-gray-100 space-y-2">
-                            <div className="flex items-center gap-3 text-sm">
-                                <span className="text-gray-600 w-44 shrink-0">Doanh thu thực tế</span>
-                                <span className={`font-semibold ${displayActualRevenue != null ? 'text-[#E8890C]' : 'text-gray-400'}`}>
-                                    {fmtCurrency(displayActualRevenue ?? null)}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                                <span className="text-gray-600 w-44 shrink-0">Chênh lệch</span>
-                                {revenueDiff != null ? (
-                                    <span className={`font-semibold ${revenueDiff >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                        {revenueDiff >= 0 ? '+' : ''}{fmtCurrency(revenueDiff)}
-                                        {revenueDiff < 0 && (
-                                            <AlertTriangle className="inline h-4 w-4 ml-1 text-red-400" />
+                                <Row justify="space-between">
+                                    <Col><Text strong>Chênh lệch</Text></Col>
+                                    <Col>
+                                        {revenueDiff != null ? (
+                                            <Space size="small">
+                                                <Text strong style={{ color: revenueDiff >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                                                    {revenueDiff >= 0 ? '+' : ''}{fmtCurrency(revenueDiff)}
+                                                </Text>
+                                                {revenueDiff < 0 && <AlertTriangle className="h-4 w-4 text-red-400" />}
+                                            </Space>
+                                        ) : (
+                                            <Text type="secondary">—</Text>
                                         )}
-                                    </span>
-                                ) : (
-                                    <span className="text-gray-400">—</span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                                    </Col>
+                                </Row>
+                            </Space>
+                        </Card>
 
-                    {/* Hoa hồng theo vai trò */}
-                    {tx.commissions?.length > 0 && (
-                        <div className="bg-white rounded-lg border border-gray-200 p-4">
-                            <h3 className="text-sm font-semibold text-[#E8890C] mb-3">Hoa hồng theo vai trò</h3>
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 text-gray-600">
-                                        <th className="text-left px-3 py-2">Vai trò</th>
-                                        <th className="text-right px-3 py-2">Số tiền</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {tx.commissions.map((c, i) => (
-                                        <tr key={i}>
-                                            <td className="px-3 py-2">{c.role.name}</td>
-                                            <td className="px-3 py-2 text-right font-medium text-[#1A2B5A]">{fmtCurrency(c.amount)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                        {/* Hoa hồng theo vai trò */}
+                        {tx.commissions?.length > 0 && (
+                            <Card title={<span style={{ color: '#E8890C' }}>Hoa hồng theo vai trò</span>} bordered={false}>
+                                <Table 
+                                    dataSource={tx.commissions} 
+                                    pagination={false} 
+                                    size="small"
+                                    rowKey={(record) => record.role.name}
+                                >
+                                <Table.Column title="Vai trò" dataIndex={['role', 'name']} key="role" render={(val: string) => fmtRole(val)} />
+                                    <Table.Column 
+                                        title="Số tiền" 
+                                        dataIndex="amount" 
+                                        key="amount" 
+                                        align="right"
+                                        render={(val) => <Text strong style={{ color: '#1A2B5A' }}>{fmtCurrency(val)}</Text>} 
+                                    />
+                                </Table>
+                            </Card>
+                        )}
 
-                    {/* Ghi chú */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-4">
-                        <Label className="text-sm font-semibold text-[#E8890C]">Ghi chú</Label>
-                        <textarea
-                            className="mt-2 w-full h-20 px-3 py-2 rounded-md border border-gray-200 text-sm resize-none focus:ring-2 focus:ring-[#E8890C] focus:outline-none"
-                            placeholder="Ghi chú thêm..."
-                            value={note}
-                            onChange={e => setNote(e.target.value)}
-                        />
-                    </div>
-                </div>
-            </div>
+                        {/* Ghi chú */}
+                        <Card title={<span style={{ color: '#E8890C' }}>Ghi chú</span>} bordered={false}>
+                            <TextArea
+                                rows={4}
+                                placeholder="Ghi chú thêm..."
+                                value={note}
+                                onChange={e => setNote(e.target.value)}
+                            />
+                        </Card>
+                    </Space>
+                </Col>
+            </Row>
         </div>
     );
 }

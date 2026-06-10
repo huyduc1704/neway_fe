@@ -220,10 +220,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.back()} style={{ color: '#6b7280' }} />
-                <Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>Thông tin dự án — {project.code}</Title>
-                <Tag color={statusInfo.color}>{statusInfo.label}</Tag>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.back()} style={{ color: '#6b7280' }} />
+                    <Title level={4} style={{ margin: 0, color: '#1A2B5A' }}>Thông tin dự án — {project.code}</Title>
+                    <Tag color={statusInfo.color}>{statusInfo.label}</Tag>
+                </div>
+                <Button type="primary" icon={<EditOutlined />} onClick={() => router.push(`/dashboard/quan-ly-du-an/thong-tin/edit/${id}` as any)}>
+                    Chỉnh sửa dự án
+                </Button>
             </div>
 
             <Card title="Thông tin dự án" size="small" styles={{ header: headStyle }}>
