@@ -17,8 +17,8 @@ const menuItems = [
         icon: <ProjectOutlined />,
         label: 'Quản lý dự án',
         children: [
-            { key: '/dashboard/quan-ly-du-an/thong-tin', label: <Link href="/dashboard/quan-ly-du-an/thong-tin">Quản lý thông tin dự án</Link> },
-            { key: '/dashboard/quan-ly-du-an/giao-dich', label: <Link href="/dashboard/quan-ly-du-an/giao-dich">Quản lý giao dịch</Link> },
+            { key: '/dashboard/quan-ly-du-an/thong-tin', label: <Link href="/dashboard/quan-ly-du-an/thong-tin">Giao dịch cọc</Link> },
+            { key: '/dashboard/quan-ly-du-an/giao-dich', label: <Link href="/dashboard/quan-ly-du-an/giao-dich">Giao dịch thành công</Link> },
         ],
     },
     {

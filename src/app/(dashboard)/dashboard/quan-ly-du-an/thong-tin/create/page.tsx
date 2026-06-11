@@ -4,8 +4,9 @@ import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
-import { Button, Input, Select, Typography, Space, Card, InputNumber } from 'antd';
+import { Button, Input, Select, Typography, Space, Card, InputNumber, DatePicker } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
@@ -114,6 +115,8 @@ export default function CreateProjectPage() {
     const [managedBranchId, setManagedBranchId] = useState('');
     const [teamId,         setTeamId]          = useState('');
     const [rentalPrice,    setRentalPrice]      = useState('');
+    const [depositPrice,   setDepositPrice]    = useState('');
+    const [rentalInfo,     setRentalInfo]      = useState('');
     const [contractStartAt, setContractStartAt] = useState('');
     const [contractEndAt,  setContractEndAt]   = useState('');
     const [leadSource,     setLeadSource]       = useState('');
@@ -228,6 +231,8 @@ export default function CreateProjectPage() {
                 houseNumber:      houseNumber || undefined,
                 roomCode:         roomCode || undefined,
                 rentalPrice:      rentalPrice ? Number(rentalPrice) : undefined,
+                depositPrice:     depositPrice ? Number(depositPrice) : undefined,
+                rentalInfo:       rentalInfo || undefined,
                 contractStartAt:  contractStartAt ? new Date(contractStartAt).toISOString() : undefined,
                 contractEndAt:    contractEndAt  ? new Date(contractEndAt).toISOString()  : undefined,
                 leadSource:       leadSource || undefined,
@@ -280,7 +285,7 @@ export default function CreateProjectPage() {
                         <Section title="Cụm thông tin dự án" />
 
                         <Field label="Ngày đặt cọc" required error={errors.depositDate}>
-                            <input type="date" style={dateInputStyle} value={depositDate} onChange={e => setDepositDate(e.target.value)} />
+                            <DatePicker style={dateInputStyle} format="DD/MM/YYYY" value={depositDate ? dayjs(depositDate) : null} onChange={(d) => setDepositDate(d ? d.format('YYYY-MM-DD') : '')} />
                         </Field>
 
                         <Field label="Tên khách hàng" required error={errors.customerName}>
@@ -346,18 +351,43 @@ export default function CreateProjectPage() {
                                 placeholder="VD: 5000000"
                                 value={rentalPrice ? Number(rentalPrice) : null}
                                 onChange={v => setRentalPrice(v ? String(v) : '')}
+                                onBlur={() => {
+                                    if (rentalPrice && !depositPrice) {
+                                        setDepositPrice(rentalPrice);
+                                        if (!deposit1) setDeposit1(rentalPrice);
+                                    }
+                                }}
                                 formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                 parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
                                 style={{ width: '100%' }}
                             />
                         </Field>
 
+                        <Field label="Giá đặt cọc phòng (VNĐ)">
+                            <InputNumber
+                                min={0}
+                                placeholder="VD: 2000000"
+                                value={depositPrice ? Number(depositPrice) : null}
+                                onChange={v => setDepositPrice(v ? String(v) : '')}
+                                onBlur={() => {
+                                    if (depositPrice && !deposit1) setDeposit1(depositPrice);
+                                }}
+                                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                style={{ width: '100%' }}
+                            />
+                        </Field>
+
+                        <Field label="Thông tin thêm (Phòng)">
+                            <Input placeholder="VD: Phòng có ban công..." value={rentalInfo} onChange={e => setRentalInfo(e.target.value)} />
+                        </Field>
+
                         <Field label="Ngày bắt đầu HĐ">
-                            <input type="date" style={dateInputStyle} value={contractStartAt} onChange={e => setContractStartAt(e.target.value)} />
+                            <DatePicker style={dateInputStyle} format="DD/MM/YYYY" value={contractStartAt ? dayjs(contractStartAt) : null} onChange={(d) => setContractStartAt(d ? d.format('YYYY-MM-DD') : '')} />
                         </Field>
 
                         <Field label="Ngày kết thúc HĐ">
-                            <input type="date" style={dateInputStyle} value={contractEndAt} onChange={e => setContractEndAt(e.target.value)} />
+                            <DatePicker style={dateInputStyle} format="DD/MM/YYYY" value={contractEndAt ? dayjs(contractEndAt) : null} onChange={(d) => setContractEndAt(d ? d.format('YYYY-MM-DD') : '')} />
                         </Field>
 
                         <Field label="Nguồn khách" required error={errors.leadSource}>
@@ -409,11 +439,11 @@ export default function CreateProjectPage() {
                         </Field>
 
                         <Field label="Ngày bổ sung cọc">
-                            <input type="date" style={dateInputStyle} value={deposit2Date} onChange={e => setDeposit2Date(e.target.value)} />
+                            <DatePicker style={dateInputStyle} format="DD/MM/YYYY" value={deposit2Date ? dayjs(deposit2Date) : null} onChange={(d) => setDeposit2Date(d ? d.format('YYYY-MM-DD') : '')} />
                         </Field>
 
                         <Field label="Ngày nhận phòng">
-                            <input type="date" style={dateInputStyle} value={checkInDate} onChange={e => setCheckInDate(e.target.value)} />
+                            <DatePicker style={dateInputStyle} format="DD/MM/YYYY" value={checkInDate ? dayjs(checkInDate) : null} onChange={(d) => setCheckInDate(d ? d.format('YYYY-MM-DD') : '')} />
                         </Field>
                     </div>
 

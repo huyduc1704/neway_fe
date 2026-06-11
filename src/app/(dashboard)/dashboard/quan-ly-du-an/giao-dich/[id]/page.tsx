@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle, Upload as UploadIcon, ExternalLink, AlertTriangle } from 'lucide-react';
 import api from '@/lib/api';
-import { Button, Input, Select, Tag, InputNumber, Checkbox, Spin, Card, Row, Col, Descriptions, Typography, Space, Divider, Upload, DatePicker, Table, Modal } from 'antd';
+import { Button, Input, Select, Tag, InputNumber, Checkbox, Spin, Card, Row, Col, Descriptions, Typography, Space, Divider, Upload, DatePicker, Table, Modal, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
@@ -243,14 +243,16 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                 <Col>
                     <Space>
                         {!tx.accountantConfirmed && (
-                            <Button
-                                onClick={handleConfirm}
-                                disabled={confirming}
-                                icon={<CheckCircle className="h-4 w-4" />}
-                                style={{ borderColor: '#52c41a', color: '#52c41a' }}
-                            >
-                                {confirming ? 'Đang xác nhận...' : 'Kế toán xác nhận'}
-                            </Button>
+                            <Tooltip title={status === 'PENDING' ? 'Không thể xác nhận giao dịch đang ở trạng thái Chờ xử lý' : ''}>
+                                <Button
+                                    onClick={handleConfirm}
+                                    disabled={confirming || status === 'PENDING'}
+                                    icon={<CheckCircle className="h-4 w-4" />}
+                                    style={status === 'PENDING' ? {} : { borderColor: '#52c41a', color: '#52c41a' }}
+                                >
+                                    {confirming ? 'Đang xác nhận...' : 'Kế toán xác nhận'}
+                                </Button>
+                            </Tooltip>
                         )}
                         {tx.accountantConfirmed && (
                             <Tag icon={<CheckCircle className="h-3 w-3" />} color="success" style={{ padding: '6px 12px', fontSize: '14px' }}>

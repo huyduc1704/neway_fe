@@ -14,17 +14,14 @@ interface Room {
     rentalPrice: number | null; depositPrice: number | null; rentalInfo: string | null;
 }
 
+interface Employee { id: string; fullName: string; }
+
 interface StaffSlot {
     mEmployeeId?: string;  mRate?: number;  mLeaderId?: string;  mLeaderRate?: number;
     m1EmployeeId?: string; m1Rate?: number; m1LeaderId?: string; m1LeaderRate?: number;
     m2EmployeeId?: string; m2Rate?: number; m2LeaderId?: string; m2LeaderRate?: number;
     s1EmployeeId?: string; s1Rate?: number; s1LeaderId?: string; s1LeaderRate?: number;
     s2EmployeeId?: string; s2Rate?: number; s2LeaderId?: string; s2LeaderRate?: number;
-    mEmployee?: { fullName: string }; mLeader?: { fullName: string };
-    m1Employee?: { fullName: string }; m1Leader?: { fullName: string };
-    m2Employee?: { fullName: string }; m2Leader?: { fullName: string };
-    s1Employee?: { fullName: string }; s1Leader?: { fullName: string };
-    s2Employee?: { fullName: string }; s2Leader?: { fullName: string };
 }
 
 interface ProjectDetail {
@@ -44,6 +41,7 @@ interface ProjectDetail {
     customer: { fullName: string; phone: string } | null;
     rooms: Room[];
     staffSlot: StaffSlot | null;
+    note: string | null;
 }
 
 /* ─── Constants ──────────────────────────────────────────── */
@@ -66,13 +64,15 @@ const fmtDate    = (v: string | null)  => v ? dayjs(v).format('DD/MM/YYYY') : '�
 const fmtPct     = (v: number | null)  => v != null ? `${v}%` : '—';
 
 /* ─── Staff slot table ───────────────────────────────────── */
-function StaffSlotTable({ slot }: { slot: StaffSlot }) {
+function StaffSlotTable({ slot, employees }: { slot: StaffSlot, employees: Employee[] }) {
+    const getEmpName = (id?: string) => employees.find(e => e.id === id)?.fullName;
+
     const rows = [
-        { role: 'm nhỏ',  emp: slot.mEmployee?.fullName,  rate: slot.mRate,  leader: slot.mLeader?.fullName,  lRate: slot.mLeaderRate,  color: '#E8890C' },
-        { role: 'M lớn 1', emp: slot.m1Employee?.fullName, rate: slot.m1Rate, leader: slot.m1Leader?.fullName, lRate: slot.m1LeaderRate, color: '#1A2B5A' },
-        { role: 'M lớn 2', emp: slot.m2Employee?.fullName, rate: slot.m2Rate, leader: slot.m2Leader?.fullName, lRate: slot.m2LeaderRate, color: '#1A2B5A' },
-        { role: 'S1',       emp: slot.s1Employee?.fullName, rate: slot.s1Rate, leader: slot.s1Leader?.fullName, lRate: slot.s1LeaderRate, color: '#16a34a' },
-        { role: 'S2',       emp: slot.s2Employee?.fullName, rate: slot.s2Rate, leader: slot.s2Leader?.fullName, lRate: slot.s2LeaderRate, color: '#16a34a' },
+        { role: 'm nhỏ',  emp: getEmpName(slot.mEmployeeId),  rate: slot.mRate,  leader: getEmpName(slot.mLeaderId),  lRate: slot.mLeaderRate,  color: '#E8890C' },
+        { role: 'M lớn 1', emp: getEmpName(slot.m1EmployeeId), rate: slot.m1Rate, leader: getEmpName(slot.m1LeaderId), lRate: slot.m1LeaderRate, color: '#1A2B5A' },
+        { role: 'M lớn 2', emp: getEmpName(slot.m2EmployeeId), rate: slot.m2Rate, leader: getEmpName(slot.m2LeaderId), lRate: slot.m2LeaderRate, color: '#1A2B5A' },
+        { role: 'S1',       emp: getEmpName(slot.s1EmployeeId), rate: slot.s1Rate, leader: getEmpName(slot.s1LeaderId), lRate: slot.s1LeaderRate, color: '#16a34a' },
+        { role: 'S2',       emp: getEmpName(slot.s2EmployeeId), rate: slot.s2Rate, leader: getEmpName(slot.s2LeaderId), lRate: slot.s2LeaderRate, color: '#16a34a' },
     ].filter(r => r.emp);
 
     if (!rows.length) return <p style={{ color: '#9ca3af', fontSize: 14 }}>Chưa có nhân sự</p>;
@@ -97,6 +97,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const [roomModal, setRoomModal] = useState<{ open: boolean; room?: Room }>({ open: false });
     const [submitting, setSubmitting] = useState(false);
     const [uploadingImg, setUploadingImg] = useState(false);
+    const [employees, setEmployees] = useState<Employee[]>([]);
 
     /* room form */
     const [roomCode,      setRoomCode]      = useState('');
@@ -109,8 +110,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const fetchProject = useCallback(async () => {
         setLoading(true);
         try {
-            const { data } = await api.get(`/projects/${id}`);
-            setProject(data);
+            const [pRes, eRes] = await Promise.all([
+                api.get(`/projects/${id}`),
+                api.get('/employees', { params: { limit: 1000 } })
+            ]);
+            setProject(pRes.data);
+            setEmployees(eRes.data?.data ?? []);
         } catch {
             message.error('Không thể tải thông tin dự án');
         } finally {
@@ -240,6 +245,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <Descriptions.Item label="Chi nhánh">{project.managedBranch?.name || '—'}</Descriptions.Item>
                     <Descriptions.Item label="Khu vực">{project.team?.name || '—'}</Descriptions.Item>
                     <Descriptions.Item label="Người tạo">{project.createdBy?.fullName || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Ghi chú" span={3}>{project.note || '—'}</Descriptions.Item>
                 </Descriptions>
             </Card>
 
@@ -247,8 +253,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <Descriptions column={3} size="small" bordered>
                     <Descriptions.Item label="Tỉnh/Thành phố" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.province || '—'}</Descriptions.Item>
                     <Descriptions.Item label="Phường/Xã" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.ward}</Descriptions.Item>
-                    <Descriptions.Item label="Số nhà" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.houseNumber || '—'}</Descriptions.Item>
-                    <Descriptions.Item label="Giá thuê">{fmtCurrency(null)}</Descriptions.Item>
+                    <Descriptions.Item label="Số nhà" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.rooms?.[0]?.houseNumber || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Giá thuê">{fmtCurrency(project.rooms?.[0]?.rentalPrice ?? null)}</Descriptions.Item>
+                    <Descriptions.Item label="Giá đặt cọc">{fmtCurrency(project.rooms?.[0]?.depositPrice ?? null)}</Descriptions.Item>
+                    <Descriptions.Item label="Thông tin thêm">{project.rooms?.[0]?.rentalInfo || '—'}</Descriptions.Item>
                     <Descriptions.Item label="Ngày bắt đầu HĐ">{fmtDate(project.contractStartAt)}</Descriptions.Item>
                     <Descriptions.Item label="Ngày kết thúc HĐ">{fmtDate(project.contractEndAt)}</Descriptions.Item>
                     <Descriptions.Item label="Ngày nhận phòng">{fmtDate(project.checkInDate)}</Descriptions.Item>
@@ -291,7 +299,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
             {project.staffSlot && (
                 <Card title="Cụm nhân sự" size="small" styles={{ header: headStyle }}>
-                    <StaffSlotTable slot={project.staffSlot} />
+                    <StaffSlotTable slot={project.staffSlot} employees={employees} />
                 </Card>
             )}
 
@@ -328,6 +336,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             min={0}
                             value={rentalPrice ? Number(rentalPrice) : null}
                             onChange={v => setRentalPrice(v ? String(v) : '')}
+                            onBlur={() => {
+                                if (rentalPrice && !depositPrice) setDepositPrice(rentalPrice);
+                            }}
                             formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                             parser={value => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
                             style={{ width: '100%' }}

@@ -67,8 +67,8 @@ export default function KpiPage() {
     useEffect(() => { fetchKpis(); }, [fetchKpis]);
 
     useEffect(() => {
-        api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => {});
-        api.get('/teams', { params: { limit: 100 } }).then(({ data }) => setTeams(data.data)).catch(() => {});
+        api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => { });
+        api.get('/teams', { params: { limit: 100 } }).then(({ data }) => setTeams(data.data)).catch(() => { });
     }, []);
 
     const openCreate = () => {
@@ -212,7 +212,7 @@ export default function KpiPage() {
                 <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
                     {!editingId && (
                         <>
-                            <Form.Item name="targetType" label={<span>Loại đối tượng <span style={{ color: 'red' }}>*</span></span>}>
+                            <Form.Item name="targetType" label={<span>Đối tượng <span style={{ color: 'red' }}>*</span></span>}>
                                 <Select options={[{ value: 'TEAM', label: 'Team' }, { value: 'BRANCH', label: 'Chi nhánh' }]} />
                             </Form.Item>
                             <Form.Item noStyle shouldUpdate={(prev, cur) => prev.targetType !== cur.targetType}>
