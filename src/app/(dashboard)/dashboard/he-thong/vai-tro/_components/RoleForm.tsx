@@ -21,9 +21,9 @@ interface TaskRow {
     key: string;
     content: string;
     status: string;
-    milestone: number;
-    rate: number;
-    quantity: number;
+    milestone: number | null;
+    rate: number | null;
+    quantity: number | null;
 }
 
 const fmtCurrency = (v: number) =>
@@ -56,9 +56,9 @@ export default function RoleForm({ mode, roleId }: Props) {
                         key: String(i),
                         content:   t.content,
                         status:    t.status,
-                        milestone: Number(t.milestone),
-                        rate:      Number(t.rate),
-                        quantity:  t.quantity,
+                        milestone: t.milestone != null ? Number(t.milestone) : null,
+                        rate:      t.rate != null ? Number(t.rate) : null,
+                        quantity:  t.quantity != null ? Number(t.quantity) : null,
                     }))
                 );
             })
@@ -69,7 +69,7 @@ export default function RoleForm({ mode, roleId }: Props) {
     const addTask = () => {
         setTasks(prev => [...prev, {
             key: Date.now().toString(),
-            content: '', status: 'ACHIEVED', milestone: 0, rate: 0, quantity: 0,
+            content: '', status: 'ACHIEVED', milestone: null, rate: null, quantity: null,
         }]);
     };
 
@@ -90,7 +90,7 @@ export default function RoleForm({ mode, roleId }: Props) {
             commissionPercent: values.commissionPercent ?? undefined,
             fixedSalary:       values.fixedSalary ?? undefined,
             kpi:               values.kpi || undefined,
-            taskSalaries:      tasks.map(({ key: _k, ...t }) => ({ ...t, milestone: Number(t.milestone), rate: Number(t.rate), quantity: Number(t.quantity) })),
+            taskSalaries:      tasks.map(({ key: _k, ...t }) => ({ ...t, milestone: Number(t.milestone || 0), rate: Number(t.rate || 0), quantity: Number(t.quantity || 0) })),
         };
 
         try {
@@ -144,28 +144,28 @@ export default function RoleForm({ mode, roleId }: Props) {
             render: (v, r) => (
                 <InputNumber value={v} min={0} style={{ width: '100%' }}
                     formatter={val => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    onChange={val => updateTask(r.key, 'milestone', val ?? 0)} />
+                    onChange={val => updateTask(r.key, 'milestone', val)} />
             ),
         },
         {
             title: 'Tỉ lệ (%)', dataIndex: 'rate', key: 'rate', width: 110,
             render: (v, r) => (
                 <InputNumber value={v} min={0} max={100} step={0.1} style={{ width: '100%' }}
-                    onChange={val => updateTask(r.key, 'rate', val ?? 0)} />
+                    onChange={val => updateTask(r.key, 'rate', val)} />
             ),
         },
         {
             title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', width: 100,
             render: (v, r) => (
                 <InputNumber value={v} min={0} style={{ width: '100%' }}
-                    onChange={val => updateTask(r.key, 'quantity', val ?? 0)} />
+                    onChange={val => updateTask(r.key, 'quantity', val)} />
             ),
         },
         {
             title: 'Lương = SL × Tỉ lệ × Mốc', key: 'salary', width: 180, align: 'right' as const,
             render: (_, r) => (
                 <Text strong style={{ color: '#E8890C' }}>
-                    {fmtCurrency(r.quantity * (r.rate / 100) * r.milestone)}
+                    {fmtCurrency((r.quantity || 0) * ((r.rate || 0) / 100) * (r.milestone || 0))}
                 </Text>
             ),
         },
@@ -260,7 +260,7 @@ export default function RoleForm({ mode, roleId }: Props) {
                             size="small"
                             summary={() => {
                                 const total = tasks.reduce(
-                                    (sum, t) => sum + t.quantity * (t.rate / 100) * t.milestone, 0
+                                    (sum, t) => sum + (t.quantity || 0) * ((t.rate || 0) / 100) * (t.milestone || 0), 0
                                 );
                                 return (
                                     <Table.Summary.Row>

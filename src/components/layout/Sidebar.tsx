@@ -2,15 +2,15 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Layout, Menu, ConfigProvider } from 'antd';
-import { DashboardOutlined, BarChartOutlined, ProjectOutlined, SettingOutlined, CalculatorOutlined } from '@ant-design/icons';
+import { DashboardOutlined, BarChartOutlined, ProjectOutlined, SettingOutlined, CalculatorOutlined, HomeOutlined } from '@ant-design/icons';
 
 const { Sider } = Layout;
 
 const menuItems = [
     {
         key: '/dashboard',
-        icon: <DashboardOutlined />,
-        label: <Link href="/dashboard">Bảng điều khiển</Link>,
+        icon: <HomeOutlined />,
+        label: <Link href="/dashboard">Trang chủ</Link>,
     },
     {
         key: 'quan-ly-du-an',

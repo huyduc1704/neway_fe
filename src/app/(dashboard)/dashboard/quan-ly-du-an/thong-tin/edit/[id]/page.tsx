@@ -46,7 +46,7 @@ const STATUS_OPTIONS = [
 ];
 
 /* ─── Types ──────────────────────────────────────────────── */
-interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
+interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { id?: string; employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
 interface Branch   { id: string; name: string; }
 interface Team     { id: string; name: string; }
 
@@ -203,17 +203,30 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             }
 
             if (p.staffSlot) {
-                setMId(p.staffSlot.mEmployeeId || '');
-                setM1Id(p.staffSlot.m1EmployeeId || '');
-                setM2Id(p.staffSlot.m2EmployeeId || '');
-                setS1Id(p.staffSlot.s1EmployeeId || '');
-                setS2Id(p.staffSlot.s2EmployeeId || '');
-                
-                if (p.staffSlot.mEmployeeId) getLeaderName(p.staffSlot.mEmployeeId).then(setMLeader);
-                if (p.staffSlot.m1EmployeeId) getLeaderName(p.staffSlot.m1EmployeeId).then(setM1Leader);
-                if (p.staffSlot.m2EmployeeId) getLeaderName(p.staffSlot.m2EmployeeId).then(setM2Leader);
-                if (p.staffSlot.s1EmployeeId) getLeaderName(p.staffSlot.s1EmployeeId).then(setS1Leader);
-                if (p.staffSlot.s2EmployeeId) getLeaderName(p.staffSlot.s2EmployeeId).then(setS2Leader);
+                const empList: Employee[] = e.data?.data ?? [];
+                // Build reverse map: EmployeeProfile.id → User.id (for backward compat)
+                const profileToUserId = new Map(
+                    empList.filter(em => em.employeeProfile?.id).map(em => [em.employeeProfile!.id!, em.id])
+                );
+                const toUserId = (id?: string) => (id ? profileToUserId.get(id) ?? id : '');
+
+                const mUserId  = toUserId(p.staffSlot.mEmployeeId);
+                const m1UserId = toUserId(p.staffSlot.m1EmployeeId);
+                const m2UserId = toUserId(p.staffSlot.m2EmployeeId);
+                const s1UserId = toUserId(p.staffSlot.s1EmployeeId);
+                const s2UserId = toUserId(p.staffSlot.s2EmployeeId);
+
+                setMId(mUserId);
+                setM1Id(m1UserId);
+                setM2Id(m2UserId);
+                setS1Id(s1UserId);
+                setS2Id(s2UserId);
+
+                if (mUserId)  getLeaderName(mUserId).then(setMLeader);
+                if (m1UserId) getLeaderName(m1UserId).then(setM1Leader);
+                if (m2UserId) getLeaderName(m2UserId).then(setM2Leader);
+                if (s1UserId) getLeaderName(s1UserId).then(setS1Leader);
+                if (s2UserId) getLeaderName(s2UserId).then(setS2Leader);
             }
         }).catch(() => {
             message.error('Lỗi khi tải thông tin dự án');
@@ -271,11 +284,11 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         setLoading(true);
         try {
             const staffSlot: Record<string, string | number | undefined | null> = {};
-            if (mId)  { staffSlot.mEmployeeId  = mId;  staffSlot.mRate  = rates.mRate; } else { staffSlot.mEmployeeId = null; staffSlot.mRate = null; staffSlot.mLeaderId = null; staffSlot.mLeaderRate = null; }
-            if (m1Id) { staffSlot.m1EmployeeId = m1Id; staffSlot.m1Rate = rates.m1Rate; } else { staffSlot.m1EmployeeId = null; staffSlot.m1Rate = null; staffSlot.m1LeaderId = null; staffSlot.m1LeaderRate = null; }
-            if (m2Id) { staffSlot.m2EmployeeId = m2Id; staffSlot.m2Rate = rates.m2Rate; } else { staffSlot.m2EmployeeId = null; staffSlot.m2Rate = null; staffSlot.m2LeaderId = null; staffSlot.m2LeaderRate = null; }
-            if (s1Id) { staffSlot.s1EmployeeId = s1Id; staffSlot.s1Rate = rates.s1Rate; } else { staffSlot.s1EmployeeId = null; staffSlot.s1Rate = null; staffSlot.s1LeaderId = null; staffSlot.s1LeaderRate = null; }
-            if (s2Id) { staffSlot.s2EmployeeId = s2Id; staffSlot.s2Rate = rates.s2Rate; } else { staffSlot.s2EmployeeId = null; staffSlot.s2Rate = null; staffSlot.s2LeaderId = null; staffSlot.s2LeaderRate = null; }
+            if (mId)  { staffSlot.mEmployeeId  = toProfileId(mId);  staffSlot.mRate  = rates.mRate; } else { staffSlot.mEmployeeId = null; staffSlot.mRate = null; staffSlot.mLeaderId = null; staffSlot.mLeaderRate = null; }
+            if (m1Id) { staffSlot.m1EmployeeId = toProfileId(m1Id); staffSlot.m1Rate = rates.m1Rate; } else { staffSlot.m1EmployeeId = null; staffSlot.m1Rate = null; staffSlot.m1LeaderId = null; staffSlot.m1LeaderRate = null; }
+            if (m2Id) { staffSlot.m2EmployeeId = toProfileId(m2Id); staffSlot.m2Rate = rates.m2Rate; } else { staffSlot.m2EmployeeId = null; staffSlot.m2Rate = null; staffSlot.m2LeaderId = null; staffSlot.m2LeaderRate = null; }
+            if (s1Id) { staffSlot.s1EmployeeId = toProfileId(s1Id); staffSlot.s1Rate = rates.s1Rate; } else { staffSlot.s1EmployeeId = null; staffSlot.s1Rate = null; staffSlot.s1LeaderId = null; staffSlot.s1LeaderRate = null; }
+            if (s2Id) { staffSlot.s2EmployeeId = toProfileId(s2Id); staffSlot.s2Rate = rates.s2Rate; } else { staffSlot.s2EmployeeId = null; staffSlot.s2Rate = null; staffSlot.s2LeaderId = null; staffSlot.s2LeaderRate = null; }
 
             const payload: Record<string, unknown> = {
                 status,
@@ -324,6 +337,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     };
 
     const empOptions = employees.map(em => ({ value: em.id, label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})` }));
+    const toProfileId = (userId: string) => employees.find(e => e.id === userId)?.employeeProfile?.id ?? userId;
     const dateInputStyle: React.CSSProperties = { height: 32, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 };
 
     if (initLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0' }}><Spin size="large" /></div>;

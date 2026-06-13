@@ -505,23 +505,47 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                         </Card>
 
                         {/* Hoa hồng theo vai trò */}
-                        {tx.commissions?.length > 0 && (
-                            <Card title={<span style={{ color: '#E8890C' }}>Hoa hồng theo vai trò</span>} bordered={false}>
-                                <Table 
-                                    dataSource={tx.commissions} 
-                                    pagination={false} 
-                                    size="small"
-                                    rowKey={(record) => record.role.name}
-                                >
-                                <Table.Column title="Vai trò" dataIndex={['role', 'name']} key="role" render={(val: string) => fmtRole(val)} />
-                                    <Table.Column 
-                                        title="Số tiền" 
-                                        dataIndex="amount" 
-                                        key="amount" 
-                                        align="right"
-                                        render={(val) => <Text strong style={{ color: '#1A2B5A' }}>{fmtCurrency(val)}</Text>} 
-                                    />
-                                </Table>
+                        {tx.status === 'SUCCESS' && (
+                            <Card
+                                title={<span style={{ color: '#E8890C' }}>Hoa hồng theo vai trò</span>}
+                                bordered={false}
+                                extra={
+                                    <Button
+                                        size="small"
+                                        onClick={async () => {
+                                            try {
+                                                await api.post(`/transactions/${id}/recalculate`);
+                                                toast.success('Đã tính lại hoa hồng thành công');
+                                                fetchTx();
+                                            } catch (err: any) {
+                                                toast.error(err?.response?.data?.message || 'Tính lại thất bại');
+                                            }
+                                        }}
+                                        style={{ borderColor: '#f59e0b', color: '#f59e0b' }}
+                                    >
+                                        Tính lại hoa hồng
+                                    </Button>
+                                }
+                            >
+                                {tx.commissions && tx.commissions.length > 0 ? (
+                                    <Table
+                                        dataSource={tx.commissions}
+                                        pagination={false}
+                                        size="small"
+                                        rowKey={(_r, i) => String(i)}
+                                    >
+                                        <Table.Column title="Vai trò" dataIndex={['role', 'name']} key="role" render={(val: string) => fmtRole(val)} />
+                                        <Table.Column
+                                            title="Số tiền"
+                                            dataIndex="amount"
+                                            key="amount"
+                                            align="right"
+                                            render={(val) => <Text strong style={{ color: '#1A2B5A' }}>{fmtCurrency(val)}</Text>}
+                                        />
+                                    </Table>
+                                ) : (
+                                    <Text type="secondary" style={{ fontSize: 13 }}>Chưa có hoa hồng</Text>
+                                )}
                             </Card>
                         )}
 

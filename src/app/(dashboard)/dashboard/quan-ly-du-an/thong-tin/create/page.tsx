@@ -38,7 +38,7 @@ const VIETNAM_PROVINCES = [
 ];
 
 /* ─── Types ──────────────────────────────────────────────── */
-interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
+interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { id?: string; employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
 interface Branch   { id: string; name: string; }
 interface Team     { id: string; name: string; }
 
@@ -217,11 +217,11 @@ export default function CreateProjectPage() {
         setLoading(true);
         try {
             const staffSlot: Record<string, string | number | undefined> = {};
-            if (mId)  { staffSlot.mEmployeeId  = mId;  staffSlot.mRate  = rates.mRate; }
-            if (m1Id) { staffSlot.m1EmployeeId = m1Id; staffSlot.m1Rate = rates.m1Rate; }
-            if (m2Id) { staffSlot.m2EmployeeId = m2Id; staffSlot.m2Rate = rates.m2Rate; }
-            if (s1Id) { staffSlot.s1EmployeeId = s1Id; staffSlot.s1Rate = rates.s1Rate; }
-            if (s2Id) { staffSlot.s2EmployeeId = s2Id; staffSlot.s2Rate = rates.s2Rate; }
+            if (mId)  { staffSlot.mEmployeeId  = toProfileId(mId);  staffSlot.mRate  = rates.mRate; }
+            if (m1Id) { staffSlot.m1EmployeeId = toProfileId(m1Id); staffSlot.m1Rate = rates.m1Rate; }
+            if (m2Id) { staffSlot.m2EmployeeId = toProfileId(m2Id); staffSlot.m2Rate = rates.m2Rate; }
+            if (s1Id) { staffSlot.s1EmployeeId = toProfileId(s1Id); staffSlot.s1Rate = rates.s1Rate; }
+            if (s2Id) { staffSlot.s2EmployeeId = toProfileId(s2Id); staffSlot.s2Rate = rates.s2Rate; }
 
             const payload: Record<string, unknown> = {
                 ward,
@@ -269,6 +269,7 @@ export default function CreateProjectPage() {
     };
 
     const empOptions = employees.map(em => ({ value: em.id, label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})` }));
+    const toProfileId = (userId: string) => employees.find(e => e.id === userId)?.employeeProfile?.id ?? userId;
     const dateInputStyle: React.CSSProperties = { height: 32, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 };
 
     return (

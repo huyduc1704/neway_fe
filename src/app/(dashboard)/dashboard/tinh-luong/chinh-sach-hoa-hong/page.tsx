@@ -93,6 +93,8 @@ export default function ChinhSachHoaHongPage() {
                     name: values.name,
                     branchId: values.branchId || undefined,
                     teamId: values.teamId || undefined,
+                    valueType: values.valueType,
+                    value: Number(values.value),
                     effectiveFrom: values.effectiveFrom,
                     effectiveTo: values.effectiveTo || undefined,
                     note: values.note || undefined,
@@ -254,8 +256,8 @@ export default function ChinhSachHoaHongPage() {
                         <Form.Item name="valueType" label={<span>Loại giá trị <span style={{ color: 'red' }}>*</span></span>}>
                             <Select disabled={!!editingId} options={[{ value: 'PERCENT', label: 'Phần trăm (%)' }, { value: 'FIXED', label: 'Cố định (VNĐ)' }]} />
                         </Form.Item>
-                        <Form.Item name="value" label={<span>Giá trị <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: !editingId, message: 'Nhập giá trị' }]}>
-                            <Input type="number" min={0} placeholder="VD: 15" disabled={!!editingId} />
+                        <Form.Item name="value" label={<span>Giá trị <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Nhập giá trị' }]}>
+                            <Input type="number" min={0} placeholder="VD: 15" />
                         </Form.Item>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

@@ -77,8 +77,11 @@ function BangLuongContent() {
 
     // Manager breakdown dialog
     const [breakdownOpen, setBreakdownOpen] = useState(false);
+    const [breakdownLineId, setBreakdownLineId] = useState('');
     const [breakdown, setBreakdown] = useState<any>(null);
     const [breakdownLoading, setBreakdownLoading] = useState(false);
+    const [taskForm, setTaskForm] = useState<any[]>([]);
+    const [breakdownSaving, setBreakdownSaving] = useState(false);
 
     useEffect(() => {
         api.get('/payroll/periods', { params: { limit: 100, isLocked: undefined } })
@@ -161,13 +164,29 @@ function BangLuongContent() {
     };
 
     const openBreakdown = async (lineId: string) => {
+        setBreakdownLineId(lineId);
         setBreakdownLoading(true);
         setBreakdownOpen(true);
         try {
             const { data } = await api.get(`/payroll/lines/${lineId}/manager-breakdown`);
             setBreakdown(data);
+            setTaskForm(data.taskSalaryLines || []);
         } catch { message.error('Không thể tải chi tiết lương'); }
         finally { setBreakdownLoading(false); }
+    };
+
+    const handleBreakdownSave = async () => {
+        if (!breakdownLineId) return;
+        setBreakdownSaving(true);
+        try {
+            await api.patch(`/payroll/lines/${breakdownLineId}`, {
+                taskSalaries: taskForm.map(t => ({ id: t.id, status: t.status, quantity: Number(t.quantity) || 0 }))
+            });
+            message.success('Cập nhật lương nhiệm vụ thành công');
+            setBreakdownOpen(false);
+            fetchLines();
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        finally { setBreakdownSaving(false); }
     };
 
     const handleExport = async (format: 'excel' | 'pdf', groupBy: string) => {
@@ -549,7 +568,10 @@ function BangLuongContent() {
                 open={breakdownOpen}
                 onCancel={() => setBreakdownOpen(false)}
                 title={<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FileTextOutlined style={{ color: '#E8890C' }} /> Tab Lương Quản Lý</span>}
-                footer={[<Button key="close" onClick={() => setBreakdownOpen(false)}>Đóng</Button>]}
+                footer={[
+                    <Button key="close" onClick={() => setBreakdownOpen(false)}>Đóng</Button>,
+                    !period?.isLocked && <Button key="save" type="primary" loading={breakdownSaving} onClick={handleBreakdownSave}>Lưu nhiệm vụ</Button>
+                ]}
                 width={520}
             >
                 {breakdownLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><Spin /></div>}
@@ -571,14 +593,50 @@ function BangLuongContent() {
                                     <strong style={{ color: item.color }}>{formatCurrency(item.value)}</strong>
                                 </div>
                             ))}
-                            {breakdown.taskSalaryLines?.length > 0 && (
-                                <div style={{ paddingLeft: 12 }}>
-                                    {breakdown.taskSalaryLines.map((ts: any, i: number) => (
-                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280', padding: '2px 0', textDecoration: ts.status !== 'ACHIEVED' ? 'line-through' : 'none', opacity: ts.status !== 'ACHIEVED' ? 0.5 : 1 }}>
-                                            <span>{ts.content}</span>
-                                            <span>{ts.status === 'ACHIEVED' ? formatCurrency(ts.salary) : '—'}</span>
+                            {taskForm?.length > 0 && (
+                                <div style={{ paddingLeft: 12, marginTop: 8, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {taskForm.map((ts: any, i: number) => (
+                                        <div key={ts.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, background: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                                            <div style={{ flex: 1, paddingRight: 8 }}>
+                                                <div style={{ fontWeight: 500, color: '#4b5563', marginBottom: 4 }}>{ts.content}</div>
+                                                <div style={{ color: '#9ca3af', fontSize: 12 }}>
+                                                    Mốc: {formatCurrency(ts.milestone)} × {(ts.rate * 100).toFixed(0)}%
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <Select 
+                                                    size="small" 
+                                                    value={ts.status} 
+                                                    disabled={period?.isLocked}
+                                                    onChange={(v) => {
+                                                        const newTasks = [...taskForm];
+                                                        newTasks[i].status = v;
+                                                        setTaskForm(newTasks);
+                                                    }}
+                                                    options={[
+                                                        { value: 'ACHIEVED', label: 'Đạt' },
+                                                        { value: 'NOT_ACHIEVED', label: 'Chưa Đạt' }
+                                                    ]}
+                                                    style={{ width: 100 }}
+                                                />
+                                                <Input 
+                                                    size="small" 
+                                                    type="number" 
+                                                    min={0}
+                                                    disabled={period?.isLocked}
+                                                    value={ts.quantity} 
+                                                    onChange={(e) => {
+                                                        const newTasks = [...taskForm];
+                                                        newTasks[i].quantity = e.target.value;
+                                                        setTaskForm(newTasks);
+                                                    }}
+                                                    style={{ width: 60 }} 
+                                                    placeholder="SL"
+                                                />
+                                            </div>
                                         </div>
                                     ))}
+                                    <div style={{ fontSize: 12, color: '#f97316', textAlign: 'right' }}>* Hệ thống sẽ tự động tính lại tổng lương khi bấm Lưu.</div>
                                 </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontWeight: 500 }}>
