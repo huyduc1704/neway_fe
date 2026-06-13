@@ -60,8 +60,8 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
 
 // --- Custom Nodes ---
 
-const RoleNode = ({ data }: NodeProps) => {
-    const users = (data.users as any[]) || [];
+const RoleNode = ({ data }: any) => {
+    const users = data.users || [];
     const displayUsers = users.slice(0, 5);
     const hiddenCount = Math.max(0, users.length - 5);
 
