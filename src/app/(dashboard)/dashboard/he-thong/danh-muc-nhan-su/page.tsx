@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Table, Input, Tag, Typography, Card, Space, Button, DatePicker, Tooltip, Popconfirm, message, Select,
@@ -41,6 +41,16 @@ const fmtCurrency = (v: string | null) =>
 
 interface FilterOption { id: string; name: string; code?: string; }
 
+interface Filters {
+    search: string;
+    roleCode: string;
+    teamId: string;
+    branchId: string;
+    regionId: string;
+    empStatus: string;
+    dateRange: [string, string] | null;
+}
+
 export default function DanhMucNhanSuPage() {
     const router = useRouter();
     const [rows, setRows]       = useState<Employee[]>([]);
@@ -49,14 +59,15 @@ export default function DanhMucNhanSuPage() {
     const [page, setPage]       = useState(1);
     const limit = 20;
 
-    // Filters
-    const [search, setSearch]       = useState('');
-    const [dateRange, setDateRange] = useState<[string, string] | null>(null);
-    const [roleCode, setRoleCode]   = useState('');
-    const [teamId, setTeamId]       = useState('');
-    const [branchId, setBranchId]   = useState('');
-    const [regionId, setRegionId]   = useState('');
-    const [empStatus, setEmpStatus] = useState('');
+    const [filters, setFilters] = useState<Filters>({
+        search: '', roleCode: '', teamId: '', branchId: '', regionId: '', empStatus: '', dateRange: null,
+    });
+
+    // Keep ref in sync so fetchData always reads latest values without being in deps
+    const filtersRef = useRef(filters);
+    filtersRef.current = filters;
+    const pageRef = useRef(page);
+    pageRef.current = page;
 
     // Filter options
     const [roles, setRoles]       = useState<FilterOption[]>([]);
@@ -71,20 +82,23 @@ export default function DanhMucNhanSuPage() {
         api.get('/regions',  { params: { limit: 100 } }).then(({ data }) => setRegions(data.data)).catch(() => {});
     }, []);
 
-    const fetchData = useCallback(async (p = 1) => {
+    // fetchData reads latest values from ref — stable reference, no stale closure
+    const fetchData = useCallback(async (p?: number, overrideFilters?: Partial<Filters>) => {
+        const f = { ...filtersRef.current, ...overrideFilters };
+        const pg = p ?? pageRef.current;
         setLoading(true);
         try {
             const { data } = await api.get('/employees', {
                 params: {
-                    page: p, limit,
-                    search: search || undefined,
-                    fromDate: dateRange?.[0] || undefined,
-                    toDate: dateRange?.[1] || undefined,
-                    roleCode: roleCode || undefined,
-                    teamId: teamId || undefined,
-                    branchId: branchId || undefined,
-                    regionId: regionId || undefined,
-                    employeeStatus: empStatus || undefined,
+                    page: pg, limit,
+                    search: f.search || undefined,
+                    fromDate: f.dateRange?.[0] || undefined,
+                    toDate: f.dateRange?.[1] || undefined,
+                    roleCode: f.roleCode || undefined,
+                    teamId: f.teamId || undefined,
+                    branchId: f.branchId || undefined,
+                    regionId: f.regionId || undefined,
+                    employeeStatus: f.empStatus || undefined,
                 },
             });
             setRows(data.data);
@@ -94,17 +108,23 @@ export default function DanhMucNhanSuPage() {
         } finally {
             setLoading(false);
         }
-    }, [search, dateRange, roleCode, teamId, branchId, regionId, empStatus]);
+    }, []);
 
+    // Initial load
     useEffect(() => { fetchData(1); }, [fetchData]);
 
-    const resetAndFetch = () => { setPage(1); fetchData(1); };
+    const applyFilter = (patch: Partial<Filters>) => {
+        const next = { ...filtersRef.current, ...patch };
+        setFilters(next);
+        setPage(1);
+        fetchData(1, next);
+    };
 
     const handleDelete = async (id: string) => {
         try {
             await api.delete(`/employees/${id}`);
             message.success('Đã xoá nhân sự');
-            fetchData(page);
+            fetchData(pageRef.current);
         } catch (err: any) {
             message.error(err?.response?.data?.message || 'Xoá thất bại');
         }
@@ -211,11 +231,11 @@ export default function DanhMucNhanSuPage() {
                         prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
                         placeholder="Tìm theo mã hoặc tên nhân sự..."
                         style={{ width: 260 }}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        onPressEnter={resetAndFetch}
+                        value={filters.search}
+                        onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
+                        onPressEnter={() => applyFilter({ search: filtersRef.current.search })}
                         allowClear
-                        onClear={() => { setSearch(''); }}
+                        onClear={() => applyFilter({ search: '' })}
                     />
                     <Select
                         placeholder="Vai trò"
@@ -223,8 +243,8 @@ export default function DanhMucNhanSuPage() {
                         allowClear
                         showSearch
                         optionFilterProp="label"
-                        value={roleCode || undefined}
-                        onChange={(v) => { setRoleCode(v ?? ''); setPage(1); }}
+                        value={filters.roleCode || undefined}
+                        onChange={(v) => applyFilter({ roleCode: v ?? '' })}
                         options={roles.map(r => ({ value: r.code ?? r.id, label: r.name }))}
                     />
                     <Select
@@ -233,8 +253,8 @@ export default function DanhMucNhanSuPage() {
                         allowClear
                         showSearch
                         optionFilterProp="label"
-                        value={teamId || undefined}
-                        onChange={(v) => { setTeamId(v ?? ''); setPage(1); }}
+                        value={filters.teamId || undefined}
+                        onChange={(v) => applyFilter({ teamId: v ?? '' })}
                         options={teams.map(t => ({ value: t.id, label: t.name }))}
                     />
                     <Select
@@ -243,8 +263,8 @@ export default function DanhMucNhanSuPage() {
                         allowClear
                         showSearch
                         optionFilterProp="label"
-                        value={branchId || undefined}
-                        onChange={(v) => { setBranchId(v ?? ''); setPage(1); }}
+                        value={filters.branchId || undefined}
+                        onChange={(v) => applyFilter({ branchId: v ?? '' })}
                         options={branches.map(b => ({ value: b.id, label: b.name }))}
                     />
                     <Select
@@ -253,16 +273,16 @@ export default function DanhMucNhanSuPage() {
                         allowClear
                         showSearch
                         optionFilterProp="label"
-                        value={regionId || undefined}
-                        onChange={(v) => { setRegionId(v ?? ''); setPage(1); }}
+                        value={filters.regionId || undefined}
+                        onChange={(v) => applyFilter({ regionId: v ?? '' })}
                         options={regions.map(r => ({ value: r.id, label: r.name }))}
                     />
                     <Select
                         placeholder="Trạng thái"
                         style={{ width: 160 }}
                         allowClear
-                        value={empStatus || undefined}
-                        onChange={(v) => { setEmpStatus(v ?? ''); setPage(1); }}
+                        value={filters.empStatus || undefined}
+                        onChange={(v) => applyFilter({ empStatus: v ?? '' })}
                         options={[
                             { value: 'ACTIVE',    label: 'Đang làm việc' },
                             { value: 'SUSPENDED', label: 'Tạm ngưng' },
@@ -277,8 +297,7 @@ export default function DanhMucNhanSuPage() {
                             const dr = strings[0] && strings[1]
                                 ? [dayjs(strings[0], 'DD/MM/YYYY').toISOString(), dayjs(strings[1], 'DD/MM/YYYY').toISOString()] as [string, string]
                                 : null;
-                            setDateRange(dr);
-                            setPage(1);
+                            applyFilter({ dateRange: dr });
                         }}
                     />
                 </div>
@@ -296,7 +315,7 @@ export default function DanhMucNhanSuPage() {
                         total,
                         showSizeChanger: false,
                         showTotal: (t) => `Tổng: ${t} nhân sự`,
-                        onChange: (p) => { setPage(p); fetchData(p); },
+                        onChange: (p) => { setPage(p); fetchData(p, filtersRef.current); },
                     }}
                 />
             </Card>
