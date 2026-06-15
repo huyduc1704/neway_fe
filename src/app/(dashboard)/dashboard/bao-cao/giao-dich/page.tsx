@@ -11,6 +11,8 @@ import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
+interface StaffItem { id: string; employeeCode: string; fullName: string; }
+
 interface TransactionRow {
     id: string;
     transactionCode: string;
@@ -23,10 +25,8 @@ interface TransactionRow {
     customer: { id: string; fullName: string; phone: string } | null;
     branch: { id: string; name: string } | null;
     team: { id: string; name: string } | null;
-    assignments: {
-        roleInProject: string;
-        employee: { id: string; employeeCode: string; user: { fullName: string } };
-    }[];
+    saleStaff: StaffItem[];
+    marketingStaff: StaffItem[];
 }
 
 interface Summary {
@@ -136,22 +136,25 @@ export default function BaoCaoGiaoDichPage() {
             ) : '—',
         },
         {
-            title: 'Nhân sự', key: 'assignments', width: 180,
+            title: 'Nhân sự', key: 'staff', width: 200,
             render: (_, r) => {
-                if (!r.assignments?.length) return '—';
+                const hasSale = r.saleStaff?.length > 0;
+                const hasMkt = r.marketingStaff?.length > 0;
+                if (!hasSale && !hasMkt) return <span style={{ color: '#d1d5db' }}>—</span>;
                 return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {r.assignments.map((a, i) => {
-                            const rc = ROLE_COLOR[a.roleInProject] || { color: '#16a34a', bg: '#f0fdf4' };
-                            return (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                                    <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 12, fontWeight: 500, color: rc.color, background: rc.bg }}>
-                                        {a.roleInProject}
-                                    </span>
-                                    <span>{a.employee.user.fullName}</span>
-                                </div>
-                            );
-                        })}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
+                        {r.saleStaff?.map((s) => (
+                            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ padding: '1px 5px', borderRadius: 3, fontWeight: 600, fontSize: 11, color: '#2563eb', background: '#eff6ff' }}>Sale</span>
+                                <span>{s.fullName}</span>
+                            </div>
+                        ))}
+                        {r.marketingStaff?.map((s) => (
+                            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ padding: '1px 5px', borderRadius: 3, fontWeight: 600, fontSize: 11, color: '#7c3aed', background: '#f5f3ff' }}>Mkt</span>
+                                <span>{s.fullName}</span>
+                            </div>
+                        ))}
                     </div>
                 );
             },

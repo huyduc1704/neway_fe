@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Table, Input, Tag, Typography, Card, Space, Button, DatePicker, Tooltip, Popconfirm, message,
+    Table, Input, Tag, Typography, Card, Space, Button, DatePicker, Tooltip, Popconfirm, message, Select,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -39,25 +39,52 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 const fmtCurrency = (v: string | null) =>
     v ? new Intl.NumberFormat('vi-VN').format(Number(v)) + 'đ' : '—';
 
+interface FilterOption { id: string; name: string; code?: string; }
+
 export default function DanhMucNhanSuPage() {
     const router = useRouter();
     const [rows, setRows]       = useState<Employee[]>([]);
     const [loading, setLoading] = useState(false);
-    const [search, setSearch]   = useState('');
-    const [dateRange, setDateRange] = useState<[string, string] | null>(null);
     const [total, setTotal]     = useState(0);
     const [page, setPage]       = useState(1);
     const limit = 20;
 
-    const fetchData = useCallback(async (p = 1, q = search, dr = dateRange) => {
+    // Filters
+    const [search, setSearch]       = useState('');
+    const [dateRange, setDateRange] = useState<[string, string] | null>(null);
+    const [roleCode, setRoleCode]   = useState('');
+    const [teamId, setTeamId]       = useState('');
+    const [branchId, setBranchId]   = useState('');
+    const [regionId, setRegionId]   = useState('');
+    const [empStatus, setEmpStatus] = useState('');
+
+    // Filter options
+    const [roles, setRoles]       = useState<FilterOption[]>([]);
+    const [teams, setTeams]       = useState<FilterOption[]>([]);
+    const [branches, setBranches] = useState<FilterOption[]>([]);
+    const [regions, setRegions]   = useState<FilterOption[]>([]);
+
+    useEffect(() => {
+        api.get('/roles',    { params: { limit: 100 } }).then(({ data }) => setRoles(data.data)).catch(() => {});
+        api.get('/teams',    { params: { limit: 200 } }).then(({ data }) => setTeams(data.data)).catch(() => {});
+        api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => {});
+        api.get('/regions',  { params: { limit: 100 } }).then(({ data }) => setRegions(data.data)).catch(() => {});
+    }, []);
+
+    const fetchData = useCallback(async (p = 1) => {
         setLoading(true);
         try {
             const { data } = await api.get('/employees', {
                 params: {
                     page: p, limit,
-                    search: q || undefined,
-                    fromDate: dr?.[0] || undefined,
-                    toDate: dr?.[1] || undefined,
+                    search: search || undefined,
+                    fromDate: dateRange?.[0] || undefined,
+                    toDate: dateRange?.[1] || undefined,
+                    roleCode: roleCode || undefined,
+                    teamId: teamId || undefined,
+                    branchId: branchId || undefined,
+                    regionId: regionId || undefined,
+                    employeeStatus: empStatus || undefined,
                 },
             });
             setRows(data.data);
@@ -67,9 +94,11 @@ export default function DanhMucNhanSuPage() {
         } finally {
             setLoading(false);
         }
-    }, [search, dateRange]);
+    }, [search, dateRange, roleCode, teamId, branchId, regionId, empStatus]);
 
-    useEffect(() => { fetchData(1); }, []);
+    useEffect(() => { fetchData(1); }, [fetchData]);
+
+    const resetAndFetch = () => { setPage(1); fetchData(1); };
 
     const handleDelete = async (id: string) => {
         try {
@@ -106,8 +135,10 @@ export default function DanhMucNhanSuPage() {
             ),
         },
         {
-            title: 'Vai trò', key: 'role', width: 150,
-            render: (_, r) => r.roles?.[0]?.role?.name || '—',
+            title: 'Vai trò', key: 'role', width: 200,
+            render: (_, r) => r.roles?.length
+                ? <Space size={4} wrap>{r.roles.map(ur => <Tag key={ur.role.code} color="blue" style={{ margin: 0 }}>{ur.role.name}</Tag>)}</Space>
+                : '—',
         },
         {
             title: 'Lương cơ bản', key: 'salary', width: 140,
@@ -174,27 +205,79 @@ export default function DanhMucNhanSuPage() {
 
             <Card>
                 {/* Search & Filter */}
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                     <Input
                         prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
                         placeholder="Tìm theo mã hoặc tên nhân sự..."
-                        style={{ width: 280 }}
+                        style={{ width: 260 }}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        onPressEnter={() => { setPage(1); fetchData(1, search, dateRange); }}
+                        onPressEnter={resetAndFetch}
                         allowClear
-                        onClear={() => { setSearch(''); fetchData(1, '', dateRange); }}
+                        onClear={() => { setSearch(''); }}
+                    />
+                    <Select
+                        placeholder="Vai trò"
+                        style={{ width: 180 }}
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        value={roleCode || undefined}
+                        onChange={(v) => { setRoleCode(v ?? ''); setPage(1); }}
+                        options={roles.map(r => ({ value: r.code ?? r.id, label: r.name }))}
+                    />
+                    <Select
+                        placeholder="Team"
+                        style={{ width: 160 }}
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        value={teamId || undefined}
+                        onChange={(v) => { setTeamId(v ?? ''); setPage(1); }}
+                        options={teams.map(t => ({ value: t.id, label: t.name }))}
+                    />
+                    <Select
+                        placeholder="Chi nhánh"
+                        style={{ width: 180 }}
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        value={branchId || undefined}
+                        onChange={(v) => { setBranchId(v ?? ''); setPage(1); }}
+                        options={branches.map(b => ({ value: b.id, label: b.name }))}
+                    />
+                    <Select
+                        placeholder="Khu vực"
+                        style={{ width: 160 }}
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        value={regionId || undefined}
+                        onChange={(v) => { setRegionId(v ?? ''); setPage(1); }}
+                        options={regions.map(r => ({ value: r.id, label: r.name }))}
+                    />
+                    <Select
+                        placeholder="Trạng thái"
+                        style={{ width: 160 }}
+                        allowClear
+                        value={empStatus || undefined}
+                        onChange={(v) => { setEmpStatus(v ?? ''); setPage(1); }}
+                        options={[
+                            { value: 'ACTIVE',    label: 'Đang làm việc' },
+                            { value: 'SUSPENDED', label: 'Tạm ngưng' },
+                            { value: 'RESIGNED',  label: 'Đã nghỉ' },
+                        ]}
                     />
                     <RangePicker
-                        placeholder={['Từ ngày nhận việc', 'Đến ngày']}
+                        placeholder={['Từ ngày vào làm', 'Đến ngày']}
                         format="DD/MM/YYYY"
+                        style={{ width: 240 }}
                         onChange={(_, strings) => {
                             const dr = strings[0] && strings[1]
                                 ? [dayjs(strings[0], 'DD/MM/YYYY').toISOString(), dayjs(strings[1], 'DD/MM/YYYY').toISOString()] as [string, string]
                                 : null;
                             setDateRange(dr);
                             setPage(1);
-                            fetchData(1, search, dr);
                         }}
                     />
                 </div>
