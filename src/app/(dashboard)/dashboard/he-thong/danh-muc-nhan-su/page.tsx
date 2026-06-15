@@ -112,16 +112,17 @@ export default function DanhMucNhanSuPage() {
 
     const columns: ColumnsType<Employee> = [
         {
-            title: 'STT', key: 'stt', width: 56, align: 'center' as const,
+            title: 'STT', key: 'stt', width: 56, align: 'center' as const, fixed: 'left' as const,
             render: (_, __, i) => (page - 1) * limit + i + 1,
         },
         {
-            title: 'Mã nhân sự', key: 'code', width: 110,
+            title: 'Mã nhân sự', key: 'code', width: 110, fixed: 'left' as const,
             render: (_, r) => <Tag color="orange">{r.employeeProfile?.employeeCode || '—'}</Tag>,
         },
         {
-            title: 'Tên nhân sự', key: 'fullName',
-            render: (_, r) => <span style={{ fontWeight: 500 }}>{r.fullName}</span>,
+            title: 'Tên nhân sự', key: 'fullName', width: 180, fixed: 'left' as const,
+            ellipsis: true,
+            render: (_, r) => <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>{r.fullName}</span>,
         },
         { title: 'Tài khoản', dataIndex: 'username', key: 'username', width: 130 },
         {
