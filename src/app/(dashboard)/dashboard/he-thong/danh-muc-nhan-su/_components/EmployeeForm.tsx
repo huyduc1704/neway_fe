@@ -21,6 +21,7 @@ interface Team {
     id: string; name: string;
     branch: { id: string; name: string; region: { id: string; name: string } | null } | null;
 }
+interface Branch { id: string; name: string; }
 
 const STATUS_OPTIONS = [
     { value: 'ACTIVE', label: 'Đang hoạt động' },
@@ -51,8 +52,10 @@ export default function EmployeeForm({ mode, userId }: Props) {
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     // derived from selected role / team
-    const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+    const [selectedRoles, setSelectedRoles] = useState<Role[]>([]);
     const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+    const [regionBranches, setRegionBranches] = useState<Branch[]>([]);
+    const [regionBranchesLoading, setRegionBranchesLoading] = useState(false);
     const [hasSocialInsurance, setHasSocialInsurance] = useState(false);
 
     // load lookup data
@@ -77,7 +80,7 @@ export default function EmployeeForm({ mode, userId }: Props) {
                     employeeCode: prof?.employeeCode ?? '',
                     fullName: data.fullName ?? '',
                     username: data.username ?? '',
-                    roleCode: role?.code ?? undefined,
+                    roleCodes: data.roles?.map((ur: any) => ur.role?.code ?? ur.code).filter(Boolean) ?? (role ? [role.code] : []),
                     teamId: prof?.team?.id ?? undefined,
                     employeeStatus: prof?.employeeStatus ?? 'ACTIVE',
                     gender: prof?.gender ?? undefined,
@@ -90,28 +93,44 @@ export default function EmployeeForm({ mode, userId }: Props) {
                     note: prof?.note ?? '',
                 });
                 setHasSocialInsurance(!!prof?.socialInsurance);
-                if (role) setSelectedRole(roles.find(r => r.code === role.code) ?? {
-                    id: role.id, code: role.code, name: role.name,
-                    fixedSalary: role.fixedSalary, commissionPercent: role.commissionPercent,
-                });
-                if (prof?.team) setSelectedTeam(teams.find(t => t.id === prof.team.id) ?? {
-                    id: prof.team.id, name: prof.team.name,
-                    branch: prof.team.branch ?? null,
-                });
+                const allRoleCodes: string[] = data.roles?.map((ur: any) => ur.role?.code ?? ur.code).filter(Boolean) ?? (role ? [role.code] : []);
+                setSelectedRoles(allRoleCodes.map(code => roles.find(r => r.code === code)).filter(Boolean) as Role[]);
+                if (prof?.team) {
+                    const resolvedTeam = teams.find(t => t.id === prof.team.id) ?? {
+                        id: prof.team.id, name: prof.team.name,
+                        branch: prof.team.branch ?? null,
+                    };
+                    setSelectedTeam(resolvedTeam);
+                    const regionId = resolvedTeam.branch?.region?.id;
+                    if (regionId) {
+                        api.get('/branches', { params: { regionId, limit: 100, isActive: true } })
+                            .then(({ data }) => setRegionBranches(data.data ?? []))
+                            .catch(() => { });
+                    }
+                }
                 setAvatarUrl(data.avatarUrl ?? null);
             })
             .catch(() => message.error('Không thể tải thông tin nhân sự'))
             .finally(() => setLoading(false));
     }, [mode, userId, roles, teams]);
 
-    const handleRoleChange = (code: string) => {
-        const r = roles.find(r => r.code === code) ?? null;
-        setSelectedRole(r);
+    const handleRoleChange = (codes: string[]) => {
+        setSelectedRoles(roles.filter(r => codes.includes(r.code)));
     };
 
-    const handleTeamChange = (id: string) => {
-        const t = teams.find(t => t.id === id) ?? null;
+    const handleTeamChange = async (id: string) => {
+        const t = id ? (teams.find(t => t.id === id) ?? null) : null;
         setSelectedTeam(t);
+        setRegionBranches([]);
+        const regionId = t?.branch?.region?.id;
+        if (!regionId) return;
+        setRegionBranchesLoading(true);
+        try {
+            const { data } = await api.get('/branches', { params: { regionId, limit: 100, isActive: true } });
+            setRegionBranches(data.data ?? []);
+        } catch { /* silent */ } finally {
+            setRegionBranchesLoading(false);
+        }
     };
 
     const uploadAvatar = async (empId: string, file: File) => {
@@ -139,7 +158,7 @@ export default function EmployeeForm({ mode, userId }: Props) {
                     fullName: values.fullName,
                     username: values.username,
                     password: values.password,
-                    roleCodes: [values.roleCode],
+                    roleCodes: values.roleCodes ?? [],
                     teamId: values.teamId || undefined,
                     employeeStatus: values.employeeStatus || 'ACTIVE',
                     gender: values.gender || undefined,
@@ -157,7 +176,7 @@ export default function EmployeeForm({ mode, userId }: Props) {
             } else {
                 const payload = {
                     fullName: values.fullName,
-                    roleCode: values.roleCode,
+                    roleCodes: values.roleCodes ?? [],
                     teamId: values.teamId || undefined,
                     employeeStatus: values.employeeStatus,
                     gender: values.gender || undefined,
@@ -257,23 +276,31 @@ export default function EmployeeForm({ mode, userId }: Props) {
                 <Card title="Vị trí công việc" style={{ marginBottom: 16 }}>
                     <Row gutter={24}>
                         <Col span={8}>
-                            <Form.Item name="roleCode" label="Vai trò"
-                                rules={[{ required: true, message: 'Chọn vai trò' }]}>
+                            <Form.Item name="roleCodes" label="Vai trò"
+                                rules={[{ required: true, type: 'array', min: 1, message: 'Chọn ít nhất 1 vai trò' }]}>
                                 <Select
-                                    showSearch={{ optionFilterProp: 'label' }}
-                                    placeholder="Chọn vai trò"
+                                    mode="multiple"
+                                    showSearch
+                                    optionFilterProp="label"
+                                    placeholder="Chọn vai trò (có thể chọn nhiều)"
                                     onChange={handleRoleChange}
                                     options={roles.map(r => ({ value: r.code, label: r.name }))}
+                                    maxTagCount="responsive"
                                 />
                             </Form.Item>
-                            {selectedRole && (
-                                <div style={{ marginTop: -12, marginBottom: 16, padding: '8px 12px', background: '#fff7ed', borderRadius: 6, border: '1px solid #fed7aa', display: 'flex', gap: 24 }}>
-                                    <span style={{ fontSize: 12, color: '#92400e' }}>
-                                        Lương cơ bản: <strong>{fmt(selectedRole.fixedSalary)}</strong>
-                                    </span>
-                                    <span style={{ fontSize: 12, color: '#92400e' }}>
-                                        Hoa hồng: <strong>{selectedRole.commissionPercent != null ? Number(selectedRole.commissionPercent) + '%' : '—'}</strong>
-                                    </span>
+                            {selectedRoles.length > 0 && (
+                                <div style={{ marginTop: -12, marginBottom: 16, padding: '10px 12px', background: '#fff7ed', borderRadius: 6, border: '1px solid #fed7aa' }}>
+                                    {selectedRoles.map(r => (
+                                        <div key={r.code} style={{ display: 'flex', gap: 16, marginBottom: selectedRoles.length > 1 ? 4 : 0 }}>
+                                            <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600, minWidth: 80 }}>{r.name}:</span>
+                                            <span style={{ fontSize: 12, color: '#92400e' }}>
+                                                Lương CB <strong>{fmt(r.fixedSalary)}</strong>
+                                            </span>
+                                            <span style={{ fontSize: 12, color: '#92400e' }}>
+                                                HH <strong>{r.commissionPercent != null ? Number(r.commissionPercent) + '%' : '—'}</strong>
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </Col>
@@ -288,13 +315,29 @@ export default function EmployeeForm({ mode, userId }: Props) {
                                 />
                             </Form.Item>
                             {selectedTeam && (
-                                <div style={{ marginTop: -12, marginBottom: 16, padding: '8px 12px', background: '#eff6ff', borderRadius: 6, border: '1px solid #bfdbfe', display: 'flex', gap: 24 }}>
-                                    <span style={{ fontSize: 12, color: '#1e40af' }}>
-                                        Chi nhánh: <strong>{selectedTeam.branch?.name ?? '—'}</strong>
-                                    </span>
-                                    <span style={{ fontSize: 12, color: '#1e40af' }}>
+                                <div style={{ marginTop: -12, marginBottom: 16, padding: '10px 12px', background: '#eff6ff', borderRadius: 6, border: '1px solid #bfdbfe' }}>
+                                    <div style={{ fontSize: 12, color: '#1e40af', marginBottom: 6 }}>
                                         Khu vực: <strong>{selectedTeam.branch?.region?.name ?? '—'}</strong>
-                                    </span>
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#1e40af' }}>
+                                        Chi nhánh trong khu vực:{' '}
+                                        {regionBranchesLoading
+                                            ? <span style={{ color: '#9ca3af' }}>Đang tải...</span>
+                                            : regionBranches.length > 0
+                                                ? <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                                                    {regionBranches.map(b => (
+                                                        <Tag
+                                                            key={b.id}
+                                                            color={b.id === selectedTeam.branch?.id ? 'blue' : 'default'}
+                                                            style={{ fontSize: 11, margin: 0 }}
+                                                        >
+                                                            {b.name}
+                                                        </Tag>
+                                                    ))}
+                                                </span>
+                                                : <strong>—</strong>
+                                        }
+                                    </div>
                                 </div>
                             )}
                         </Col>
@@ -304,10 +347,10 @@ export default function EmployeeForm({ mode, userId }: Props) {
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item label="% Hoa hồng">
+                            <Form.Item label="% Hoa hồng (theo vai trò)">
                                 <Input
-                                    value={selectedRole?.commissionPercent != null
-                                        ? `${Number(selectedRole.commissionPercent)}%`
+                                    value={selectedRoles.length > 0
+                                        ? selectedRoles.map(r => `${r.name}: ${r.commissionPercent != null ? Number(r.commissionPercent) + '%' : '—'}`).join(' | ')
                                         : ''}
                                     placeholder="Chọn vai trò để xem hoa hồng"
                                     readOnly

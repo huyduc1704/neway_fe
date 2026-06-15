@@ -31,7 +31,9 @@ interface PayrollLine {
     preTaxIncome: string; taxAmount: string;
     socialInsuranceAmount: string; finalNetIncome: string;
     note: string | null;
-    employee: { id: string; employeeCode: string; user: { fullName: string }; branch: { code: string; name: string } | null; team: { code: string; name: string } | null; };
+    teamSnapshot: { id: string; code: string; name: string } | null;
+    branchSnapshot: { id: string; code: string; name: string } | null;
+    employee: { id: string; employeeCode: string; user: { fullName: string }; };
     role: { code: string; name: string } | null;
 }
 interface Summary {
@@ -47,7 +49,12 @@ interface TxRow {
     slots: Record<string, TxSlot>;
 }
 
-const SLOT_LABELS: Record<string, string> = { m: 'M', m1: 'M1', m2: 'M2', s1: 'S1', s2: 'S2', mLeader: 'M Lớn', m1Leader: 'M1 Lớn', m2Leader: 'M2 Lớn', s1Leader: 'S1 Lớn', s2Leader: 'S2 Lớn' };
+const SLOT_LABELS: Record<string, string> = {
+    m: 'M', m1: 'M1', m2: 'M2', s1: 'S1', s2: 'S2',
+    mLeader: 'M Lớn 1', m1Leader: 'M Lớn 2', m2Leader: 'M2 Lớn', s1Leader: 'S1 Lớn', s2Leader: 'S2 Lớn',
+};
+// Thứ tự cột: leader trước nhân viên (theo yêu cầu khách hàng)
+const SLOT_ORDER = ['mLeader', 'm1Leader', 'm', 'm1', 'm2', 's1', 's2', 'm2Leader', 's1Leader', 's2Leader'];
 
 function BangLuongContent() {
     const searchParams = useSearchParams();
@@ -180,7 +187,13 @@ function BangLuongContent() {
         setBreakdownSaving(true);
         try {
             await api.patch(`/payroll/lines/${breakdownLineId}`, {
-                taskSalaries: taskForm.map(t => ({ id: t.id, status: t.status, quantity: Number(t.quantity) || 0 }))
+                taskSalaries: taskForm.map(t => ({
+                    id: t.id,
+                    status: t.status,
+                    quantity: Number(t.quantity) || 0,
+                    milestone: Number(t.milestone) || 0,
+                    rate: Number(t.rate) || 0,
+                })),
             });
             message.success('Cập nhật lương nhiệm vụ thành công');
             setBreakdownOpen(false);
@@ -210,8 +223,8 @@ function BangLuongContent() {
             title: 'Chi nhánh / Team', key: 'dept', width: 170,
             render: (_, r) => (
                 <div style={{ fontSize: 12 }}>
-                    {r.employee.branch && <div style={{ color: '#6b7280' }}>{r.employee.branch.name}</div>}
-                    {r.employee.team && <div style={{ color: '#9ca3af' }}>{r.employee.team.name}</div>}
+                    {r.branchSnapshot && <div style={{ color: '#6b7280' }}>{r.branchSnapshot.name}</div>}
+                    {r.teamSnapshot && <div style={{ color: '#9ca3af' }}>{r.teamSnapshot.name}</div>}
                 </div>
             ),
         },
@@ -286,26 +299,31 @@ function BangLuongContent() {
             ),
         },
         { title: 'Giá trị GD', key: 'actualValue', width: 150, align: 'right', render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{formatCurrency(r.actualValue)}</span> },
-        ...['m', 'm1', 'm2', 's1', 's2'].flatMap(key => [
-            {
-                title: `Mã ${SLOT_LABELS[key]}`, key: `${key}_emp`, width: 90, align: 'center' as const,
-                render: (_: any, r: TxRow) => r.slots[key]?.employeeCode
-                    ? <span style={{ fontSize: 12, fontWeight: 500, color: '#1A2B5A' }}>{r.slots[key].employeeCode}</span>
-                    : <span style={{ color: '#e5e7eb' }}>—</span>,
-            },
-            {
-                title: `Tỉ lệ ${SLOT_LABELS[key]}`, key: `${key}_rate`, width: 80, align: 'center' as const,
-                render: (_: any, r: TxRow) => r.slots[key]?.rate > 0
-                    ? <span style={{ fontSize: 12, color: '#6b7280' }}>{(r.slots[key].rate * 100).toFixed(0)}%</span>
-                    : <span style={{ color: '#e5e7eb' }}>—</span>,
-            },
-            {
-                title: `DT ${SLOT_LABELS[key]}`, key: `${key}_rev`, width: 120, align: 'right' as const,
-                render: (_: any, r: TxRow) => r.slots[key]?.revenue > 0
-                    ? <span style={{ fontSize: 12, color: '#E8890C' }}>{formatCurrency(r.slots[key].revenue)}</span>
-                    : <span style={{ color: '#e5e7eb' }}>—</span>,
-            },
-        ]),
+        ...SLOT_ORDER.flatMap(key => {
+            // Chỉ render cột nếu có ít nhất 1 row có dữ liệu slot này
+            const hasData = txData.some(r => r.slots[key]?.employeeCode || r.slots[key]?.rate > 0);
+            if (!hasData) return [];
+            return [
+                {
+                    title: `Mã ${SLOT_LABELS[key]}`, key: `${key}_emp`, width: 100, align: 'center' as const,
+                    render: (_: any, r: TxRow) => r.slots[key]?.employeeCode
+                        ? <span style={{ fontSize: 12, fontWeight: 500, color: '#1A2B5A' }}>{r.slots[key].employeeCode}</span>
+                        : <span style={{ color: '#e5e7eb' }}>—</span>,
+                },
+                {
+                    title: `Tỉ lệ ${SLOT_LABELS[key]}`, key: `${key}_rate`, width: 80, align: 'center' as const,
+                    render: (_: any, r: TxRow) => r.slots[key]?.rate > 0
+                        ? <span style={{ fontSize: 12, color: '#6b7280' }}>{(r.slots[key].rate * 100).toFixed(1)}%</span>
+                        : <span style={{ color: '#e5e7eb' }}>—</span>,
+                },
+                {
+                    title: `DT ${SLOT_LABELS[key]}`, key: `${key}_rev`, width: 130, align: 'right' as const,
+                    render: (_: any, r: TxRow) => r.slots[key]?.revenue > 0
+                        ? <span style={{ fontSize: 12, color: '#E8890C' }}>{formatCurrency(r.slots[key].revenue)}</span>
+                        : <span style={{ color: '#e5e7eb' }}>—</span>,
+                },
+            ];
+        }),
         { title: 'Gross', key: 'grossRevenue', width: 140, align: 'right', render: (_, r) => <span style={{ fontWeight: 700, color: '#E8890C' }}>{formatCurrency(r.grossRevenue)}</span> },
         { title: 'Net (÷1.1)', key: 'netRevenue', width: 140, align: 'right', render: (_, r) => <span style={{ fontWeight: 700, color: '#1A2B5A' }}>{formatCurrency(r.netRevenue)}</span> },
     ];
@@ -572,11 +590,16 @@ function BangLuongContent() {
                     <Button key="close" onClick={() => setBreakdownOpen(false)}>Đóng</Button>,
                     !period?.isLocked && <Button key="save" type="primary" loading={breakdownSaving} onClick={handleBreakdownSave}>Lưu nhiệm vụ</Button>
                 ]}
-                width={520}
+                width={640}
             >
                 {breakdownLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><Spin /></div>}
                 {breakdown && !breakdownLoading && (
                     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {period?.isLocked && (
+                            <div style={{ padding: '8px 12px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, fontSize: 13, color: '#92400e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span>🔒</span> Kỳ lương đã khoá — mở khoá kỳ lương để chỉnh sửa
+                            </div>
+                        )}
                         <div style={{ padding: 12, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
                             <div style={{ fontWeight: 600, color: '#1A2B5A' }}>{breakdown.employee?.user?.fullName}</div>
                             <div style={{ fontSize: 14, color: '#6b7280' }}>{breakdown.employee?.employeeCode} · {breakdown.role?.name}</div>
@@ -593,50 +616,101 @@ function BangLuongContent() {
                                     <strong style={{ color: item.color }}>{formatCurrency(item.value)}</strong>
                                 </div>
                             ))}
-                            {taskForm?.length > 0 && (
-                                <div style={{ paddingLeft: 12, marginTop: 8, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {taskForm.map((ts: any, i: number) => (
-                                        <div key={ts.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, background: '#f9fafb', padding: '8px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                                            <div style={{ flex: 1, paddingRight: 8 }}>
-                                                <div style={{ fontWeight: 500, color: '#4b5563', marginBottom: 4 }}>{ts.content}</div>
-                                                <div style={{ color: '#9ca3af', fontSize: 12 }}>
-                                                    Mốc: {formatCurrency(ts.milestone)} × {(ts.rate * 100).toFixed(0)}%
+                            {taskForm?.length === 0 ? (
+                                <div style={{ padding: '10px 12px', background: '#f9fafb', border: '1px dashed #d1d5db', borderRadius: 8, fontSize: 13, color: '#6b7280', marginTop: 4 }}>
+                                    Vai trò này chưa có Lương Nhiệm Vụ. Vui lòng cấu hình trong trang <strong>Vai trò</strong>, sau đó mở lại modal này để hiển thị.
+                                </div>
+                            ) : (
+                                <div style={{ paddingLeft: 0, marginTop: 8, marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {taskForm.map((ts: any, i: number) => {
+                                        const taskSalary = ts.status === 'ACHIEVED'
+                                            ? (Number(ts.quantity) || 0) * (Number(ts.rate) || 0) * (Number(ts.milestone) || 0)
+                                            : 0;
+                                        return (
+                                            <div key={ts.id} style={{ fontSize: 13, background: '#f9fafb', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                                {/* Hàng 1: Nội dung + Tình trạng */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                                    <div style={{ fontWeight: 600, color: '#374151' }}>{ts.content}</div>
+                                                    <Select
+                                                        size="small"
+                                                        value={ts.status}
+                                                        disabled={period?.isLocked}
+                                                        onChange={(v) => {
+                                                            const newTasks = [...taskForm];
+                                                            newTasks[i] = { ...newTasks[i], status: v };
+                                                            setTaskForm(newTasks);
+                                                        }}
+                                                        options={[
+                                                            { value: 'ACHIEVED', label: '✓ Đạt' },
+                                                            { value: 'NOT_ACHIEVED', label: '✗ Chưa Đạt' },
+                                                            { value: 'OTHER', label: '— Khác' },
+                                                        ]}
+                                                        style={{ width: 120 }}
+                                                    />
+                                                </div>
+                                                {/* Hàng 2: Mốc / Tỉ lệ / Số lượng */}
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>Mốc (đ)</div>
+                                                        <Input
+                                                            size="small"
+                                                            type="number"
+                                                            min={0}
+                                                            disabled={period?.isLocked}
+                                                            value={ts.milestone}
+                                                            onChange={(e) => {
+                                                                const newTasks = [...taskForm];
+                                                                newTasks[i] = { ...newTasks[i], milestone: Number(e.target.value) || 0 };
+                                                                setTaskForm(newTasks);
+                                                            }}
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>Tỉ lệ (%)</div>
+                                                        <Input
+                                                            size="small"
+                                                            type="number"
+                                                            min={0}
+                                                            max={100}
+                                                            step={0.1}
+                                                            disabled={period?.isLocked}
+                                                            value={parseFloat(((Number(ts.rate) || 0) * 100).toFixed(4))}
+                                                            onChange={(e) => {
+                                                                const newTasks = [...taskForm];
+                                                                newTasks[i] = { ...newTasks[i], rate: (Number(e.target.value) || 0) / 100 };
+                                                                setTaskForm(newTasks);
+                                                            }}
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>Số lượng</div>
+                                                        <Input
+                                                            size="small"
+                                                            type="number"
+                                                            min={0}
+                                                            disabled={period?.isLocked}
+                                                            value={ts.quantity}
+                                                            onChange={(e) => {
+                                                                const newTasks = [...taskForm];
+                                                                newTasks[i] = { ...newTasks[i], quantity: Number(e.target.value) || 0 };
+                                                                setTaskForm(newTasks);
+                                                            }}
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                    <div style={{ flex: 1, textAlign: 'right' }}>
+                                                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>Lương NV</div>
+                                                        <div style={{ fontWeight: 600, color: taskSalary > 0 ? '#E8890C' : '#9ca3af', fontSize: 13 }}>
+                                                            {formatCurrency(taskSalary)}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                <Select 
-                                                    size="small" 
-                                                    value={ts.status} 
-                                                    disabled={period?.isLocked}
-                                                    onChange={(v) => {
-                                                        const newTasks = [...taskForm];
-                                                        newTasks[i].status = v;
-                                                        setTaskForm(newTasks);
-                                                    }}
-                                                    options={[
-                                                        { value: 'ACHIEVED', label: 'Đạt' },
-                                                        { value: 'NOT_ACHIEVED', label: 'Chưa Đạt' }
-                                                    ]}
-                                                    style={{ width: 100 }}
-                                                />
-                                                <Input 
-                                                    size="small" 
-                                                    type="number" 
-                                                    min={0}
-                                                    disabled={period?.isLocked}
-                                                    value={ts.quantity} 
-                                                    onChange={(e) => {
-                                                        const newTasks = [...taskForm];
-                                                        newTasks[i].quantity = e.target.value;
-                                                        setTaskForm(newTasks);
-                                                    }}
-                                                    style={{ width: 60 }} 
-                                                    placeholder="SL"
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <div style={{ fontSize: 12, color: '#f97316', textAlign: 'right' }}>* Hệ thống sẽ tự động tính lại tổng lương khi bấm Lưu.</div>
+                                        );
+                                    })}
+                                    <div style={{ fontSize: 12, color: '#f97316', textAlign: 'right' }}>* Hệ thống tự động tính lại tổng lương khi bấm Lưu.</div>
                                 </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontWeight: 500 }}>

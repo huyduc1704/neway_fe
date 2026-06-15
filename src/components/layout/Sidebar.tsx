@@ -2,7 +2,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Layout, Menu, ConfigProvider } from 'antd';
-import { DashboardOutlined, BarChartOutlined, ProjectOutlined, SettingOutlined, CalculatorOutlined, HomeOutlined } from '@ant-design/icons';
+import { DashboardOutlined, BarChartOutlined, ProjectOutlined, SettingOutlined, CalculatorOutlined, HomeOutlined, FileTextOutlined } from '@ant-design/icons';
 
 const { Sider } = Layout;
 
@@ -22,13 +22,17 @@ const menuItems = [
         ],
     },
     {
+        key: '/dashboard/uy-nhiem-chi',
+        icon: <FileTextOutlined />,
+        label: <Link href="/dashboard/uy-nhiem-chi">Uỷ Nhiệm Chi</Link>,
+    },
+    {
         key: 'tinh-luong',
         icon: <CalculatorOutlined />,
         label: 'Tính lương & Hoa hồng',
         children: [
             { key: '/dashboard/tinh-luong/ky-luong', label: <Link href="/dashboard/tinh-luong/ky-luong">Kỳ lương</Link> },
             { key: '/dashboard/tinh-luong/bang-luong', label: <Link href="/dashboard/tinh-luong/bang-luong">Bảng lương</Link> },
-            { key: '/dashboard/tinh-luong/chinh-sach-hoa-hong', label: <Link href="/dashboard/tinh-luong/chinh-sach-hoa-hong">Chính sách hoa hồng</Link> },
         ],
     },
     {

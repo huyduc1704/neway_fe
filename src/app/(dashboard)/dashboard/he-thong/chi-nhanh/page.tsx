@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { message } from 'antd';
-import { Pencil, Trash2, PowerOff, Plus, Building2 } from 'lucide-react';
+import { Pencil, Trash2, PowerOff, Building2 } from 'lucide-react';
 import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
@@ -9,16 +9,18 @@ import api from '@/lib/api';
 
 const { Title } = Typography;
 
+const PROVINCES_API = 'https://provinces.open-api.vn/api/v2';
+
 interface Region { id: string; name: string; }
 interface Branch {
     id: string; code: string; name: string;
-    province: string | null; ward: string | null;
+    province: string | null; wards: string[];
     regionId: string | null; isActive: boolean;
     region: { id: string; name: string } | null;
     createdAt: string;
 }
-
-const EMPTY_FORM = { code: '', name: '', province: '', ward: '', regionId: '' };
+interface ProvinceOption { code: number; name: string; }
+interface WardOption { code: string; name: string; }
 
 export default function ChiNhanhPage() {
     const [branches, setBranches] = useState<Branch[]>([]);
@@ -35,6 +37,57 @@ export default function ChiNhanhPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form] = Form.useForm();
     const [saving, setSaving] = useState(false);
+
+    // Province/Ward API state
+    const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
+    const [wardOptions, setWardOptions] = useState<WardOption[]>([]);
+    const [provincesLoading, setProvincesLoading] = useState(false);
+    const [wardsLoading, setWardsLoading] = useState(false);
+    const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | null>(null);
+    const [wardSearch, setWardSearch] = useState('');
+    const filteredWards = useMemo(() => {
+        const q = wardSearch.toLowerCase();
+        if (!q) return wardOptions.slice(0, 100);
+        return wardOptions.filter(w => w.name.toLowerCase().includes(q)).slice(0, 100);
+    }, [wardSearch, wardOptions]);
+
+    // Load province list once
+    useEffect(() => {
+        setProvincesLoading(true);
+        fetch(`${PROVINCES_API}/p/`)
+            .then(r => r.json())
+            .then((data: ProvinceOption[]) => setProvinceOptions(data))
+            .catch(() => message.error('Không thể tải danh sách thành phố'))
+            .finally(() => setProvincesLoading(false));
+    }, []);
+
+    const loadWards = async (provinceCode: number): Promise<WardOption[]> => {
+        setWardsLoading(true);
+        setWardOptions([]);
+        try {
+            const resp = await fetch(`${PROVINCES_API}/p/${provinceCode}?depth=2`);
+            const data = await resp.json();
+            // After Vietnam's administrative reform, wards are directly under province
+            const wards: WardOption[] = data.wards ?? [];
+            setWardOptions(wards);
+            return wards;
+        } catch {
+            message.error('Không thể tải danh sách phường/xã');
+            return [];
+        } finally {
+            setWardsLoading(false);
+        }
+    };
+
+    const handleProvinceChange = async (value: string | undefined, option: any) => {
+        form.setFieldValue('wards', []);
+        setWardOptions([]);
+        setWardSearch('');
+        if (!value) { setSelectedProvinceCode(null); return; }
+        const code = Array.isArray(option) ? option[0]?.code : option?.code;
+        setSelectedProvinceCode(code ?? null);
+        if (code) await loadWards(code);
+    };
 
     const fetchBranches = useCallback(async () => {
         setLoading(true);
@@ -58,17 +111,39 @@ export default function ChiNhanhPage() {
     useEffect(() => {
         api.get('/regions', { params: { limit: 100 } })
             .then(({ data }) => setRegions(data.data))
-            .catch(() => {});
+            .catch(() => { });
     }, []);
 
     const openCreate = () => {
         setEditingId(null);
         form.resetFields();
+        setWardOptions([]);
+        setSelectedProvinceCode(null);
         setDialogOpen(true);
     };
-    const openEdit = (b: Branch) => {
+
+    const openEdit = async (b: Branch) => {
         setEditingId(b.id);
-        form.setFieldsValue({ code: b.code, name: b.name, province: b.province ?? '', ward: b.ward ?? '', regionId: b.region?.id ?? '' });
+        form.resetFields();
+        setWardOptions([]);
+        setSelectedProvinceCode(null);
+        form.setFieldsValue({
+            code: b.code,
+            name: b.name,
+            regionId: b.region?.id ?? undefined,
+            province: b.province ?? undefined,
+            wards: b.wards ?? [],
+        });
+
+        // Pre-load wards for the stored province name
+        if (b.province && provinceOptions.length > 0) {
+            const prov = provinceOptions.find(p => p.name === b.province);
+            if (prov) {
+                setSelectedProvinceCode(prov.code);
+                await loadWards(prov.code);
+            }
+        }
+
         setDialogOpen(true);
     };
 
@@ -76,19 +151,17 @@ export default function ChiNhanhPage() {
         try {
             const values = await form.validateFields();
             setSaving(true);
+            const payload = {
+                name: values.name,
+                province: values.province || undefined,
+                wards: values.wards?.length ? values.wards : [],
+                regionId: values.regionId || undefined,
+            };
             if (editingId) {
-                await api.patch(`/branches/${editingId}`, {
-                    name: values.name, province: values.province || undefined,
-                    ward: values.ward || undefined, regionId: values.regionId || undefined,
-                });
+                await api.patch(`/branches/${editingId}`, payload);
                 message.success('Cập nhật chi nhánh thành công');
             } else {
-                await api.post('/branches', {
-                    code: values.code, name: values.name,
-                    province: values.province || undefined,
-                    ward: values.ward || undefined,
-                    regionId: values.regionId || undefined,
-                });
+                await api.post('/branches', { code: values.code, ...payload });
                 message.success('Tạo chi nhánh thành công');
             }
             setDialogOpen(false);
@@ -120,11 +193,16 @@ export default function ChiNhanhPage() {
         { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, __, i) => (pagination.page - 1) * pagination.limit + i + 1 },
         { title: 'Mã CN', key: 'code', width: 110, render: (_, r) => <Tag>{r.code}</Tag> },
         { title: 'Tên chi nhánh', key: 'name', render: (_, r) => <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{r.name}</span> },
-        { title: 'Khu vực', key: 'region', width: 160, render: (_, r) => r.region?.name ?? <span style={{ color: '#9ca3af' }}>—</span> },
-        { title: 'Tỉnh/TP', key: 'province', width: 160, render: (_, r) => r.province ?? <span style={{ color: '#9ca3af' }}>—</span> },
-        { title: 'Phường/Xã', key: 'ward', width: 160, render: (_, r) => r.ward ?? <span style={{ color: '#9ca3af' }}>—</span> },
+        { title: 'Khu vực', key: 'region', width: 140, render: (_, r) => r.region?.name ?? <span style={{ color: '#9ca3af' }}>—</span> },
+        { title: 'Thành phố', key: 'province', width: 140, render: (_, r) => r.province ?? <span style={{ color: '#9ca3af' }}>—</span> },
         {
-            title: 'Trạng thái', key: 'status', width: 140, align: 'center',
+            title: 'Phường/Xã', key: 'wards', width: 260,
+            render: (_, r) => r.wards?.length
+                ? <Space wrap size={4}>{r.wards.map(w => <Tag key={w} style={{ marginBottom: 2 }}>{w}</Tag>)}</Space>
+                : <span style={{ color: '#9ca3af' }}>—</span>
+        },
+        {
+            title: 'Trạng thái', key: 'status', width: 120, align: 'center',
             render: (_, r) => <Tag color={r.isActive ? 'success' : 'default'}>{r.isActive ? 'Hoạt động' : 'Vô hiệu'}</Tag>,
         },
         {
@@ -152,7 +230,6 @@ export default function ChiNhanhPage() {
 
     return (
         <>
-            {/* Page Header */}
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <Title level={4} style={{ margin: 0 }}>Quản lý Chi nhánh</Title>
@@ -163,7 +240,6 @@ export default function ChiNhanhPage() {
                 </Button>
             </div>
 
-            {/* Filters */}
             <Card style={{ marginBottom: 16 }}>
                 <Space wrap>
                     <Input
@@ -200,7 +276,9 @@ export default function ChiNhanhPage() {
             </Card>
 
             <Card>
-                <Table columns={columns} dataSource={branches} rowKey="id" loading={loading} pagination={{ pageSize: pagination.limit, total: pagination.total, current: pagination.page, onChange: (page) => setPagination(p => ({ ...p, page })) }} size="small" />
+                <Table columns={columns} dataSource={branches} rowKey="id" loading={loading}
+                    pagination={{ pageSize: pagination.limit, total: pagination.total, current: pagination.page, onChange: (page) => setPagination(p => ({ ...p, page })) }}
+                    size="small" scroll={{ x: 1000 }} />
             </Card>
 
             {/* Create/Edit Modal */}
@@ -219,7 +297,7 @@ export default function ChiNhanhPage() {
                         {editingId ? 'Cập nhật' : 'Tạo mới'}
                     </Button>,
                 ]}
-                width={520}
+                width={560}
             >
                 <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -231,17 +309,43 @@ export default function ChiNhanhPage() {
                                 options={regions.map(r => ({ value: r.id, label: r.name }))} />
                         </Form.Item>
                     </div>
+
                     <Form.Item name="name" label="Tên chi nhánh" rules={[{ required: true, message: 'Nhập tên chi nhánh' }]}>
-                        <Input placeholder="VD: Chi nhánh Hà Nội 1" />
+                        <Input placeholder="VD: Chi nhánh Hà Nội" />
                     </Form.Item>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                        <Form.Item name="province" label="Tỉnh / Thành phố">
-                            <Input placeholder="VD: Hà Nội" />
-                        </Form.Item>
-                        <Form.Item name="ward" label="Phường / Xã">
-                            <Input placeholder="VD: Phú Thạnh" />
-                        </Form.Item>
-                    </div>
+
+                    <Form.Item name="province" label="Thành phố">
+                        <Select
+                            placeholder={provincesLoading ? 'Đang tải...' : 'Chọn thành phố'}
+                            allowClear
+                            showSearch
+                            loading={provincesLoading}
+                            filterOption={(input, option) =>
+                                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+                            }
+                            options={provinceOptions.map(p => ({ value: p.name, label: p.name, code: p.code }))}
+                            onChange={handleProvinceChange}
+                        />
+                    </Form.Item>
+
+                    <Form.Item name="wards" label="Phường / Xã">
+                        <Select
+                            mode="multiple"
+                            placeholder={
+                                wardsLoading ? 'Đang tải phường/xã...'
+                                    : selectedProvinceCode ? 'Chọn phường/xã (có thể chọn nhiều)'
+                                        : 'Chọn thành phố trước'
+                            }
+                            allowClear
+                            showSearch
+                            loading={wardsLoading}
+                            disabled={!selectedProvinceCode && wardOptions.length === 0}
+                            filterOption={false}
+                            onSearch={setWardSearch}
+                            options={filteredWards.map(w => ({ value: w.name, label: w.name }))}
+                            maxTagCount="responsive"
+                        />
+                    </Form.Item>
                 </Form>
             </Modal>
         </>
