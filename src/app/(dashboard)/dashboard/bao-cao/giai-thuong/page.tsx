@@ -10,16 +10,18 @@ import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 
-interface TopByRevenue { rank: number; employeeCode: string; fullName: string; eligibleRevenue: number; }
-interface TopByCount   { rank: number; employeeCode: string; fullName: string; eligibleCount: number; }
-interface EliteItem    { stt: number; employeeCode: string; fullName: string; title: 'TINH_ANH' | 'TINH_HOA'; }
-interface TopTeam      { rank: number; teamCode: string; leaderCode: string; leaderName: string; eligibleRevenue: number; }
+interface TopByRevenue  { rank: number; employeeCode: string; fullName: string; eligibleRevenue: number; }
+interface TopByCount    { rank: number; employeeCode: string; fullName: string; eligibleCount: number; }
+interface EliteItem     { stt: number; employeeCode: string; fullName: string; title: 'TINH_ANH' | 'TINH_HOA'; }
+interface TopTeam       { rank: number; teamCode: string; leaderCode: string; leaderName: string; eligibleRevenue: number; }
+interface EmployeeScore { stt: number; employeeCode: string; fullName: string | null; teamName: string | null; score: number; }
 
 interface AwardsData {
-    top3ByRevenue: TopByRevenue[];
-    top1ByCount:   TopByCount | null;
-    eliteSummary:  EliteItem[];
-    top1Team:      TopTeam | null;
+    top3ByRevenue:  TopByRevenue[];
+    top1ByCount:    TopByCount | null;
+    eliteSummary:   EliteItem[];
+    top1Team:       TopTeam | null;
+    employeeScores: EmployeeScore[];
 }
 
 interface Branch { id: string; name: string; }
@@ -113,6 +115,17 @@ export default function GiaiThuongPage() {
                     {r.title === 'TINH_ANH' ? '⭐ Tinh Anh' : '✨ Tinh Hoa'}
                 </Tag>
             ),
+        },
+    ];
+
+    const scoreColumns: ColumnsType<EmployeeScore> = [
+        { title: 'STT', key: 'stt', dataIndex: 'stt', width: 60, align: 'center' },
+        { title: 'Mã NV', key: 'code', width: 110, render: (_, r) => <Tag color="orange">{r.employeeCode ?? '—'}</Tag> },
+        { title: 'Họ tên', key: 'name', render: (_, r) => <span style={{ fontWeight: 600 }}>{r.fullName ?? '—'}</span> },
+        { title: 'Team', key: 'team', width: 160, render: (_, r) => r.teamName ? <Tag color="blue">{r.teamName}</Tag> : <span style={{ color: '#9ca3af' }}>—</span> },
+        {
+            title: 'Điểm', key: 'score', width: 100, align: 'center',
+            render: (_, r) => <span style={{ fontWeight: 700, color: '#1A2B5A', fontSize: 16 }}>{r.score}</span>,
         },
     ];
 
@@ -236,6 +249,28 @@ export default function GiaiThuongPage() {
                             locale={{ emptyText: 'Chưa có nhân sự đạt danh hiệu trong kỳ này' }}
                         />
                     </Card>
+                    {/* ── ĐIỂM NHÂN SỰ ────────────────────────────────────── */}
+                    {awards.employeeScores.length > 0 && (
+                        <Card
+                            title={
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Star size={20} color="#E8890C" />
+                                    <span style={{ fontWeight: 700, fontSize: 15, color: '#1A2B5A' }}>Điểm nhân sự</span>
+                                    <Tag color="orange" style={{ marginLeft: 4 }}>{awards.employeeScores.length} nhân sự</Tag>
+                                </span>
+                            }
+                            style={{ borderTop: '3px solid #6366f1' }}
+                        >
+                            <Table
+                                columns={scoreColumns}
+                                dataSource={awards.employeeScores}
+                                rowKey={(r) => r.employeeCode ?? String(r.stt)}
+                                pagination={{ pageSize: 20, showSizeChanger: false }}
+                                size="small"
+                                locale={{ emptyText: 'Chưa có dữ liệu điểm nhân sự' }}
+                            />
+                        </Card>
+                    )}
                 </div>
             )}
         </>
