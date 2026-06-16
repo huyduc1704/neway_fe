@@ -5,9 +5,10 @@ import {
     Table, Input, Tag, Typography, Card, Space, Button, DatePicker, Tooltip, Popconfirm, message, Select,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '@/lib/api';
+import { downloadExport } from '@/lib/export';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -217,11 +218,28 @@ export default function DanhMucNhanSuPage() {
         <>
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Danh mục nhân sự</Title>
-                <Button type="primary" icon={<PlusOutlined />}
-                    style={{ background: '#E8890C', borderColor: '#E8890C' }}
-                    onClick={() => router.push('/dashboard/he-thong/danh-muc-nhan-su/tao-moi')}>
-                    Thêm nhân sự
-                </Button>
+                <Space>
+                    <Button icon={<DownloadOutlined />} onClick={async () => {
+                        try {
+                            const f = filtersRef.current;
+                            await downloadExport('/employees/export', {
+                                search: f.search || undefined,
+                                roleCode: f.roleCode || undefined,
+                                teamId: f.teamId || undefined,
+                                branchId: f.branchId || undefined,
+                                regionId: f.regionId || undefined,
+                                employeeStatus: f.empStatus || undefined,
+                                fromDate: f.dateRange?.[0] || undefined,
+                                toDate: f.dateRange?.[1] || undefined,
+                            }, 'danh-muc-nhan-su');
+                        } catch { message.error('Xuất file thất bại'); }
+                    }}>Xuất Excel</Button>
+                    <Button type="primary" icon={<PlusOutlined />}
+                        style={{ background: '#E8890C', borderColor: '#E8890C' }}
+                        onClick={() => router.push('/dashboard/he-thong/danh-muc-nhan-su/tao-moi')}>
+                        Thêm nhân sự
+                    </Button>
+                </Space>
             </div>
 
             <Card>

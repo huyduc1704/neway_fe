@@ -3,10 +3,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2 } from 'lucide-react';
-import { Button, Input, Tag, Table, Card, Typography, Space } from 'antd';
+import { Button, Input, Tag, Table, Card, Typography, Space, message as antMessage } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
+import { downloadExport } from '@/lib/export';
 
 const { Title } = Typography;
 
@@ -94,9 +95,15 @@ export default function DanhMucKhachHangPage() {
         <>
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Danh mục khách hàng / Danh sách</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/danh-muc-khach-hang/tao-moi' as any)}>
-                    Thêm khách hàng
-                </Button>
+                <Space>
+                    <Button icon={<DownloadOutlined />} onClick={async () => {
+                        try { await downloadExport('/customers/export', { search: search || undefined }, 'danh-muc-khach-hang'); }
+                        catch { antMessage.error('Xuất file thất bại'); }
+                    }}>Xuất Excel</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/danh-muc-khach-hang/tao-moi' as any)}>
+                        Thêm khách hàng
+                    </Button>
+                </Space>
             </div>
 
             <Card>

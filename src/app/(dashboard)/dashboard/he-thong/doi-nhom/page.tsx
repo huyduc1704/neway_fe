@@ -48,12 +48,12 @@ export default function DoiNhomPage() {
     useEffect(() => { fetchTeams(); }, [fetchTeams]);
     useEffect(() => {
         api.get('/branches',  { params: { limit: 200 } }).then(({ data }) => setBranches(data.data ?? [])).catch(() => {});
-        api.get('/employees', { params: { limit: 500, roleCode: 'LEADER' } })
+        api.get('/employees', { params: { limit: 1000 } })
             .then(({ data }) => {
                 const list = data.data ?? [];
                 setEmployees(list.map((u: any) => ({
                     id: u.employeeProfile?.id,
-                    fullName: u.fullName
+                    fullName: u.fullName,
                 })).filter((e: any) => e.id));
             })
             .catch(() => {});
@@ -180,7 +180,7 @@ export default function DoiNhomPage() {
                             options={branches.map(b => ({ value: b.id, label: b.name }))} />
                     </Form.Item>
                     <Form.Item name="leaderId" label="Leader phụ trách">
-                        <Select placeholder="Chọn leader" allowClear
+                        <Select placeholder="Chọn leader" allowClear showSearch optionFilterProp="label"
                             options={employees.map(e => ({ value: e.id, label: e.fullName }))} />
                     </Form.Item>
                 </Form>

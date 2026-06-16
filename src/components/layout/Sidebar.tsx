@@ -51,8 +51,7 @@ const MENU_CONFIG = [
         label: 'Báo cáo',
         children: [
             { key: '/dashboard/bao-cao/doanh-thu', label: <Link href="/dashboard/bao-cao/doanh-thu">Báo cáo doanh thu</Link>, permission: 'REPORT_VIEW' },
-            { key: '/dashboard/bao-cao/hoa-hong', label: <Link href="/dashboard/bao-cao/hoa-hong">Báo cáo hoa hồng</Link>, permission: 'REPORT_VIEW' },
-            { key: '/dashboard/bao-cao/giao-dich', label: <Link href="/dashboard/bao-cao/giao-dich">Báo cáo giao dịch</Link>, permission: 'REPORT_VIEW' },
+{ key: '/dashboard/bao-cao/giao-dich', label: <Link href="/dashboard/bao-cao/giao-dich">Báo cáo giao dịch</Link>, permission: 'REPORT_VIEW' },
             { key: '/dashboard/bao-cao/nguon-khach', label: <Link href="/dashboard/bao-cao/nguon-khach">Báo cáo nguồn khách</Link>, permission: 'REPORT_VIEW' },
             { key: '/dashboard/bao-cao/khu-vuc', label: <Link href="/dashboard/bao-cao/khu-vuc">Báo cáo khu vực</Link>, permission: 'REPORT_VIEW' },
             { key: '/dashboard/bao-cao/giai-thuong', label: <Link href="/dashboard/bao-cao/giai-thuong">Báo cáo giải thưởng</Link>, permission: 'REPORT_VIEW' },
