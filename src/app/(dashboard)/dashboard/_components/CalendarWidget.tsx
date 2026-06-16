@@ -114,7 +114,8 @@ export default function CalendarWidget() {
         setLeaveSubmit(true);
         try {
             const dateVal = leaveForm.getFieldValue('date');
-            await api.post('/leave-requests', { date: dateVal instanceof dayjs ? dateVal.format('YYYY-MM-DD') : dateVal, reason: values.reason });
+            const dateStr = dayjs.isDayjs(dateVal) ? dateVal.format('YYYY-MM-DD') : (dateVal ?? '');
+            await api.post('/leave-requests', { date: dateStr, reason: values.reason });
             message.success('Đã gửi đơn đăng ký nghỉ');
             setLeaveModal(false);
             leaveForm.resetFields();
