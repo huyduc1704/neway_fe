@@ -85,7 +85,9 @@ export default function PhanQuyenPage() {
         setLoadingPerms(true);
         try {
             const { data } = await api.get(`/roles/${role.id}/permissions`);
-            const perms: Permission[] = Array.isArray(data) ? data : (data.data ?? []);
+            // backend trả { roleId, roleName, permissions: [{ id, grantedAt, permission: {...} }] }
+            const rp: any[] = data.permissions ?? (Array.isArray(data) ? data : (data.data ?? []));
+            const perms: Permission[] = rp.map((item: any) => item.permission ?? item);
             setCheckedKeys(new Set(perms.map(p => `${p.module}::${p.action}`)));
         } catch {
             message.error('Không thể tải quyền của vai trò');
