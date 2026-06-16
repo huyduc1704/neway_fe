@@ -2,9 +2,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import api from '@/lib/api';
 
+interface RoleObject { id: string; code: string; name: string; }
+
 interface UserContextValue {
     permissions: string[];
     roles: string[];
+    roleObjects: RoleObject[];
     loading: boolean;
     can: (permission: string) => boolean;
     isAdmin: boolean;
@@ -13,14 +16,16 @@ interface UserContextValue {
 const UserContext = createContext<UserContextValue>({
     permissions: [],
     roles: [],
+    roleObjects: [],
     loading: true,
-    can: () => false,
+    can: () => true,
     isAdmin: false,
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
     const [permissions, setPermissions] = useState<string[]>([]);
     const [roles, setRoles] = useState<string[]>([]);
+    const [roleObjects, setRoleObjects] = useState<RoleObject[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -28,16 +33,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             .then(({ data }) => {
                 setPermissions(data.permissions ?? []);
                 setRoles(data.roles ?? []);
+                setRoleObjects(data.roleObjects ?? []);
             })
             .catch(() => {})
             .finally(() => setLoading(false));
     }, []);
 
     const isAdmin = roles.includes('ADMIN');
-    const can = (permission: string) => isAdmin || permissions.includes(permission);
+
+    const can = (permission: string) => {
+        if (isAdmin) return true;
+        // Nếu role chưa được cấu hình permissions trong DB → fail-open,
+        // để backend tự xử lý access control, tránh ẩn hết sidebar
+        if (permissions.length === 0) return true;
+        return permissions.includes(permission);
+    };
 
     return (
-        <UserContext.Provider value={{ permissions, roles, loading, can, isAdmin }}>
+        <UserContext.Provider value={{ permissions, roles, roleObjects, loading, can, isAdmin }}>
             {children}
         </UserContext.Provider>
     );

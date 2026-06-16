@@ -1,25 +1,26 @@
 'use client';
-import { useEffect, useState } from 'react';
 import { Layout, Input, Badge, Avatar, Dropdown, Space, Typography } from 'antd';
 import { BellOutlined, UserOutlined, LogoutOutlined, DownOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { authStorage } from '@/lib/auth';
+import { useUser } from '@/context/UserContext';
 
 const { Header } = Layout;
 const { Text } = Typography;
 
 export default function AppHeader() {
     const router = useRouter();
-    const [user, setUser] = useState<{ fullName?: string } | null>(null);
-
-    useEffect(() => {
-        setUser(authStorage.getUser());
-    }, []);
+    const { roleObjects } = useUser();
+    const user = authStorage.getUser();
 
     const handleLogout = () => {
         authStorage.clear();
         router.push('/login');
     };
+
+    const roleLabel = roleObjects.length > 0
+        ? roleObjects.map(r => r.name).join(', ')
+        : '—';
 
     const menuItems = [
         { key: 'logout', icon: <LogoutOutlined />, label: 'Đăng xuất', onClick: handleLogout },
@@ -37,7 +38,7 @@ export default function AppHeader() {
                         <Avatar icon={<UserOutlined />} style={{ background: '#E8890C' }} />
                         <div style={{ lineHeight: 1.3 }}>
                             <div style={{ fontWeight: 600, fontSize: 14 }}>{user?.fullName ?? ''}</div>
-                            <Text type="secondary" style={{ fontSize: 12 }}>Admin</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{roleLabel}</Text>
                         </div>
                         <DownOutlined style={{ fontSize: 12 }} />
                     </Space>
