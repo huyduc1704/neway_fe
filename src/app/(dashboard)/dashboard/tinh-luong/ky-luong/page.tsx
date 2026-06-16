@@ -3,11 +3,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { message } from 'antd';
 import { Plus, Lock, LockOpen, Trash2, Pencil, CalendarDays, ArrowRight } from 'lucide-react';
-import { Button, Input, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
+import { Button, DatePicker, Input, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
@@ -54,7 +55,7 @@ export default function KyLuongPage() {
     const openCreate = () => { setEditingId(null); form.resetFields(); setDialogOpen(true); };
     const openEdit = (p: PayrollPeriod) => {
         setEditingId(p.id);
-        form.setFieldsValue({ code: p.code, periodStart: p.periodStart.slice(0, 10), periodEnd: p.periodEnd.slice(0, 10) });
+        form.setFieldsValue({ code: p.code, periodStart: dayjs(p.periodStart.slice(0, 10)), periodEnd: dayjs(p.periodEnd.slice(0, 10)) });
         setDialogOpen(true);
     };
 
@@ -63,10 +64,10 @@ export default function KyLuongPage() {
             const values = await form.validateFields();
             setSaving(true);
             if (editingId) {
-                await api.patch(`/payroll/periods/${editingId}`, { periodStart: values.periodStart, periodEnd: values.periodEnd });
+                await api.patch(`/payroll/periods/${editingId}`, { periodStart: values.periodStart?.format('YYYY-MM-DD'), periodEnd: values.periodEnd?.format('YYYY-MM-DD') });
                 message.success('Cập nhật kỳ lương thành công');
             } else {
-                await api.post('/payroll/periods', values);
+                await api.post('/payroll/periods', { ...values, periodStart: values.periodStart?.format('YYYY-MM-DD'), periodEnd: values.periodEnd?.format('YYYY-MM-DD') });
                 message.success('Tạo kỳ lương thành công');
             }
             setDialogOpen(false);
@@ -216,10 +217,10 @@ export default function KyLuongPage() {
                     </Form.Item>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                         <Form.Item name="periodStart" label={<span>Từ ngày <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Chọn ngày bắt đầu' }]}>
-                            <input type="date" style={{ height: 36, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} />
+                            <DatePicker format="DD/MM/YYYY" style={{ width: '100%', height: 36 }} />
                         </Form.Item>
                         <Form.Item name="periodEnd" label={<span>Đến ngày <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Chọn ngày kết thúc' }]}>
-                            <input type="date" style={{ height: 36, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} />
+                            <DatePicker format="DD/MM/YYYY" style={{ width: '100%', height: 36 }} />
                         </Form.Item>
                     </div>
                     {periodStart && periodEnd && (

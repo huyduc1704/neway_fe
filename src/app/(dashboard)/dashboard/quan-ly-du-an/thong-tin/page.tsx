@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Eye } from 'lucide-react';
-import { Button, Input, Select, Tag, Table, Card, Typography, Space } from 'antd';
+import { Button, DatePicker, Input, Select, Tag, Table, Card, Typography, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
@@ -161,9 +161,9 @@ export default function ThongTinDuAnPage() {
                     <Select value={branchFilter || undefined} onChange={v => { setBranchFilter(v ?? ''); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Chi nhánh" style={{ width: 176 }} allowClear options={[{ value: '', label: 'Tất cả chi nhánh' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} />
                     <Select value={statusFilter || undefined} onChange={v => { setStatusFilter(v ?? ''); setPagination(p => ({ ...p, page: 1 })); }} placeholder="Trạng thái" style={{ width: 160 }} allowClear options={[{ value: '', label: 'Tất cả' }, ...Object.entries(STATUS_MAP).map(([k, v]) => ({ value: k, label: v.label }))]} />
                     <span style={{ fontSize: 14, color: '#6b7280' }}>Từ ngày</span>
-                    <input type="date" style={{ height: 32, padding: '0 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={fromDate} onChange={e => { setFromDate(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} />
+                    <DatePicker value={fromDate ? dayjs(fromDate) : null} onChange={(d) => { setFromDate(d ? d.format('YYYY-MM-DD') : ''); setPagination(p => ({ ...p, page: 1 })); }} format="DD/MM/YYYY" style={{ height: 32 }} />
                     <span style={{ fontSize: 14, color: '#6b7280' }}>đến ngày</span>
-                    <input type="date" style={{ height: 32, padding: '0 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={toDate} onChange={e => { setToDate(e.target.value); setPagination(p => ({ ...p, page: 1 })); }} />
+                    <DatePicker value={toDate ? dayjs(toDate) : null} onChange={(d) => { setToDate(d ? d.format('YYYY-MM-DD') : ''); setPagination(p => ({ ...p, page: 1 })); }} format="DD/MM/YYYY" style={{ height: 32 }} />
                     {hasFilter && (
                         <Button icon={<CloseOutlined />} onClick={resetFilters}>Xoá lọc</Button>
                     )}

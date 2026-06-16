@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { message } from 'antd';
-import { Select, Tag, Table, Card, Typography, Space, Row, Col, Statistic } from 'antd';
+import { DatePicker, Select, Tag, Table, Card, Typography, Space, Row, Col, Statistic } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
@@ -233,9 +233,9 @@ export default function BaoCaoLuongPage() {
                     </div>
 
                     <Space wrap>
-                        <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                        <DatePicker value={fromDate ? dayjs(fromDate) : null} onChange={(d) => setFromDate(d ? d.format('YYYY-MM-DD') : '')} format="DD/MM/YYYY" style={{ height: 36 }} />
                         <span style={{ color: '#9ca3af' }}>→</span>
-                        <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                        <DatePicker value={toDate ? dayjs(toDate) : null} onChange={(d) => setToDate(d ? d.format('YYYY-MM-DD') : '')} format="DD/MM/YYYY" style={{ height: 36 }} />
 
                         <Select
                             value={branchFilter || undefined}

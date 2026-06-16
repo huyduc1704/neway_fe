@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { Download } from 'lucide-react';
-import { Button, Select, Tag, Table, Card, Typography, Space, Row, Col, Statistic } from 'antd';
+import { Button, DatePicker, Select, Tag, Table, Card, Typography, Space, Row, Col, Statistic } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DownloadOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
@@ -203,9 +203,9 @@ export default function BaoCaoGiaoDichPage() {
             {/* Filters */}
             <Card style={{ marginBottom: 16 }}>
                 <Space wrap>
-                    <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <DatePicker value={fromDate ? dayjs(fromDate) : null} onChange={(d) => setFromDate(d ? d.format('YYYY-MM-DD') : '')} format="DD/MM/YYYY" style={{ height: 36 }} />
                     <span style={{ color: '#9ca3af' }}>→</span>
-                    <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <DatePicker value={toDate ? dayjs(toDate) : null} onChange={(d) => setToDate(d ? d.format('YYYY-MM-DD') : '')} format="DD/MM/YYYY" style={{ height: 36 }} />
 
                     <Select
                         value={statusFilter || undefined}

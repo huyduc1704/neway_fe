@@ -2,11 +2,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { Pencil, Trash2, PowerOff } from 'lucide-react';
-import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
+import { Button, DatePicker, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
@@ -77,8 +78,8 @@ export default function ChinhSachHoaHongPage() {
             code: p.code, name: p.name, roleId: p.role.id,
             branchId: p.branch?.id ?? '', teamId: p.team?.id ?? '',
             valueType: p.valueType, value: p.value,
-            effectiveFrom: p.effectiveFrom?.slice(0, 10) ?? '',
-            effectiveTo: p.effectiveTo?.slice(0, 10) ?? '',
+            effectiveFrom: p.effectiveFrom ? dayjs(p.effectiveFrom.slice(0, 10)) : null,
+            effectiveTo: p.effectiveTo ? dayjs(p.effectiveTo.slice(0, 10)) : null,
             note: p.note ?? '',
         });
         setDialogOpen(true);
@@ -95,8 +96,8 @@ export default function ChinhSachHoaHongPage() {
                     teamId: values.teamId || undefined,
                     valueType: values.valueType,
                     value: Number(values.value),
-                    effectiveFrom: values.effectiveFrom,
-                    effectiveTo: values.effectiveTo || undefined,
+                    effectiveFrom: values.effectiveFrom?.format('YYYY-MM-DD'),
+                    effectiveTo: values.effectiveTo?.format('YYYY-MM-DD') || undefined,
                     note: values.note || undefined,
                 });
                 message.success('Cập nhật chính sách thành công');
@@ -105,8 +106,8 @@ export default function ChinhSachHoaHongPage() {
                     code: values.code, name: values.name, roleId: values.roleId,
                     branchId: values.branchId || undefined, teamId: values.teamId || undefined,
                     valueType: values.valueType, value: Number(values.value),
-                    effectiveFrom: values.effectiveFrom,
-                    effectiveTo: values.effectiveTo || undefined,
+                    effectiveFrom: values.effectiveFrom?.format('YYYY-MM-DD'),
+                    effectiveTo: values.effectiveTo?.format('YYYY-MM-DD') || undefined,
                     note: values.note || undefined,
                 });
                 message.success('Tạo chính sách thành công');
@@ -262,10 +263,10 @@ export default function ChinhSachHoaHongPage() {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                         <Form.Item name="effectiveFrom" label={<span>Hiệu lực từ <span style={{ color: 'red' }}>*</span></span>} rules={[{ required: true, message: 'Chọn ngày hiệu lực' }]}>
-                            <input type="date" style={{ height: 36, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} />
+                            <DatePicker format="DD/MM/YYYY" style={{ width: '100%', height: 36 }} />
                         </Form.Item>
                         <Form.Item name="effectiveTo" label="Hiệu lực đến (để trống = không hạn)">
-                            <input type="date" style={{ height: 36, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }} />
+                            <DatePicker format="DD/MM/YYYY" style={{ width: '100%', height: 36 }} />
                         </Form.Item>
                     </div>
                     <Form.Item name="note" label="Ghi chú">

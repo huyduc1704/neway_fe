@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { ChevronDown, ChevronRight, Users, TrendingUp, Building2, BarChart3 } from 'lucide-react';
-import { Card, Tag, Table, Select, Typography, Space, Row, Col } from 'antd';
+import { Card, DatePicker, Tag, Table, Select, Typography, Space, Row, Col } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
@@ -198,11 +198,9 @@ export default function KhuVucPage() {
             <Card style={{ marginBottom: 16 }}>
                 <Space wrap>
                     <span style={{ fontSize: 14, color: '#6b7280' }}>Từ</span>
-                    <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }}
-                        value={fromDate} onChange={e => setFromDate(e.target.value)} />
+                    <DatePicker value={fromDate ? dayjs(fromDate) : null} onChange={(d) => setFromDate(d ? d.format('YYYY-MM-DD') : '')} format="DD/MM/YYYY" style={{ height: 36 }} />
                     <span style={{ fontSize: 14, color: '#6b7280' }}>đến</span>
-                    <input type="date" style={{ height: 36, padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }}
-                        value={toDate} onChange={e => setToDate(e.target.value)} />
+                    <DatePicker value={toDate ? dayjs(toDate) : null} onChange={(d) => setToDate(d ? d.format('YYYY-MM-DD') : '')} format="DD/MM/YYYY" style={{ height: 36 }} />
                     <Select
                         value={regionFilter || undefined}
                         onChange={(v) => setRegionFilter(v === '__all__' ? '' : (v ?? ''))}
