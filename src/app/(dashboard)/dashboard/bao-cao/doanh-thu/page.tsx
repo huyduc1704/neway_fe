@@ -54,8 +54,8 @@ export default function BaoCaoDoanhThuPage() {
     const [groupBy, setGroupBy] = useState<GroupBy>('BRANCH');
     const [branches, setBranches] = useState<Branch[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
-    const [fromDate, setFromDate] = useState(dayjs().startOf('year').format('YYYY-MM-DD'));
-    const [toDate, setToDate] = useState(dayjs().endOf('year').format('YYYY-MM-DD'));
+    const [fromDate, setFromDate] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
+    const [toDate, setToDate] = useState(dayjs().endOf('month').format('YYYY-MM-DD'));
     const [branchFilter, setBranchFilter] = useState<string>('');
     const [teamFilter, setTeamFilter] = useState<string>('');
 
