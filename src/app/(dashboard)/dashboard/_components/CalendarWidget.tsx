@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback, useContext } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
     Badge, Button, Calendar, Card, Col, Form, Input,
     Modal, Row, Spin, Tag, Tooltip, message,
@@ -8,7 +8,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { CalendarIcon, Plus, CheckCircle, XCircle, Users } from 'lucide-react';
 import api from '@/lib/api';
-import { UserContext } from '@/context/UserContext';
+import { useUser } from '@/context/UserContext';
 
 interface LeaveRequest {
     id: string;
@@ -35,7 +35,7 @@ const LEAVE_LABEL: Record<string, string> = { PENDING: 'Chờ duyệt', APPROVED
 const ATTEND_COLOR: Record<string, string> = { PENDING: '#6366f1', CONFIRMED: '#10b981', REJECTED: '#ef4444' };
 
 export default function CalendarWidget() {
-    const { roles, isAdmin } = useContext(UserContext);
+    const { roles, isAdmin } = useUser();
     const isPrivileged = isAdmin || roles.includes('LEADER');
 
     const [currentMonth, setCurrentMonth] = useState(dayjs());
