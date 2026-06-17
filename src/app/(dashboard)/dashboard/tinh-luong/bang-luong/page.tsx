@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CalculatorOutlined, DownloadOutlined, EditOutlined, FileTextOutlined, LockOutlined } from '@ant-design/icons';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -59,6 +60,16 @@ const SLOT_ORDER = ['mLeader', 'm1Leader', 'm', 'm1', 'm2', 's1', 's2', 'm2Leade
 function BangLuongContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { can, loading: userLoading } = useUser();
+
+    useEffect(() => {
+        if (!userLoading && !can('PAYROLL_VIEW')) {
+            router.replace('/dashboard');
+        }
+    }, [userLoading, can, router]);
+
+    if (userLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}><Spin size="large" /></div>;
+    if (!can('PAYROLL_VIEW')) return null;
     const [periodId, setPeriodId] = useState(searchParams.get('periodId') ?? '');
     const [periods, setPeriods] = useState<Period[]>([]);
     const [period, setPeriod] = useState<Period | null>(null);
