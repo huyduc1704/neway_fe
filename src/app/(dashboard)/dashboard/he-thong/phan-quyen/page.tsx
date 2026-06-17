@@ -36,7 +36,7 @@ const MODULES: ModuleDef[] = [
     { resource: 'REGION',       label: 'Khu vực',               actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'CUSTOMER',     label: 'Danh mục khách hàng',   actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'KPI',          label: 'KPI Targets',           actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
-    { resource: 'LEAVE_REQUEST', label: 'Đăng ký nghỉ phép',   actions: [{ code: 'VIEW_ALL', label: 'Xem tất cả' }] },
+    { resource: 'LEAVE_REQUEST', label: 'Đăng ký nghỉ phép',   actions: [{ code: 'VIEW_ALL', label: 'Xem tất cả' }, { code: 'APPROVE', label: ACTION_LABELS['APPROVE'] }] },
 ];
 
 type PermKey = string;
