@@ -4,6 +4,7 @@ import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
+import { useUser } from '@/context/UserContext';
 import { Button, Input, Select, Typography, Card, InputNumber, Spin, DatePicker } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -83,6 +84,14 @@ function Section({ title }: { title: string }) {
 /* ─── Main component ─────────────────────────────────────── */
 export default function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
+    const { can } = useUser();
+
+    useEffect(() => {
+        if (!can('PROJECT_EDIT')) {
+            message.error('Bạn không có quyền chỉnh sửa dự án');
+            router.replace('/dashboard/quan-ly-du-an/thong-tin');
+        }
+    }, []);
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [initLoading, setInitLoading] = useState(true);

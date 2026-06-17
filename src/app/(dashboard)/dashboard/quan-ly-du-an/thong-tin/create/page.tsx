@@ -4,6 +4,7 @@ import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
+import { useUser } from '@/context/UserContext';
 import { Button, Input, Select, Typography, Space, Card, InputNumber, DatePicker } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -75,6 +76,14 @@ function Section({ title }: { title: string }) {
 /* ─── Main component ─────────────────────────────────────── */
 export default function CreateProjectPage() {
     const router = useRouter();
+    const { can } = useUser();
+
+    useEffect(() => {
+        if (!can('PROJECT_CREATE')) {
+            message.error('Bạn không có quyền tạo dự án');
+            router.replace('/dashboard/quan-ly-du-an/thong-tin');
+        }
+    }, []);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
