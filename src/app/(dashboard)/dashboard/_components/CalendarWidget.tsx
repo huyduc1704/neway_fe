@@ -35,8 +35,8 @@ const LEAVE_LABEL: Record<string, string> = { PENDING: 'Chờ duyệt', APPROVED
 const ATTEND_COLOR: Record<string, string> = { PENDING: '#6366f1', CONFIRMED: '#10b981', REJECTED: '#ef4444' };
 
 export default function CalendarWidget() {
-    const { roles, isAdmin } = useUser();
-    const isPrivileged = isAdmin || roles.includes('LEADER');
+    const { roles, isAdmin, can } = useUser();
+    const isPrivileged = isAdmin || can('LEAVE_REQUEST_VIEW_ALL') || roles.includes('LEADER');
 
     const [currentMonth, setCurrentMonth] = useState(dayjs());
     const [leaves, setLeaves]             = useState<LeaveRequest[]>([]);

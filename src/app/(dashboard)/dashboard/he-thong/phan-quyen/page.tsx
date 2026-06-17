@@ -7,14 +7,15 @@ import api from '@/lib/api';
 const { Title, Text } = Typography;
 
 const ACTION_LABELS: Record<string, string> = {
-    VIEW:    'Xem',
-    CREATE:  'Tạo mới',
-    EDIT:    'Chỉnh sửa',
-    DELETE:  'Xoá',
-    EXPORT:  'Xuất file',
-    LOCK:    'Khoá',
-    APPROVE: 'Duyệt',
-    CANCEL:  'Huỷ',
+    VIEW:     'Xem',
+    VIEW_ALL: 'Xem tất cả',
+    CREATE:   'Tạo mới',
+    EDIT:     'Chỉnh sửa',
+    DELETE:   'Xoá',
+    EXPORT:   'Xuất file',
+    LOCK:     'Khoá',
+    APPROVE:  'Duyệt',
+    CANCEL:   'Huỷ',
 };
 
 interface ActionDef { code: string; label: string; }
@@ -35,6 +36,7 @@ const MODULES: ModuleDef[] = [
     { resource: 'REGION',       label: 'Khu vực',               actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'CUSTOMER',     label: 'Danh mục khách hàng',   actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'KPI',          label: 'KPI Targets',           actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'LEAVE_REQUEST', label: 'Đăng ký nghỉ phép',   actions: [{ code: 'VIEW_ALL', label: 'Xem tất cả' }] },
 ];
 
 type PermKey = string;
