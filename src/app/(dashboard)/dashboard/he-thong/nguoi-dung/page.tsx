@@ -7,6 +7,7 @@ import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -23,6 +24,7 @@ interface Role { id: string; code: string; name: string; }
 
 export default function NguoiDungPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
@@ -110,22 +112,28 @@ export default function NguoiDungPage() {
             title: 'Thao tác', key: 'actions', width: 130, align: 'center',
             render: (_, r) => (
                 <Space>
-                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => router.push(`/dashboard/he-thong/nguoi-dung/${r.id}` as any)}>
-                        <Pencil size={16} />
-                    </button>
-                    <button title="Đặt lại mật khẩu" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => openPwReset(r.id, r.fullName || r.username)}>
-                        <KeyRound size={16} />
-                    </button>
-                    <button
-                        title="Vô hiệu hoá"
-                        style={{ padding: 6, background: 'none', border: 'none', cursor: r.status !== 'ACTIVE' ? 'not-allowed' : 'pointer', color: r.status !== 'ACTIVE' ? '#d1d5db' : '#6b7280', opacity: r.status !== 'ACTIVE' ? 0.4 : 1 }}
-                        disabled={r.status !== 'ACTIVE'}
-                        onClick={() => r.status === 'ACTIVE' && handleDeactivate(r.id)}
-                    >
-                        <Ban size={16} />
-                    </button>
+                    {can('EMPLOYEE_EDIT') && (
+                        <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            onClick={() => router.push(`/dashboard/he-thong/nguoi-dung/${r.id}` as any)}>
+                            <Pencil size={16} />
+                        </button>
+                    )}
+                    {can('EMPLOYEE_EDIT') && (
+                        <button title="Đặt lại mật khẩu" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            onClick={() => openPwReset(r.id, r.fullName || r.username)}>
+                            <KeyRound size={16} />
+                        </button>
+                    )}
+                    {can('EMPLOYEE_EDIT') && (
+                        <button
+                            title="Vô hiệu hoá"
+                            style={{ padding: 6, background: 'none', border: 'none', cursor: r.status !== 'ACTIVE' ? 'not-allowed' : 'pointer', color: r.status !== 'ACTIVE' ? '#d1d5db' : '#6b7280', opacity: r.status !== 'ACTIVE' ? 0.4 : 1 }}
+                            disabled={r.status !== 'ACTIVE'}
+                            onClick={() => r.status === 'ACTIVE' && handleDeactivate(r.id)}
+                        >
+                            <Ban size={16} />
+                        </button>
+                    )}
                 </Space>
             ),
         },
@@ -135,9 +143,11 @@ export default function NguoiDungPage() {
         <>
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Người dùng / Danh sách</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/nguoi-dung/tao-moi' as any)}>
-                    Tạo mới người dùng
-                </Button>
+                {can('EMPLOYEE_CREATE') && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/nguoi-dung/tao-moi' as any)}>
+                        Tạo mới người dùng
+                    </Button>
+                )}
             </div>
 
             <Card>

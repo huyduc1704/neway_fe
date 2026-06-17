@@ -5,6 +5,7 @@ import { Table, Input, Tag, Typography, Card, Space, Button, Tooltip, Popconfirm
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -26,6 +27,7 @@ const fmtCurrency = (v: string | null) =>
 
 export default function VaiTroPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [roles, setRoles]     = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch]   = useState('');
@@ -114,20 +116,24 @@ export default function VaiTroPage() {
             title: 'Thao tác', key: 'actions', width: 90, align: 'center' as const,
             render: (_, r) => (
                 <Space size={4}>
-                    <Tooltip title="Chỉnh sửa">
-                        <Button size="small" type="text" icon={<EditOutlined />}
-                            onClick={() => router.push(`/dashboard/he-thong/vai-tro/${r.id}`)} />
-                    </Tooltip>
-                    <Popconfirm
-                        title={r._count?.users > 0
-                            ? `Vai trò đang có ${r._count.users} người dùng, không thể xoá`
-                            : 'Xác nhận xoá vai trò này?'}
-                        okText="Xoá" cancelText="Huỷ"
-                        okButtonProps={{ danger: true, disabled: r._count?.users > 0 }}
-                        onConfirm={() => handleDelete(r.id, r._count?.users ?? 0)}>
-                        <Button size="small" type="text" icon={<DeleteOutlined />} danger
-                            disabled={r._count?.users > 0} />
-                    </Popconfirm>
+                    {can('ROLE_EDIT') && (
+                        <Tooltip title="Chỉnh sửa">
+                            <Button size="small" type="text" icon={<EditOutlined />}
+                                onClick={() => router.push(`/dashboard/he-thong/vai-tro/${r.id}`)} />
+                        </Tooltip>
+                    )}
+                    {can('ROLE_DELETE') && (
+                        <Popconfirm
+                            title={r._count?.users > 0
+                                ? `Vai trò đang có ${r._count.users} người dùng, không thể xoá`
+                                : 'Xác nhận xoá vai trò này?'}
+                            okText="Xoá" cancelText="Huỷ"
+                            okButtonProps={{ danger: true, disabled: r._count?.users > 0 }}
+                            onConfirm={() => handleDelete(r.id, r._count?.users ?? 0)}>
+                            <Button size="small" type="text" icon={<DeleteOutlined />} danger
+                                disabled={r._count?.users > 0} />
+                        </Popconfirm>
+                    )}
                 </Space>
             ),
         },
@@ -137,11 +143,13 @@ export default function VaiTroPage() {
         <>
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Quản lý vai trò</Title>
-                <Button type="primary" icon={<PlusOutlined />}
-                    style={{ background: '#E8890C', borderColor: '#E8890C' }}
-                    onClick={() => router.push('/dashboard/he-thong/vai-tro/tao-moi')}>
-                    Tạo vai trò mới
-                </Button>
+                {can('ROLE_CREATE') && (
+                    <Button type="primary" icon={<PlusOutlined />}
+                        style={{ background: '#E8890C', borderColor: '#E8890C' }}
+                        onClick={() => router.push('/dashboard/he-thong/vai-tro/tao-moi')}>
+                        Tạo vai trò mới
+                    </Button>
+                )}
             </div>
 
             <Card>

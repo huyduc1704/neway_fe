@@ -15,6 +15,7 @@ import {
 import dayjs from 'dayjs';
 import api from '@/lib/api';
 import { authStorage } from '@/lib/auth';
+import { useUser } from '@/context/UserContext';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -582,6 +583,7 @@ function DetailModal({
     onClose: () => void;
     onRefresh: () => void;
 }) {
+    const { can } = useUser();
     const [actioning, setActioning] = useState<string | null>(null);
     const [cancelReason, setCancelReason] = useState('');
     const [showCancelInput, setShowCancelInput] = useState(false);
@@ -834,21 +836,21 @@ function DetailModal({
                 <>
                     <Divider plain style={{ fontSize: 13, color: '#6b7280' }}>Thao tác</Divider>
                     <Space wrap>
-                        {isPending && (
+                        {can('DISBURSEMENT_APPROVE') && isPending && (
                             <Popconfirm title="Xác nhận duyệt bước 1 (Kế toán)?" onConfirm={() => action('approve-accountant')}>
                                 <Button type="primary" icon={<CheckOutlined />} loading={actioning === 'approve-accountant'}>
                                     KT Duyệt bước 1
                                 </Button>
                             </Popconfirm>
                         )}
-                        {isAccountantApproved && (
+                        {can('DISBURSEMENT_APPROVE') && isAccountantApproved && (
                             <Popconfirm title="Xác nhận duyệt bước 2 (Kế toán trưởng)?" onConfirm={() => action('approve-chief')}>
                                 <Button type="primary" icon={<CheckOutlined />} loading={actioning === 'approve-chief'}>
                                     KT Trưởng Duyệt bước 2
                                 </Button>
                             </Popconfirm>
                         )}
-                        {isApproved && (
+                        {can('DISBURSEMENT_APPROVE') && isApproved && (
                             <Popconfirm title="Xác nhận đã thực hiện chi?" onConfirm={() => action('disburse')}>
                                 <Button type="primary" icon={<DollarOutlined />} style={{ background: '#8b5cf6', borderColor: '#8b5cf6' }} loading={actioning === 'disburse'}>
                                     Đánh dấu Đã Chi
@@ -872,9 +874,11 @@ function DetailModal({
                                 </Button>
                             </>
                         )}
-                        <Button danger icon={<CloseOutlined />} onClick={() => setShowCancelInput(!showCancelInput)}>
-                            Huỷ UNC
-                        </Button>
+                        {can('DISBURSEMENT_CANCEL') && (
+                            <Button danger icon={<CloseOutlined />} onClick={() => setShowCancelInput(!showCancelInput)}>
+                                Huỷ UNC
+                            </Button>
+                        )}
                     </Space>
 
                     {showExtendInput && (
@@ -926,6 +930,7 @@ function DetailModal({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function UyNhiemChiPage() {
+    const { can } = useUser();
     const [rows, setRows] = useState<DisbursementRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
@@ -1073,7 +1078,7 @@ export default function UyNhiemChiPage() {
                     <Tooltip title="Xem chi tiết">
                         <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(r.id)} />
                     </Tooltip>
-                    {r.status === 'PENDING' && (
+                    {can('DISBURSEMENT_EDIT') && r.status === 'PENDING' && (
                         <Tooltip title="Chỉnh sửa">
                             <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r.id)} />
                         </Tooltip>
@@ -1103,9 +1108,11 @@ export default function UyNhiemChiPage() {
                             </Button>
                         </Badge>
                     )}
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingItem(null); setFormOpen(true); }}>
-                        Tạo UNC
-                    </Button>
+                    {can('DISBURSEMENT_CREATE') && (
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingItem(null); setFormOpen(true); }}>
+                            Tạo UNC
+                        </Button>
+                    )}
                 </Space>
             </div>
 

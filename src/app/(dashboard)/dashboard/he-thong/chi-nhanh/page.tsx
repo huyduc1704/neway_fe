@@ -6,6 +6,7 @@ import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -23,6 +24,7 @@ interface ProvinceOption { code: number; name: string; }
 interface WardOption { code: string; name: string; }
 
 export default function ChiNhanhPage() {
+    const { can } = useUser();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [regions, setRegions] = useState<Region[]>([]);
     const [loading, setLoading] = useState(false);
@@ -209,20 +211,24 @@ export default function ChiNhanhPage() {
             title: 'Thao tác', key: 'actions', width: 120, align: 'center',
             render: (_, r) => (
                 <Space>
-                    <button title="Chỉnh sửa" onClick={() => openEdit(r)}
-                        style={{ padding: 6, borderRadius: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
-                        <Pencil size={16} />
-                    </button>
-                    {r.isActive && (
+                    {can('BRANCH_EDIT') && (
+                        <button title="Chỉnh sửa" onClick={() => openEdit(r)}
+                            style={{ padding: 6, borderRadius: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                            <Pencil size={16} />
+                        </button>
+                    )}
+                    {can('BRANCH_EDIT') && r.isActive && (
                         <button title="Vô hiệu hoá" onClick={() => handleDeactivate(r.id, r.name)}
                             style={{ padding: 6, borderRadius: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
                             <PowerOff size={16} />
                         </button>
                     )}
-                    <button title="Xoá" onClick={() => handleDelete(r.id, r.name)}
-                        style={{ padding: 6, borderRadius: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
-                        <Trash2 size={16} />
-                    </button>
+                    {can('BRANCH_DELETE') && (
+                        <button title="Xoá" onClick={() => handleDelete(r.id, r.name)}
+                            style={{ padding: 6, borderRadius: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                            <Trash2 size={16} />
+                        </button>
+                    )}
                 </Space>
             ),
         },
@@ -235,9 +241,11 @@ export default function ChiNhanhPage() {
                     <Title level={4} style={{ margin: 0 }}>Quản lý Chi nhánh</Title>
                     <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Danh sách chi nhánh trong hệ thống</p>
                 </div>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                    Thêm chi nhánh
-                </Button>
+                {can('BRANCH_CREATE') && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                        Thêm chi nhánh
+                    </Button>
+                )}
             </div>
 
             <Card style={{ marginBottom: 16 }}>

@@ -7,6 +7,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -18,6 +19,7 @@ interface Region  {
 }
 
 export default function QuanLyKhuVucPage() {
+    const { can } = useUser();
     const [regions,  setRegions]  = useState<Region[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading,  setLoading]  = useState(false);
@@ -113,8 +115,8 @@ export default function QuanLyKhuVucPage() {
             title: 'Thao tác', key: 'actions', width: 90, align: 'center',
             render: (_, r) => (
                 <Space>
-                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => openEdit(r)}><Pencil size={16} /></button>
-                    <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => handleDelete(r.id)}><Trash2 size={16} /></button>
+                    {can('REGION_EDIT') && <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => openEdit(r)}><Pencil size={16} /></button>}
+                    {can('REGION_DELETE') && <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => handleDelete(r.id)}><Trash2 size={16} /></button>}
                 </Space>
             ),
         },
@@ -137,7 +139,7 @@ export default function QuanLyKhuVucPage() {
                         onClear={() => { setSearchInput(''); setSearch(''); }}
                         style={{ width: 240 }}
                     />
-                    <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={openCreate}>Thêm mới</Button>
+                    {can('REGION_CREATE') && <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }} onClick={openCreate}>Thêm mới</Button>}
                 </div>
 
                 <Table

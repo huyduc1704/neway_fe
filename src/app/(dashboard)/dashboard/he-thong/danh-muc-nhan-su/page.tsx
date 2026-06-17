@@ -9,6 +9,7 @@ import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, DownloadOut
 import dayjs from 'dayjs';
 import api from '@/lib/api';
 import { downloadExport } from '@/lib/export';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -54,6 +55,7 @@ interface Filters {
 
 export default function DanhMucNhanSuPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [rows, setRows]       = useState<Employee[]>([]);
     const [loading, setLoading] = useState(false);
     const [total, setTotal]     = useState(0);
@@ -201,14 +203,18 @@ export default function DanhMucNhanSuPage() {
             fixed: 'right' as const,
             render: (_, r) => (
                 <Space size={4}>
-                    <Tooltip title="Chỉnh sửa">
-                        <Button size="small" icon={<EditOutlined />} type="text"
-                            onClick={() => router.push(`/dashboard/he-thong/danh-muc-nhan-su/${r.id}`)} />
-                    </Tooltip>
-                    <Popconfirm title="Xác nhận xoá nhân sự này?" okText="Xoá" cancelText="Huỷ"
-                        okButtonProps={{ danger: true }} onConfirm={() => handleDelete(r.id)}>
-                        <Button size="small" icon={<DeleteOutlined />} type="text" danger />
-                    </Popconfirm>
+                    {can('EMPLOYEE_EDIT') && (
+                        <Tooltip title="Chỉnh sửa">
+                            <Button size="small" icon={<EditOutlined />} type="text"
+                                onClick={() => router.push(`/dashboard/he-thong/danh-muc-nhan-su/${r.id}`)} />
+                        </Tooltip>
+                    )}
+                    {can('EMPLOYEE_DELETE') && (
+                        <Popconfirm title="Xác nhận xoá nhân sự này?" okText="Xoá" cancelText="Huỷ"
+                            okButtonProps={{ danger: true }} onConfirm={() => handleDelete(r.id)}>
+                            <Button size="small" icon={<DeleteOutlined />} type="text" danger />
+                        </Popconfirm>
+                    )}
                 </Space>
             ),
         },
@@ -219,26 +225,30 @@ export default function DanhMucNhanSuPage() {
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Danh mục nhân sự</Title>
                 <Space>
-                    <Button icon={<DownloadOutlined />} onClick={async () => {
-                        try {
-                            const f = filtersRef.current;
-                            await downloadExport('/employees/export', {
-                                search: f.search || undefined,
-                                roleCode: f.roleCode || undefined,
-                                teamId: f.teamId || undefined,
-                                branchId: f.branchId || undefined,
-                                regionId: f.regionId || undefined,
-                                employeeStatus: f.empStatus || undefined,
-                                fromDate: f.dateRange?.[0] || undefined,
-                                toDate: f.dateRange?.[1] || undefined,
-                            }, 'danh-muc-nhan-su');
-                        } catch { message.error('Xuất file thất bại'); }
-                    }}>Xuất Excel</Button>
-                    <Button type="primary" icon={<PlusOutlined />}
-                        style={{ background: '#E8890C', borderColor: '#E8890C' }}
-                        onClick={() => router.push('/dashboard/he-thong/danh-muc-nhan-su/tao-moi')}>
-                        Thêm nhân sự
-                    </Button>
+                    {can('REPORT_EXPORT') && (
+                        <Button icon={<DownloadOutlined />} onClick={async () => {
+                            try {
+                                const f = filtersRef.current;
+                                await downloadExport('/employees/export', {
+                                    search: f.search || undefined,
+                                    roleCode: f.roleCode || undefined,
+                                    teamId: f.teamId || undefined,
+                                    branchId: f.branchId || undefined,
+                                    regionId: f.regionId || undefined,
+                                    employeeStatus: f.empStatus || undefined,
+                                    fromDate: f.dateRange?.[0] || undefined,
+                                    toDate: f.dateRange?.[1] || undefined,
+                                }, 'danh-muc-nhan-su');
+                            } catch { message.error('Xuất file thất bại'); }
+                        }}>Xuất Excel</Button>
+                    )}
+                    {can('EMPLOYEE_CREATE') && (
+                        <Button type="primary" icon={<PlusOutlined />}
+                            style={{ background: '#E8890C', borderColor: '#E8890C' }}
+                            onClick={() => router.push('/dashboard/he-thong/danh-muc-nhan-su/tao-moi')}>
+                            Thêm nhân sự
+                        </Button>
+                    )}
                 </Space>
             </div>
 

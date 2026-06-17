@@ -8,6 +8,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -45,6 +46,7 @@ const formatCurrency = (v: number | null) =>
 
 export default function GiaoDichPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
@@ -149,13 +151,15 @@ export default function GiaoDichPage() {
                         onClick={() => router.push(`/dashboard/quan-ly-du-an/giao-dich/${r.id}` as any)}>
                         <Eye size={16} />
                     </button>
-                    <button
-                        style={{ padding: 6, background: 'none', border: 'none', cursor: r.status === 'SUCCESS' ? 'not-allowed' : 'pointer', color: r.status === 'SUCCESS' ? '#d1d5db' : '#6b7280', opacity: r.status === 'SUCCESS' ? 0.3 : 1 }}
-                        disabled={r.status === 'SUCCESS'}
-                        onClick={() => r.status !== 'SUCCESS' && handleDelete(r.id)}
-                    >
-                        <Trash2 size={16} />
-                    </button>
+                    {can('TRANSACTION_DELETE') && (
+                        <button
+                            style={{ padding: 6, background: 'none', border: 'none', cursor: r.status === 'SUCCESS' ? 'not-allowed' : 'pointer', color: r.status === 'SUCCESS' ? '#d1d5db' : '#6b7280', opacity: r.status === 'SUCCESS' ? 0.3 : 1 }}
+                            disabled={r.status === 'SUCCESS'}
+                            onClick={() => r.status !== 'SUCCESS' && handleDelete(r.id)}
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
                 </div>
             ),
         },

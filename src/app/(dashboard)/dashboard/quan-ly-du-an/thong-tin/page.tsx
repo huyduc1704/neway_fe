@@ -8,6 +8,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -45,6 +46,7 @@ const LEAD_SOURCE_MAP: Record<string, string> = {
 
 export default function ThongTinDuAnPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [projects, setProjects] = useState<Project[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [regions, setRegions] = useState<Region[]>([]);
@@ -134,13 +136,15 @@ export default function ThongTinDuAnPage() {
                     >
                         <Eye size={16} />
                     </button>
-                    <button
-                        style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#E8890C' }}
-                        onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/quan-ly-du-an/thong-tin/edit/${r.id}` as any); }}
-                        title="Chỉnh sửa"
-                    >
-                        <EditOutlined style={{ fontSize: 16 }} />
-                    </button>
+                    {can('PROJECT_EDIT') && (
+                        <button
+                            style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#E8890C' }}
+                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/quan-ly-du-an/thong-tin/edit/${r.id}` as any); }}
+                            title="Chỉnh sửa"
+                        >
+                            <EditOutlined style={{ fontSize: 16 }} />
+                        </button>
+                    )}
                 </div>
             ),
         },
@@ -150,9 +154,11 @@ export default function ThongTinDuAnPage() {
         <>
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Thông tin dự án / Danh sách</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/quan-ly-du-an/thong-tin/create' as any)}>
-                    Tạo mới dự án
-                </Button>
+                {can('PROJECT_CREATE') && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/quan-ly-du-an/thong-tin/create' as any)}>
+                        Tạo mới dự án
+                    </Button>
+                )}
             </div>
 
             <Card>

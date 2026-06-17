@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Button, Card, Tag, Typography, Checkbox, Spin, Tooltip, message, Modal, Form, Select, Input } from 'antd';
 import { SafetyCertificateOutlined, ThunderboltOutlined, PlusOutlined, KeyOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
+import { useUser } from '@/context/UserContext';
 
 const { Title, Text } = Typography;
 
@@ -54,6 +55,7 @@ interface Permission { id: string; key: string; module: string; action: string; 
 interface Role        { id: string; code: string; name: string; isActive: boolean; }
 
 export default function PhanQuyenPage() {
+    const { can } = useUser();
     const [roles,        setRoles]        = useState<Role[]>([]);
     const [allPerms,     setAllPerms]     = useState<Permission[]>([]);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -199,18 +201,20 @@ export default function PhanQuyenPage() {
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Phân quyền theo vai trò</Title>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    {missingCount > 0 && (
+                    {can('PERMISSION_EDIT') && missingCount > 0 && (
                         <Tooltip title={`${missingCount} quyền chưa được tạo trong database`}>
                             <Button icon={<ThunderboltOutlined />} onClick={handleSeed} loading={seeding}>
                                 Seed {missingCount} quyền còn thiếu
                             </Button>
                         </Tooltip>
                     )}
-                    <Button type="primary" icon={<PlusOutlined />}
-                        style={{ background: '#E8890C', borderColor: '#E8890C' }}
-                        onClick={() => { addForm.resetFields(); setAddModal(true); }}>
-                        Tạo quyền mới
-                    </Button>
+                    {can('PERMISSION_EDIT') && (
+                        <Button type="primary" icon={<PlusOutlined />}
+                            style={{ background: '#E8890C', borderColor: '#E8890C' }}
+                            onClick={() => { addForm.resetFields(); setAddModal(true); }}>
+                            Tạo quyền mới
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -262,10 +266,12 @@ export default function PhanQuyenPage() {
                                         {checkedKeys.size} / {permMap.size} quyền được chọn
                                     </Text>
                                 </div>
-                                <Button type="primary" loading={saving} onClick={handleSave}
-                                    style={{ background: '#E8890C', borderColor: '#E8890C' }}>
-                                    Lưu thay đổi
-                                </Button>
+                                {can('PERMISSION_EDIT') && (
+                                    <Button type="primary" loading={saving} onClick={handleSave}
+                                        style={{ background: '#E8890C', borderColor: '#E8890C' }}>
+                                        Lưu thay đổi
+                                    </Button>
+                                )}
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column' }}>

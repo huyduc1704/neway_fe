@@ -8,6 +8,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { useUser } from '@/context/UserContext';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
@@ -24,6 +25,7 @@ interface PayrollPeriod {
 
 export default function KyLuongPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [periods, setPeriods] = useState<PayrollPeriod[]>([]);
     const [loading, setLoading] = useState(false);
     const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
@@ -136,15 +138,17 @@ export default function KyLuongPage() {
                         onClick={() => router.push(`/dashboard/tinh-luong/bang-luong?periodId=${r.id}` as any)}>
                         <CalendarDays size={14} /> Bảng lương
                     </Button>
-                    {!r.isLocked && (
+                    {can('PAYROLL_EDIT') && !r.isLocked && (
                         <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => openEdit(r)}>
                             <Pencil size={16} />
                         </button>
                     )}
-                    <button title={r.isLocked ? 'Mở khoá' : 'Khoá kỳ'} style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: r.isLocked ? '#ca8a04' : '#3b82f6' }} onClick={() => handleLock(r)}>
-                        {r.isLocked ? <LockOpen size={16} /> : <Lock size={16} />}
-                    </button>
-                    {!r.isLocked && r._count.payrollLines === 0 && (
+                    {can('PAYROLL_LOCK') && (
+                        <button title={r.isLocked ? 'Mở khoá' : 'Khoá kỳ'} style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: r.isLocked ? '#ca8a04' : '#3b82f6' }} onClick={() => handleLock(r)}>
+                            {r.isLocked ? <LockOpen size={16} /> : <Lock size={16} />}
+                        </button>
+                    )}
+                    {can('PAYROLL_DELETE') && !r.isLocked && r._count.payrollLines === 0 && (
                         <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => handleDelete(r)}>
                             <Trash2 size={16} />
                         </button>
@@ -161,7 +165,7 @@ export default function KyLuongPage() {
                     <Title level={4} style={{ margin: 0 }}>Tính lương / Kỳ lương</Title>
                     <p style={{ color: '#6b7280', fontSize: 14, marginTop: 4 }}>Quản lý các kỳ lương và chốt bảng lương nhân sự</p>
                 </div>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Tạo kỳ lương</Button>
+                {can('PAYROLL_CREATE') && <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Tạo kỳ lương</Button>}
             </div>
 
             {/* Filter */}

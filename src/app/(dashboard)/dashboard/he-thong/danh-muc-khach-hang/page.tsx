@@ -8,6 +8,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import { downloadExport } from '@/lib/export';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -23,6 +24,7 @@ interface Customer {
 
 export default function DanhMucKhachHangPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
@@ -78,14 +80,18 @@ export default function DanhMucKhachHangPage() {
             title: 'Thao tác', key: 'actions', width: 100, align: 'center',
             render: (_, r) => (
                 <Space>
-                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => router.push(`/dashboard/he-thong/danh-muc-khach-hang/${r.id}` as any)}>
-                        <Pencil size={16} />
-                    </button>
-                    <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => handleDelete(r.id)}>
-                        <Trash2 size={16} />
-                    </button>
+                    {can('CUSTOMER_EDIT') && (
+                        <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            onClick={() => router.push(`/dashboard/he-thong/danh-muc-khach-hang/${r.id}` as any)}>
+                            <Pencil size={16} />
+                        </button>
+                    )}
+                    {can('CUSTOMER_DELETE') && (
+                        <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            onClick={() => handleDelete(r.id)}>
+                            <Trash2 size={16} />
+                        </button>
+                    )}
                 </Space>
             ),
         },
@@ -100,9 +106,11 @@ export default function DanhMucKhachHangPage() {
                         try { await downloadExport('/customers/export', { search: search || undefined }, 'danh-muc-khach-hang'); }
                         catch { antMessage.error('Xuất file thất bại'); }
                     }}>Xuất Excel</Button>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/danh-muc-khach-hang/tao-moi' as any)}>
-                        Thêm khách hàng
-                    </Button>
+                    {can('CUSTOMER_CREATE') && (
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/danh-muc-khach-hang/tao-moi' as any)}>
+                            Thêm khách hàng
+                        </Button>
+                    )}
                 </Space>
             </div>
 

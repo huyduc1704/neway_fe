@@ -8,6 +8,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
+import { useUser } from '@/context/UserContext';
 
 const { Title } = Typography;
 
@@ -36,6 +37,7 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 
 export default function DanhMucDuAnPage() {
     const router = useRouter();
+    const { can } = useUser();
     const [projects, setProjects] = useState<Project[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(false);
@@ -123,14 +125,18 @@ export default function DanhMucDuAnPage() {
             title: 'Thao tác', key: 'actions', width: 100, align: 'center',
             render: (_, r) => (
                 <Space>
-                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => router.push(`/dashboard/he-thong/danh-muc-du-an/${r.id}` as any)}>
-                        <Pencil size={16} />
-                    </button>
-                    <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => handleDelete(r.id)}>
-                        <Trash2 size={16} />
-                    </button>
+                    {can('PROJECT_EDIT') && (
+                        <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            onClick={() => router.push(`/dashboard/he-thong/danh-muc-du-an/${r.id}` as any)}>
+                            <Pencil size={16} />
+                        </button>
+                    )}
+                    {can('PROJECT_DELETE') && (
+                        <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            onClick={() => handleDelete(r.id)}>
+                            <Trash2 size={16} />
+                        </button>
+                    )}
                 </Space>
             ),
         },
@@ -141,9 +147,11 @@ export default function DanhMucDuAnPage() {
             {/* Page Header */}
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Danh mục dự án / Danh sách</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/danh-muc-du-an/tao-moi' as any)}>
-                    Thêm dự án
-                </Button>
+                {can('PROJECT_CREATE') && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/dashboard/he-thong/danh-muc-du-an/tao-moi' as any)}>
+                        Thêm dự án
+                    </Button>
+                )}
             </div>
 
             <Card>
