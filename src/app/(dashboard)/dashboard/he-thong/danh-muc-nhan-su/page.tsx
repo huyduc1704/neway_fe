@@ -225,7 +225,7 @@ export default function DanhMucNhanSuPage() {
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Danh mục nhân sự</Title>
                 <Space>
-                    {can('REPORT_EXPORT') && (
+                    {can('EMPLOYEE_VIEW') && (
                         <Button icon={<DownloadOutlined />} onClick={async () => {
                             try {
                                 const f = filtersRef.current;

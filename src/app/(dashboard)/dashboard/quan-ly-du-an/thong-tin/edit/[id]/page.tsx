@@ -15,15 +15,16 @@ const { Title } = Typography;
 
 /* ─── Constants ─────────────────────────────────────────── */
 const LEAD_SOURCES = [
-    { value: 'FACEBOOK', label: 'Facebook' },
-    { value: 'TIKTOK',   label: 'TikTok' },
-    { value: 'THREADS',  label: 'Threads' },
-    { value: 'CHO_TOT',  label: 'Chợ Tốt' },
-    { value: 'BDS',      label: 'BĐS' },
-    { value: 'WALK_IN',  label: 'Vãng Lai' },
-    { value: 'REFERRAL', label: 'Giới Thiệu' },
-    { value: 'ZALO',     label: 'Zalo' },
-    { value: 'OTHER',    label: 'Khác' },
+    { value: 'FACEBOOK',  label: 'Facebook' },
+    { value: 'TIKTOK',    label: 'TikTok' },
+    { value: 'THREADS',   label: 'Threads' },
+    { value: 'CHO_TOT',   label: 'Chợ Tốt' },
+    { value: 'BDS',       label: 'BĐS' },
+    { value: 'WALK_IN',   label: 'Vãng Lai' },
+    { value: 'REFERRAL',  label: 'Giới Thiệu' },
+    { value: 'ZALO',      label: 'Zalo' },
+    { value: 'NEWAY_APP', label: 'App Neway' },
+    { value: 'OTHER',     label: 'Khác' },
 ];
 
 
@@ -37,8 +38,8 @@ const STATUS_OPTIONS = [
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { id?: string; employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
-interface Branch   { id: string; name: string; }
-interface Team     { id: string; name: string; }
+interface Branch   { id: string; name: string; wards: string[]; }
+interface Team     { id: string; name: string; branchId: string; }
 
 /* ─── Rate auto-calc logic ───────────────────────────────── */
 function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean, hasS2: boolean) {
@@ -99,8 +100,8 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
 
     /* lookup data */
     const [employees, setEmployees] = useState<Employee[]>([]);
-    const [branches, setBranches]   = useState<Branch[]>([]);
-    const [teams, setTeams]         = useState<Team[]>([]);
+    const [allBranches, setAllBranches] = useState<Branch[]>([]);
+    const [allTeams,    setAllTeams]    = useState<Team[]>([]);
 
     /* province/ward API */
     const { provinceOptions, wardOptions, provincesLoading, wardsLoading, selectedProvinceCode, onProvinceChange, preloadForEdit } = useProvinceWard();
@@ -124,6 +125,14 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     const [ward,           setWard]            = useState('');
     const [managedBranchId, setManagedBranchId] = useState('');
     const [teamId,         setTeamId]          = useState('');
+
+    const filteredBranches = ward
+        ? allBranches.filter(b => b.wards.some(w => w.toLowerCase() === ward.toLowerCase()))
+        : allBranches;
+    const filteredTeams = managedBranchId
+        ? allTeams.filter(t => t.branchId === managedBranchId)
+        : allTeams;
+
     const [roomCode,       setRoomCode]        = useState('');
     const [houseNumber,    setHouseNumber]     = useState('');
     const [rentalPrice,    setRentalPrice]     = useState('');
@@ -169,8 +178,8 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             api.get('/employees', { params: { limit: 500 } }),
             api.get(`/projects/${id}`)
         ]).then(([b, t, e, pRes]) => {
-            setBranches(b.data?.data ?? []);
-            setTeams(t.data?.data ?? []);
+            setAllBranches(b.data?.data ?? []);
+            setAllTeams(t.data?.data ?? []);
             setEmployees(e.data?.data ?? []);
             
             const p = pRes.data;
@@ -394,8 +403,8 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                             <Input placeholder="VD: P101" value={roomCode} onChange={e => setRoomCode(e.target.value)} />
                         </Field>
 
-                        <Field label="Số nhà">
-                            <Input placeholder="VD: 12B" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
+                        <Field label="Mã dự án">
+                            <Input placeholder="VD: 163/8 BQL" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
                         </Field>
 
                         <Field label="Thành phố" required error={errors.province}>
@@ -420,7 +429,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                         <Field label="Phường / Xã" required error={errors.ward}>
                             <WardAutoComplete
                                 value={ward}
-                                onChange={setWard}
+                                onChange={v => { setWard(v); setManagedBranchId(''); setTeamId(''); }}
                                 wardOptions={wardOptions}
                                 loading={wardsLoading}
                                 placeholder={wardsLoading ? 'Đang tải...' : selectedProvinceCode ? 'Chọn hoặc nhập phường/xã' : 'Chọn thành phố trước'}
@@ -431,10 +440,12 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                         <Field label="Chi nhánh quản lý" required error={errors.managedBranchId}>
                             <Select
                                 value={managedBranchId || undefined}
-                                onChange={setManagedBranchId}
-                                placeholder="Chọn chi nhánh"
+                                onChange={v => { setManagedBranchId(v ?? ''); setTeamId(''); }}
+                                placeholder={ward ? 'Chọn chi nhánh theo phường' : 'Chọn chi nhánh'}
                                 style={{ width: '100%' }}
-                                options={branches.map(b => ({ value: b.id, label: b.name }))}
+                                showSearch
+                                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                options={filteredBranches.map(b => ({ value: b.id, label: b.name }))}
                             />
                         </Field>
 
@@ -442,10 +453,12 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                             <Select
                                 value={teamId || undefined}
                                 onChange={v => setTeamId(v ?? '')}
-                                placeholder="Chọn khu vực"
+                                placeholder={managedBranchId ? 'Chọn team theo chi nhánh' : 'Chọn khu vực'}
                                 style={{ width: '100%' }}
                                 allowClear
-                                options={teams.map(t => ({ value: t.id, label: t.name }))}
+                                showSearch
+                                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                options={filteredTeams.map(t => ({ value: t.id, label: t.name }))}
                             />
                         </Field>
 

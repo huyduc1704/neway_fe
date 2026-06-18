@@ -13,11 +13,11 @@ type GroupBy = 'BRANCH' | 'REGION';
 
 const LEAD_SOURCE_LABEL: Record<string, string> = {
     FACEBOOK: 'Facebook', TIKTOK: 'TikTok', THREADS: 'Threads',
-    CHO_TOT: 'Chợ Tốt', BDS: 'BDS', WALK_IN: 'Walk-in',
-    REFERRAL: 'Giới thiệu', ZALO: 'Zalo', OTHER: 'Khác',
+    CHO_TOT: 'Chợ Tốt', BDS: 'BĐS', WALK_IN: 'Vãng Lai',
+    REFERRAL: 'Giới Thiệu', ZALO: 'Zalo', NEWAY_APP: 'App Neway', OTHER: 'Khác',
 };
 
-const SOURCE_KEYS = ['FACEBOOK', 'TIKTOK', 'ZALO', 'THREADS', 'CHO_TOT', 'BDS', 'WALK_IN', 'REFERRAL', 'OTHER'];
+const SOURCE_KEYS = ['FACEBOOK', 'TIKTOK', 'ZALO', 'THREADS', 'CHO_TOT', 'BDS', 'WALK_IN', 'REFERRAL', 'NEWAY_APP', 'OTHER'];
 const COLORS = ['#E8890C', '#1A2B5A', '#52c41a', '#1677ff', '#722ed1', '#fa8c16', '#13c2c2', '#eb2f96', '#8c8c8c'];
 
 interface SourceRow {

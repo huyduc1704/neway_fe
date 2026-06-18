@@ -199,7 +199,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     const roomColumns = [
         { title: 'Mã phòng', dataIndex: 'roomCode', key: 'roomCode', render: (text: string) => <Tag color="blue">{text}</Tag> },
-        { title: 'Số nhà', dataIndex: 'houseNumber', key: 'houseNumber', render: (t: string) => t || '—' },
+        { title: 'Mã dự án', dataIndex: 'houseNumber', key: 'houseNumber', render: (t: string) => t || '—' },
         { title: 'Giá thuê', dataIndex: 'rentalPrice', key: 'rentalPrice', render: (t: number) => fmtCurrency(t) },
         { title: 'Giá đặt cọc', dataIndex: 'depositPrice', key: 'depositPrice', render: (t: number) => fmtCurrency(t) },
         { title: 'Thông tin thêm', dataIndex: 'rentalInfo', key: 'rentalInfo', render: (t: string) => t || '—' },
@@ -253,7 +253,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <Descriptions column={3} size="small" bordered>
                     <Descriptions.Item label="Tỉnh/Thành phố" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.province || '—'}</Descriptions.Item>
                     <Descriptions.Item label="Phường/Xã" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.ward}</Descriptions.Item>
-                    <Descriptions.Item label="Số nhà" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.rooms?.[0]?.houseNumber || '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Mã dự án" labelStyle={{ background: '#f9fafb', width: 150 }}>{project.rooms?.[0]?.houseNumber || '—'}</Descriptions.Item>
                     <Descriptions.Item label="Giá thuê">{fmtCurrency(project.rooms?.[0]?.rentalPrice ?? null)}</Descriptions.Item>
                     <Descriptions.Item label="Giá đặt cọc">{fmtCurrency(project.rooms?.[0]?.depositPrice ?? null)}</Descriptions.Item>
                     <Descriptions.Item label="Thông tin thêm">{project.rooms?.[0]?.rentalInfo || '—'}</Descriptions.Item>
@@ -327,8 +327,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         {roomErrors.roomCode && <div style={{ color: 'red', fontSize: 12, marginTop: 4 }}>{roomErrors.roomCode}</div>}
                     </div>
                     <div>
-                        <div style={{ marginBottom: 4 }}>Số nhà</div>
-                        <Input placeholder="VD: 12B" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
+                        <div style={{ marginBottom: 4 }}>Mã dự án</div>
+                        <Input placeholder="VD: 163/8 BQL" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
                     </div>
                     <div>
                         <div style={{ marginBottom: 4 }}>Giá thuê (VNĐ)</div>
