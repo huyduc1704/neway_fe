@@ -29,7 +29,6 @@ const MODULES: ModuleDef[] = [
     { resource: 'REVENUE',            label: 'Quản lý doanh thu',        actions: ['VIEW','EDIT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'REPORT_DOANH_THU',   label: 'Báo cáo doanh thu',        actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'REPORT_GIAO_DICH',   label: 'Báo cáo giao dịch',        actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
-    { resource: 'REPORT_HOA_HONG',    label: 'Báo cáo hoa hồng',         actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'REPORT_LUONG',       label: 'Báo cáo lương',            actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'REPORT_NGUON_KHACH', label: 'Báo cáo nguồn khách',      actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'REPORT_KHU_VUC',     label: 'Báo cáo khu vực',          actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
