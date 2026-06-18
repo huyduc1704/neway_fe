@@ -93,13 +93,6 @@ export default function CreateProjectPage() {
     const [allBranches, setAllBranches] = useState<Branch[]>([]);
     const [allTeams,    setAllTeams]    = useState<Team[]>([]);
 
-    const filteredBranches = ward
-        ? allBranches.filter(b => b.wards.some(w => w.toLowerCase() === ward.toLowerCase()))
-        : allBranches;
-    const filteredTeams = managedBranchId
-        ? allTeams.filter(t => t.branchId === managedBranchId)
-        : allTeams;
-
     /* province/ward API */
     const { provinceOptions, wardOptions, provincesLoading, wardsLoading, selectedProvinceCode, onProvinceChange } = useProvinceWard();
 
@@ -123,6 +116,14 @@ export default function CreateProjectPage() {
     const [ward,           setWard]            = useState('');
     const [managedBranchId, setManagedBranchId] = useState('');
     const [teamId,         setTeamId]          = useState('');
+
+    const filteredBranches = ward
+        ? allBranches.filter(b => b.wards.some(w => w.toLowerCase() === ward.toLowerCase()))
+        : allBranches;
+    const filteredTeams = managedBranchId
+        ? allTeams.filter(t => t.branchId === managedBranchId)
+        : allTeams;
+
     const [rentalPrice,    setRentalPrice]      = useState('');
     const [depositPrice,   setDepositPrice]    = useState('');
     const [rentalInfo,     setRentalInfo]      = useState('');
