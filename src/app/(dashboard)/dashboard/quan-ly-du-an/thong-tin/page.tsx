@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { Eye } from 'lucide-react';
-import { Button, DatePicker, Input, Select, Tag, Table, Card, Typography, Space } from 'antd';
+import { Eye, Trash2 } from 'lucide-react';
+import { Button, DatePicker, Input, Select, Tag, Table, Card, Typography, Space, Popconfirm } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, CloseOutlined, EditOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
@@ -99,6 +99,16 @@ export default function ThongTinDuAnPage() {
 
     const hasFilter = branchFilter || regionFilter || statusFilter || fromDate || toDate || search;
 
+    const handleDelete = async (id: string) => {
+        try {
+            await api.delete(`/projects/${id}`);
+            message.success('Đã xoá dự án');
+            fetchProjects();
+        } catch (err: any) {
+            message.error(err?.response?.data?.message || 'Xoá thất bại');
+        }
+    };
+
     const columns: ColumnsType<Project> = [
         {
             title: 'STT', key: 'stt', width: 46, align: 'center',
@@ -126,7 +136,7 @@ export default function ThongTinDuAnPage() {
             },
         },
         {
-            title: 'Thao tác', key: 'actions', width: 70, align: 'center',
+            title: 'Thao tác', key: 'actions', width: 100, align: 'center',
             render: (_, r) => (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
                     <button
@@ -144,6 +154,23 @@ export default function ThongTinDuAnPage() {
                         >
                             <EditOutlined style={{ fontSize: 16 }} />
                         </button>
+                    )}
+                    {can('PROJECT_DELETE') && (
+                        <Popconfirm
+                            title="Xoá dự án này?"
+                            description="Thao tác này không thể hoàn tác."
+                            onConfirm={(e) => { e?.stopPropagation(); handleDelete(r.id); }}
+                            onCancel={(e) => e?.stopPropagation()}
+                            okText="Xoá" cancelText="Huỷ" okButtonProps={{ danger: true }}
+                        >
+                            <button
+                                style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Xoá"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </Popconfirm>
                     )}
                 </div>
             ),

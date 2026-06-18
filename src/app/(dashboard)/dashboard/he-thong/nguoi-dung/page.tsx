@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { Pencil, Ban, KeyRound } from 'lucide-react';
-import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space } from 'antd';
+import { Pencil, Ban, KeyRound, Trash2 } from 'lucide-react';
+import { Button, Input, Select, Tag, Table, Card, Modal, Form, Typography, Space, Popconfirm } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, FilterOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
@@ -61,6 +61,16 @@ export default function NguoiDungPage() {
         api.get('/roles', { params: { limit: 100 } }).then(({ data }) => setRoles(data.data)).catch(() => {});
     }, []);
 
+    const handleDelete = async (id: string) => {
+        try {
+            await api.delete(`/users/${id}`);
+            message.success('Đã xoá người dùng');
+            fetchUsers();
+        } catch (err: any) {
+            message.error(err?.response?.data?.message || 'Xoá thất bại');
+        }
+    };
+
     const handleDeactivate = async (id: string) => {
         if (!window.confirm('Vô hiệu hoá tài khoản này?')) return;
         try {
@@ -109,7 +119,7 @@ export default function NguoiDungPage() {
             ),
         },
         {
-            title: 'Thao tác', key: 'actions', width: 130, align: 'center',
+            title: 'Thao tác', key: 'actions', width: 150, align: 'center',
             render: (_, r) => (
                 <Space>
                     {can('EMPLOYEE_EDIT') && (
@@ -133,6 +143,18 @@ export default function NguoiDungPage() {
                         >
                             <Ban size={16} />
                         </button>
+                    )}
+                    {can('EMPLOYEE_DELETE') && (
+                        <Popconfirm
+                            title="Xoá người dùng này?"
+                            description="Thao tác này không thể hoàn tác."
+                            onConfirm={() => handleDelete(r.id)}
+                            okText="Xoá" cancelText="Huỷ" okButtonProps={{ danger: true }}
+                        >
+                            <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+                                <Trash2 size={16} />
+                            </button>
+                        </Popconfirm>
                     )}
                 </Space>
             ),
