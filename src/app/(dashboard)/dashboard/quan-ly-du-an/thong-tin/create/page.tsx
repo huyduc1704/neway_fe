@@ -17,8 +17,8 @@ const { Title } = Typography;
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { id?: string; employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
-interface Branch   { id: string; name: string; wards: string[]; }
-interface Team     { id: string; name: string; branchId: string; }
+interface Branch { id: string; name: string; wards: string[]; }
+interface Team { id: string; name: string; branchId: string; }
 
 /* ─── Rate auto-calc logic ───────────────────────────────── */
 function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean, hasS2: boolean) {
@@ -26,15 +26,15 @@ function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean
     if (hasM) {
         rates.mRate = 0.3;
         if (hasS1 && hasS2) { rates.s1Rate = 0.35; rates.s2Rate = 0.35; }
-        else if (hasS1)     { rates.s1Rate = 0.7; }
+        else if (hasS1) { rates.s1Rate = 0.7; }
     } else if (hasM1 && hasM2) {
         rates.m1Rate = 0.25; rates.m2Rate = 0.25;
         if (hasS1 && hasS2) { rates.s1Rate = 0.25; rates.s2Rate = 0.25; }
-        else if (hasS1)     { rates.s1Rate = 0.5; }
+        else if (hasS1) { rates.s1Rate = 0.5; }
     } else if (hasM1) {
         rates.m1Rate = 0.5;
         if (hasS1 && hasS2) { rates.s1Rate = 0.25; rates.s2Rate = 0.25; }
-        else if (hasS1)     { rates.s1Rate = 0.5; }
+        else if (hasS1) { rates.s1Rate = 0.5; }
     }
     return rates;
 }
@@ -76,34 +76,34 @@ export default function CreateProjectPage() {
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     /* lookup data */
-    const [employees,    setEmployees]   = useState<Employee[]>([]);
-    const [allBranches,  setAllBranches] = useState<Branch[]>([]);
-    const [allTeams,     setAllTeams]    = useState<Team[]>([]);
-    const [leadSources,  setLeadSources] = useState<{ value: string; label: string }[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [allBranches, setAllBranches] = useState<Branch[]>([]);
+    const [allTeams, setAllTeams] = useState<Team[]>([]);
+    const [leadSources, setLeadSources] = useState<{ value: string; label: string }[]>([]);
 
     /* province/ward API */
     const { provinceOptions, wardOptions, provincesLoading, wardsLoading, selectedProvinceCode, onProvinceChange } = useProvinceWard();
 
     /* ── Cụm nhân sự ── */
-    const [mId,  setMId]  = useState('');
+    const [mId, setMId] = useState('');
     const [m1Id, setM1Id] = useState('');
     const [m2Id, setM2Id] = useState('');
     const [s1Id, setS1Id] = useState('');
     const [s2Id, setS2Id] = useState('');
     const rates = calcRates(!!mId, !!m1Id, !!m2Id, !!s1Id, !!s2Id);
-    const [mLeader,  setMLeader]  = useState('');
+    const [mLeader, setMLeader] = useState('');
     const [m1Leader, setM1Leader] = useState('');
     const [m2Leader, setM2Leader] = useState('');
     const [s1Leader, setS1Leader] = useState('');
     const [s2Leader, setS2Leader] = useState('');
 
     /* ── Cụm thông tin phòng ── */
-    const [roomCode,       setRoomCode]       = useState('');
-    const [houseNumber,    setHouseNumber]     = useState('');
-    const [province,       setProvince]        = useState('');
-    const [ward,           setWard]            = useState('');
+    const [roomCode, setRoomCode] = useState('');
+    const [houseNumber, setHouseNumber] = useState('');
+    const [province, setProvince] = useState('');
+    const [ward, setWard] = useState('');
     const [managedBranchId, setManagedBranchId] = useState('');
-    const [teamId,         setTeamId]          = useState('');
+    const [teamId, setTeamId] = useState('');
 
     const filteredBranches = ward
         ? allBranches.filter(b => b.wards.some(w => w.toLowerCase() === ward.toLowerCase()))
@@ -112,34 +112,34 @@ export default function CreateProjectPage() {
         ? allTeams.filter(t => t.branchId === managedBranchId)
         : allTeams;
 
-    const [rentalPrice,    setRentalPrice]      = useState('');
-    const [depositPrice,   setDepositPrice]    = useState('');
-    const [rentalInfo,     setRentalInfo]      = useState('');
+    const [rentalPrice, setRentalPrice] = useState('');
+    const [depositPrice, setDepositPrice] = useState('');
+    const [rentalInfo, setRentalInfo] = useState('');
     const [contractStartAt, setContractStartAt] = useState('');
-    const [contractEndAt,  setContractEndAt]   = useState('');
-    const [leadSource,     setLeadSource]       = useState('');
-    const [contractFile,   setContractFile]     = useState<File | null>(null);
+    const [contractEndAt, setContractEndAt] = useState('');
+    const [leadSource, setLeadSource] = useState('');
+    const [contractFile, setContractFile] = useState<File | null>(null);
 
     /* ── Cụm ngày cọc ── */
-    const [deposit1,     setDeposit1]     = useState('');
-    const [deposit2,     setDeposit2]     = useState('');
+    const [deposit1, setDeposit1] = useState('');
+    const [deposit2, setDeposit2] = useState('');
     const [deposit2Date, setDeposit2Date] = useState('');
-    const [checkInDate,  setCheckInDate]  = useState('');
+    const [checkInDate, setCheckInDate] = useState('');
 
     /* ── Cụm doanh thu ── */
     const [estimatedCommissionPercent, setEstimatedCommissionPercent] = useState('');
-    const [customerSupport,            setCustomerSupport]            = useState('');
+    const [customerSupport, setCustomerSupport] = useState('');
 
     /* ── Cụm thông tin dự án ── */
-    const [depositDate,    setDepositDate]    = useState('');
-    const [customerName,   setCustomerName]   = useState('');
-    const [customerPhone,  setCustomerPhone]  = useState('');
-    const [note,           setNote]           = useState('');
+    const [depositDate, setDepositDate] = useState('');
+    const [customerName, setCustomerName] = useState('');
+    const [customerPhone, setCustomerPhone] = useState('');
+    const [note, setNote] = useState('');
 
     const estimatedRevenue = (() => {
         const price = parseFloat(rentalPrice) || 0;
-        const pct   = parseFloat(estimatedCommissionPercent) || 0;
-        const sup   = parseFloat(customerSupport) || 0;
+        const pct = parseFloat(estimatedCommissionPercent) || 0;
+        const sup = parseFloat(customerSupport) || 0;
         if (!price || !pct) return null;
         return price * (pct / 100) - sup;
     })();
@@ -150,9 +150,9 @@ export default function CreateProjectPage() {
     /* ── Load lookups ── */
     useEffect(() => {
         Promise.all([
-            api.get('/branches',     { params: { limit: 200 } }),
-            api.get('/teams',        { params: { limit: 200 } }),
-            api.get('/employees',    { params: { limit: 500 } }),
+            api.get('/branches', { params: { limit: 200 } }),
+            api.get('/teams', { params: { limit: 200 } }),
+            api.get('/employees', { params: { limit: 500 } }),
             api.get('/lead-sources'),
         ]).then(([b, t, e, ls]) => {
             setAllBranches(b.data?.data ?? []);
@@ -160,7 +160,7 @@ export default function CreateProjectPage() {
             setEmployees(e.data?.data ?? []);
             const sources = (Array.isArray(ls.data) ? ls.data : ls.data?.data ?? []);
             setLeadSources(sources.map((s: { code: string; label: string }) => ({ value: s.code, label: s.label })));
-        }).catch(() => {});
+        }).catch(() => { });
     }, []);
 
     /* ── Auto-load leader when employee selected ── */
@@ -199,14 +199,14 @@ export default function CreateProjectPage() {
     /* ── Validation ── */
     const validate = () => {
         const e: Record<string, string> = {};
-        if (!ward.trim())           e.ward = 'Nhập phường/xã';
-        if (!province)              e.province = 'Chọn tỉnh/thành phố';
-        if (!managedBranchId)       e.managedBranchId = 'Chọn chi nhánh';
+        if (!ward.trim()) e.ward = 'Nhập phường/xã';
+        if (!province) e.province = 'Chọn tỉnh/thành phố';
+        if (!managedBranchId) e.managedBranchId = 'Chọn chi nhánh';
         if (!deposit1 || Number(deposit1) < 1) e.deposit1 = 'Nhập tiền cọc lần 1';
-        if (!depositDate)           e.depositDate = 'Chọn ngày đặt cọc';
-        if (!customerName.trim())   e.customerName = 'Nhập tên khách hàng';
-        if (!customerPhone.trim())  e.customerPhone = 'Nhập số điện thoại';
-        if (!leadSource)            e.leadSource = 'Chọn nguồn khách';
+        if (!depositDate) e.depositDate = 'Chọn ngày đặt cọc';
+        if (!customerName.trim()) e.customerName = 'Nhập tên khách hàng';
+        if (!customerPhone.trim()) e.customerPhone = 'Nhập số điện thoại';
+        if (!leadSource) e.leadSource = 'Chọn nguồn khách';
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -218,7 +218,7 @@ export default function CreateProjectPage() {
         setLoading(true);
         try {
             const staffSlot: Record<string, string | number | undefined> = {};
-            if (mId)  { staffSlot.mEmployeeId  = toProfileId(mId);  staffSlot.mRate  = rates.mRate; }
+            if (mId) { staffSlot.mEmployeeId = toProfileId(mId); staffSlot.mRate = rates.mRate; }
             if (m1Id) { staffSlot.m1EmployeeId = toProfileId(m1Id); staffSlot.m1Rate = rates.m1Rate; }
             if (m2Id) { staffSlot.m2EmployeeId = toProfileId(m2Id); staffSlot.m2Rate = rates.m2Rate; }
             if (s1Id) { staffSlot.s1EmployeeId = toProfileId(s1Id); staffSlot.s1Rate = rates.s1Rate; }
@@ -228,26 +228,26 @@ export default function CreateProjectPage() {
                 ward,
                 province,
                 managedBranchId,
-                teamId:           teamId || undefined,
-                houseNumber:      houseNumber || undefined,
-                roomCode:         roomCode || undefined,
-                rentalPrice:      rentalPrice ? Number(rentalPrice) : undefined,
-                depositPrice:     depositPrice ? Number(depositPrice) : undefined,
-                rentalInfo:       rentalInfo || undefined,
-                contractStartAt:  contractStartAt ? new Date(contractStartAt).toISOString() : undefined,
-                contractEndAt:    contractEndAt  ? new Date(contractEndAt).toISOString()  : undefined,
-                leadSource:       leadSource || undefined,
-                deposit1:         Number(deposit1),
-                deposit2:         deposit2 ? Number(deposit2) : undefined,
-                deposit2Date:     deposit2Date ? new Date(deposit2Date).toISOString() : undefined,
-                checkInDate:      checkInDate ? new Date(checkInDate).toISOString() : undefined,
-                depositDate:      new Date(depositDate).toISOString(),
+                teamId: teamId || undefined,
+                houseNumber: houseNumber || undefined,
+                roomCode: roomCode || undefined,
+                rentalPrice: rentalPrice ? Number(rentalPrice) : undefined,
+                depositPrice: depositPrice ? Number(depositPrice) : undefined,
+                rentalInfo: rentalInfo || undefined,
+                contractStartAt: contractStartAt ? new Date(contractStartAt).toISOString() : undefined,
+                contractEndAt: contractEndAt ? new Date(contractEndAt).toISOString() : undefined,
+                leadSource: leadSource || undefined,
+                deposit1: Number(deposit1),
+                deposit2: deposit2 ? Number(deposit2) : undefined,
+                deposit2Date: deposit2Date ? new Date(deposit2Date).toISOString() : undefined,
+                checkInDate: checkInDate ? new Date(checkInDate).toISOString() : undefined,
+                depositDate: new Date(depositDate).toISOString(),
                 customerName,
                 customerPhone,
                 estimatedCommissionPercent: estimatedCommissionPercent ? Number(estimatedCommissionPercent) : undefined,
-                customerSupport:  customerSupport ? Number(customerSupport) : undefined,
-                note:             note || undefined,
-                staffSlot:        Object.keys(staffSlot).length ? staffSlot : undefined,
+                customerSupport: customerSupport ? Number(customerSupport) : undefined,
+                note: note || undefined,
+                staffSlot: Object.keys(staffSlot).length ? staffSlot : undefined,
             };
 
             const { data: created } = await api.post('/projects', payload);
@@ -560,10 +560,6 @@ export default function CreateProjectPage() {
                                 </tbody>
                             </table>
                         </div>
-
-                        <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>
-                            * Tỉ lệ tự tính theo quy tắc: m nhỏ=0.3 | M1=0.5 | M1+M2=0.25 mỗi. Leader tự động load từ team của nhân viên.
-                        </p>
                     </div>
 
                     {/* ── Ghi chú ────────────────────────────────────── */}
