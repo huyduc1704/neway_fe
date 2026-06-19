@@ -18,7 +18,7 @@ const { Title } = Typography;
 /* ─── Types ──────────────────────────────────────────────── */
 interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { id?: string; employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
 interface Branch { id: string; name: string; wards: string[]; }
-interface Team { id: string; name: string; branchId: string; }
+interface Team { id: string; name: string; branch?: { id: string; name: string }; }
 
 /* ─── Rate auto-calc logic ───────────────────────────────── */
 function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean, hasS2: boolean) {
@@ -109,8 +109,8 @@ export default function CreateProjectPage() {
         ? allBranches.filter(b => b.wards.some(w => w.toLowerCase() === ward.toLowerCase()))
         : allBranches;
     const filteredTeams = managedBranchId
-        ? allTeams.filter(t => t.branchId === managedBranchId)
-        : allTeams;
+        ? allTeams.filter(t => t.branch?.id === managedBranchId)
+        : [];
 
     const [rentalPrice, setRentalPrice] = useState('');
     const [depositPrice, setDepositPrice] = useState('');
