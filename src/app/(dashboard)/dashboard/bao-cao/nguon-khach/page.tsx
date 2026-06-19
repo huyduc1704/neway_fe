@@ -11,14 +11,7 @@ const { Title } = Typography;
 
 type GroupBy = 'BRANCH' | 'REGION';
 
-const LEAD_SOURCE_LABEL: Record<string, string> = {
-    FACEBOOK: 'Facebook', TIKTOK: 'TikTok', THREADS: 'Threads',
-    CHO_TOT: 'Chợ Tốt', BDS: 'BĐS', WALK_IN: 'Vãng Lai',
-    REFERRAL: 'Giới Thiệu', ZALO: 'Zalo', NEWAY_APP: 'App Neway', OTHER: 'Khác',
-};
-
-const SOURCE_KEYS = ['FACEBOOK', 'TIKTOK', 'ZALO', 'THREADS', 'CHO_TOT', 'BDS', 'WALK_IN', 'REFERRAL', 'NEWAY_APP', 'OTHER'];
-const COLORS = ['#E8890C', '#1A2B5A', '#52c41a', '#1677ff', '#722ed1', '#fa8c16', '#13c2c2', '#eb2f96', '#8c8c8c'];
+const COLORS = ['#E8890C', '#1A2B5A', '#52c41a', '#1677ff', '#722ed1', '#fa8c16', '#13c2c2', '#eb2f96', '#8c8c8c', '#f5222d'];
 
 interface SourceRow {
     branch?: { id: string; code: string; name: string };
@@ -41,6 +34,8 @@ export default function BaoCaoNguonKhachPage() {
     const [toDate, setToDate] = useState(dayjs().endOf('year').format('YYYY-MM-DD'));
     const [regionFilter, setRegionFilter] = useState('');
     const [branchFilter, setBranchFilter] = useState('');
+    const [sourceKeys, setSourceKeys] = useState<string[]>([]);
+    const [sourceLabels, setSourceLabels] = useState<Record<string, string>>({});
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -63,12 +58,19 @@ export default function BaoCaoNguonKhachPage() {
     useEffect(() => {
         api.get('/regions', { params: { limit: 100 } }).then(({ data }) => setRegions(data.data)).catch(() => {});
         api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => {});
+        api.get('/lead-sources').then(({ data: ls }) => {
+            const sources = Array.isArray(ls) ? ls : (ls?.data ?? []);
+            setSourceKeys(sources.map((s: { code: string }) => s.code));
+            const labels: Record<string, string> = {};
+            sources.forEach((s: { code: string; label: string }) => { labels[s.code] = s.label; });
+            setSourceLabels(labels);
+        }).catch(() => {});
     }, []);
 
-    const chartData = SOURCE_KEYS.map((key, i) => ({
-        name: LEAD_SOURCE_LABEL[key],
+    const chartData = sourceKeys.map((key, i) => ({
+        name: sourceLabels[key] ?? key,
         value: grandTotal?.sources[key] ?? data.reduce((s, r) => s + (r.sources[key] ?? 0), 0),
-        fill: COLORS[i],
+        fill: COLORS[i % COLORS.length],
     })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
 
     const columns: ColumnsType<SourceRow> = [
@@ -88,12 +90,12 @@ export default function BaoCaoNguonKhachPage() {
                 <span style={{ fontWeight: 500, color: '#1A2B5A' }}>{r.branch.name}</span>
             ) : <span style={{ color: '#9ca3af' }}>—</span>,
         }] : []),
-        ...SOURCE_KEYS.map((key, i) => ({
-            title: LEAD_SOURCE_LABEL[key], key, width: 95, align: 'center' as const,
+        ...sourceKeys.map((key, i) => ({
+            title: sourceLabels[key] ?? key, key, width: 95, align: 'center' as const,
             render: (_: any, r: SourceRow) => {
                 const val = r.sources[key] ?? 0;
                 return val > 0
-                    ? <span style={{ fontWeight: 700, color: COLORS[i] }}>{val}</span>
+                    ? <span style={{ fontWeight: 700, color: COLORS[i % COLORS.length] }}>{val}</span>
                     : <span style={{ color: '#d1d5db' }}>0</span>;
             },
         })),
@@ -171,11 +173,11 @@ export default function BaoCaoNguonKhachPage() {
             {/* Summary chips */}
             {grandTotal && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-                    {SOURCE_KEYS.filter(k => (grandTotal.sources[k] ?? 0) > 0).map((key, i) => (
+                    {sourceKeys.filter(k => (grandTotal.sources[k] ?? 0) > 0).map((key, i) => (
                         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', borderRadius: 8, border: '1px solid #e5e7eb', padding: '8px 16px' }}>
-                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: COLORS[i] }} />
-                            <span style={{ fontSize: 14, color: '#4b5563' }}>{LEAD_SOURCE_LABEL[key]}:</span>
-                            <span style={{ fontWeight: 700, fontSize: 14, color: COLORS[i] }}>{grandTotal.sources[key]}</span>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: COLORS[i % COLORS.length] }} />
+                            <span style={{ fontSize: 14, color: '#4b5563' }}>{sourceLabels[key] ?? key}:</span>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: COLORS[i % COLORS.length] }}>{grandTotal.sources[key]}</span>
                         </div>
                     ))}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff7ed', borderRadius: 8, border: '1px solid #fed7aa', padding: '8px 16px' }}>

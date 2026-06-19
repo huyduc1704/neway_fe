@@ -11,6 +11,7 @@ interface UserContextValue {
     loading: boolean;
     can: (permission: string) => boolean;
     isAdmin: boolean;
+    myEmployeeId: string | null;
 }
 
 const UserContext = createContext<UserContextValue>({
@@ -20,6 +21,7 @@ const UserContext = createContext<UserContextValue>({
     loading: true,
     can: () => true,
     isAdmin: false,
+    myEmployeeId: null,
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
@@ -27,6 +29,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const [roles, setRoles] = useState<string[]>([]);
     const [roleObjects, setRoleObjects] = useState<RoleObject[]>([]);
     const [loading, setLoading] = useState(true);
+    const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
 
     useEffect(() => {
         api.get('/auth/me')
@@ -34,6 +37,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 setPermissions(data.permissions ?? []);
                 setRoles(data.roles ?? []);
                 setRoleObjects(data.roleObjects ?? []);
+                setMyEmployeeId(data.profile?.id ?? null);
             })
             .catch(() => {})
             .finally(() => setLoading(false));
@@ -50,7 +54,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <UserContext.Provider value={{ permissions, roles, roleObjects, loading, can, isAdmin }}>
+        <UserContext.Provider value={{ permissions, roles, roleObjects, loading, can, isAdmin, myEmployeeId }}>
             {children}
         </UserContext.Provider>
     );

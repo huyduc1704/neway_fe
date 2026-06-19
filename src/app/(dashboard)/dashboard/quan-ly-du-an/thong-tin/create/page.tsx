@@ -13,19 +13,6 @@ import WardAutoComplete from '@/components/WardAutoComplete';
 
 const { Title } = Typography;
 
-/* ─── Constants ─────────────────────────────────────────── */
-const LEAD_SOURCES = [
-    { value: 'FACEBOOK',  label: 'Facebook' },
-    { value: 'TIKTOK',    label: 'TikTok' },
-    { value: 'THREADS',   label: 'Threads' },
-    { value: 'CHO_TOT',   label: 'Chợ Tốt' },
-    { value: 'BDS',       label: 'BĐS' },
-    { value: 'WALK_IN',   label: 'Vãng Lai' },
-    { value: 'REFERRAL',  label: 'Giới Thiệu' },
-    { value: 'ZALO',      label: 'Zalo' },
-    { value: 'NEWAY_APP', label: 'App Neway' },
-    { value: 'OTHER',     label: 'Khác' },
-];
 
 
 /* ─── Types ──────────────────────────────────────────────── */
@@ -89,9 +76,10 @@ export default function CreateProjectPage() {
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     /* lookup data */
-    const [employees,   setEmployees]   = useState<Employee[]>([]);
-    const [allBranches, setAllBranches] = useState<Branch[]>([]);
-    const [allTeams,    setAllTeams]    = useState<Team[]>([]);
+    const [employees,    setEmployees]   = useState<Employee[]>([]);
+    const [allBranches,  setAllBranches] = useState<Branch[]>([]);
+    const [allTeams,     setAllTeams]    = useState<Team[]>([]);
+    const [leadSources,  setLeadSources] = useState<{ value: string; label: string }[]>([]);
 
     /* province/ward API */
     const { provinceOptions, wardOptions, provincesLoading, wardsLoading, selectedProvinceCode, onProvinceChange } = useProvinceWard();
@@ -162,13 +150,16 @@ export default function CreateProjectPage() {
     /* ── Load lookups ── */
     useEffect(() => {
         Promise.all([
-            api.get('/branches',  { params: { limit: 200 } }),
-            api.get('/teams',     { params: { limit: 200 } }),
-            api.get('/employees', { params: { limit: 500 } }),
-        ]).then(([b, t, e]) => {
+            api.get('/branches',     { params: { limit: 200 } }),
+            api.get('/teams',        { params: { limit: 200 } }),
+            api.get('/employees',    { params: { limit: 500 } }),
+            api.get('/lead-sources'),
+        ]).then(([b, t, e, ls]) => {
             setAllBranches(b.data?.data ?? []);
             setAllTeams(t.data?.data ?? []);
             setEmployees(e.data?.data ?? []);
+            const sources = (Array.isArray(ls.data) ? ls.data : ls.data?.data ?? []);
+            setLeadSources(sources.map((s: { code: string; label: string }) => ({ value: s.code, label: s.label })));
         }).catch(() => {});
     }, []);
 
@@ -426,7 +417,7 @@ export default function CreateProjectPage() {
                                 onChange={setLeadSource}
                                 placeholder="Chọn nguồn khách"
                                 style={{ width: '100%' }}
-                                options={LEAD_SOURCES}
+                                options={leadSources}
                             />
                         </Field>
 

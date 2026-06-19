@@ -10,7 +10,7 @@ import type { UploadFile } from 'antd';
 import {
     PlusOutlined, SearchOutlined, EyeOutlined, EditOutlined,
     CheckOutlined, CloseOutlined, DollarOutlined, WarningOutlined,
-    UploadOutlined, CalendarOutlined, FileTextOutlined,
+    UploadOutlined, CalendarOutlined, FileTextOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '@/lib/api';
@@ -1015,6 +1015,16 @@ export default function UyNhiemChiPage() {
 
     const resetPage = () => setPagination(p => ({ ...p, page: 1 }));
 
+    const handleDelete = async (id: string) => {
+        try {
+            await api.delete(`/disbursements/${id}`);
+            message.success('Đã xoá uỷ nhiệm chi');
+            fetchRows();
+        } catch (err: any) {
+            message.error(err?.response?.data?.message || 'Xoá thất bại');
+        }
+    };
+
     const columns: ColumnsType<DisbursementRow> = [
         {
             title: 'STT', key: 'stt', width: 55, align: 'center',
@@ -1072,7 +1082,7 @@ export default function UyNhiemChiPage() {
             },
         },
         {
-            title: 'Thao tác', key: 'actions', width: 90, align: 'center', fixed: 'right',
+            title: 'Thao tác', key: 'actions', width: 110, align: 'center', fixed: 'right',
             render: (_, r) => (
                 <Space>
                     <Tooltip title="Xem chi tiết">
@@ -1082,6 +1092,19 @@ export default function UyNhiemChiPage() {
                         <Tooltip title="Chỉnh sửa">
                             <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r.id)} />
                         </Tooltip>
+                    )}
+                    {can('DISBURSEMENT_DELETE') && (
+                        <Popconfirm
+                            title="Xoá uỷ nhiệm chi này?"
+                            onConfirm={() => handleDelete(r.id)}
+                            okText="Xoá"
+                            cancelText="Huỷ"
+                            okButtonProps={{ danger: true }}
+                        >
+                            <Tooltip title="Xoá">
+                                <Button size="small" danger icon={<DeleteOutlined />} />
+                            </Tooltip>
+                        </Popconfirm>
                     )}
                 </Space>
             ),

@@ -2,11 +2,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
     Badge, Button, Calendar, Card, Col, Form, Input,
-    Modal, Row, Spin, Tag, Tooltip, message,
+    Modal, Popconfirm, Row, Spin, Tag, Tooltip, message,
 } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { CalendarIcon, Plus, CheckCircle, XCircle, Users } from 'lucide-react';
+import { CalendarIcon, Plus, CheckCircle, XCircle, Users, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useUser } from '@/context/UserContext';
 
@@ -35,7 +35,7 @@ const LEAVE_LABEL: Record<string, string> = { PENDING: 'Chờ duyệt', APPROVED
 const ATTEND_COLOR: Record<string, string> = { PENDING: '#6366f1', CONFIRMED: '#10b981', REJECTED: '#ef4444' };
 
 export default function CalendarWidget() {
-    const { roles, isAdmin, can } = useUser();
+    const { roles, isAdmin, can, myEmployeeId } = useUser();
     const isPrivileged = isAdmin || can('LEAVE_REQUEST_VIEW_ALL') || roles.includes('LEADER');
 
     const [currentMonth, setCurrentMonth] = useState(dayjs());
@@ -236,11 +236,19 @@ export default function CalendarWidget() {
                                     {l.reviewNote && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 2 }}>Ghi chú: {l.reviewNote}</div>}
                                 </div>
                                 <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 8 }}>
-                                    {isPrivileged && l.status === 'PENDING' && (
+                                    {isPrivileged && l.status === 'PENDING' && l.employee?.id !== myEmployeeId && (
                                         <Button size="small" type="primary" onClick={() => { setApproveModal(l); setDayModal({ open: false, date: null }); }}>Xét duyệt</Button>
                                     )}
-                                    {!isPrivileged && l.status === 'PENDING' && (
-                                        <Button size="small" danger onClick={() => cancelLeave(l.id)}>Huỷ</Button>
+                                    {(isAdmin || l.employee?.id === myEmployeeId) && (
+                                        <Popconfirm
+                                            title="Xoá đơn nghỉ này?"
+                                            onConfirm={() => cancelLeave(l.id)}
+                                            okText="Xoá"
+                                            cancelText="Huỷ"
+                                            okButtonProps={{ danger: true }}
+                                        >
+                                            <Button size="small" danger icon={<Trash2 size={12} />}>Xoá</Button>
+                                        </Popconfirm>
                                     )}
                                 </div>
                             </div>

@@ -34,7 +34,7 @@ const MODULES: ModuleDef[] = [
     { resource: 'REPORT_KHU_VUC',     label: 'Báo cáo khu vực',          actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'REPORT_GIAI_THUONG', label: 'Báo cáo giải thưởng',      actions: ['VIEW','EXPORT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'PAYROLL',            label: 'Tính lương & Hoa hồng',    actions: ['VIEW','CREATE','EDIT','LOCK'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
-    { resource: 'DISBURSEMENT',       label: 'Uỷ nhiệm chi',             actions: ['VIEW','CREATE','EDIT','APPROVE','CANCEL'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
+    { resource: 'DISBURSEMENT',       label: 'Uỷ nhiệm chi',             actions: ['VIEW','CREATE','EDIT','APPROVE','CANCEL','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'ROLE',               label: 'Quản lý vai trò',          actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'PERMISSION',         label: 'Phân quyền',               actions: ['VIEW','EDIT'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'BRANCH',             label: 'Chi nhánh',                actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
@@ -42,7 +42,7 @@ const MODULES: ModuleDef[] = [
     { resource: 'REGION',             label: 'Khu vực',                  actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'CUSTOMER',           label: 'Danh mục khách hàng',      actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
     { resource: 'KPI',                label: 'KPI Targets',              actions: ['VIEW','CREATE','EDIT','DELETE'].map(c => ({ code: c, label: ACTION_LABELS[c] })) },
-    { resource: 'LEAVE_REQUEST',      label: 'Đăng ký nghỉ phép',        actions: [{ code: 'VIEW_ALL', label: 'Xem tất cả' }, { code: 'APPROVE', label: ACTION_LABELS['APPROVE'] }] },
+    { resource: 'LEAVE_REQUEST',      label: 'Đăng ký nghỉ phép',        actions: [{ code: 'VIEW_ALL', label: 'Xem tất cả' }, { code: 'APPROVE', label: ACTION_LABELS['APPROVE'] }, { code: 'DELETE', label: ACTION_LABELS['DELETE'] }] },
 ];
 
 type PermKey = string;
