@@ -90,7 +90,9 @@ export default function NguonKhachPage() {
         }
     };
 
-    const isAdmin = can('EMPLOYEE_CREATE');
+    const canCreate = can('LEAD_SOURCE_CREATE');
+    const canEdit   = can('LEAD_SOURCE_EDIT');
+    const canDelete = can('LEAD_SOURCE_DELETE');
 
     const columns: ColumnsType<LeadSource> = [
         { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, __, i) => i + 1 },
@@ -101,19 +103,23 @@ export default function NguonKhachPage() {
             title: 'Trạng thái', key: 'isActive', width: 130, align: 'center',
             render: (_, r) => <Tag color={r.isActive ? 'success' : 'default'}>{r.isActive ? 'Hoạt động' : 'Ẩn'}</Tag>,
         },
-        ...(isAdmin ? [{
+        ...((canEdit || canDelete) ? [{
             title: 'Thao tác', key: 'actions', width: 100, align: 'center' as const,
             render: (_: any, r: LeadSource) => (
                 <Space>
-                    <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-                        onClick={() => openEdit(r)}>
-                        <Pencil size={16} />
-                    </button>
-                    <Popconfirm title="Xoá nguồn khách này?" onConfirm={() => handleDelete(r.id)} okText="Xoá" cancelText="Huỷ" okButtonProps={{ danger: true }}>
-                        <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
-                            <Trash2 size={16} />
+                    {canEdit && (
+                        <button title="Chỉnh sửa" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            onClick={() => openEdit(r)}>
+                            <Pencil size={16} />
                         </button>
-                    </Popconfirm>
+                    )}
+                    {canDelete && (
+                        <Popconfirm title="Xoá nguồn khách này?" onConfirm={() => handleDelete(r.id)} okText="Xoá" cancelText="Huỷ" okButtonProps={{ danger: true }}>
+                            <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                                <Trash2 size={16} />
+                            </button>
+                        </Popconfirm>
+                    )}
                 </Space>
             ),
         }] : []),
@@ -123,7 +129,7 @@ export default function NguonKhachPage() {
         <>
             <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={4} style={{ margin: 0 }}>Hệ thống / Nguồn khách</Title>
-                {isAdmin && (
+                {canCreate && (
                     <Space>
                         <Button onClick={handleSeed}>Seed dữ liệu mặc định</Button>
                         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>

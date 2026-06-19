@@ -114,9 +114,7 @@ export default function CreateProjectPage() {
 
     const [rentalPrice, setRentalPrice] = useState('');
     const [depositPrice, setDepositPrice] = useState('');
-    const [rentalInfo, setRentalInfo] = useState('');
-    const [contractStartAt, setContractStartAt] = useState('');
-    const [contractEndAt, setContractEndAt] = useState('');
+    const [contractDuration, setContractDuration] = useState<number | null>(null);
     const [leadSource, setLeadSource] = useState('');
     const [contractFile, setContractFile] = useState<File | null>(null);
 
@@ -180,6 +178,7 @@ export default function CreateProjectPage() {
     const handleM1Change = async (id: string) => {
         setM1Id(id); setMId('');
         setMLeader('');
+        if (!id) { setM2Id(''); setM2Leader(''); }
         setM1Leader(id ? await getLeaderName(id) : '');
     };
     const handleM2Change = async (id: string) => {
@@ -189,6 +188,7 @@ export default function CreateProjectPage() {
     };
     const handleS1Change = async (id: string) => {
         setS1Id(id);
+        if (!id) { setS2Id(''); setS2Leader(''); }
         setS1Leader(id ? await getLeaderName(id) : '');
     };
     const handleS2Change = async (id: string) => {
@@ -199,14 +199,20 @@ export default function CreateProjectPage() {
     /* ── Validation ── */
     const validate = () => {
         const e: Record<string, string> = {};
+        if (!roomCode.trim()) e.roomCode = 'Nhập mã phòng';
+        if (!houseNumber.trim()) e.houseNumber = 'Nhập mã dự án';
         if (!ward.trim()) e.ward = 'Nhập phường/xã';
         if (!province) e.province = 'Chọn tỉnh/thành phố';
         if (!managedBranchId) e.managedBranchId = 'Chọn chi nhánh';
+        if (!teamId) e.teamId = 'Chọn khu vực';
+        if (!rentalPrice) e.rentalPrice = 'Nhập giá thuê';
+        if (!depositPrice) e.depositPrice = 'Nhập giá đặt cọc';
+        if (!contractDuration) e.contractDuration = 'Nhập hạn hợp đồng';
+        if (!leadSource) e.leadSource = 'Chọn nguồn khách';
         if (!deposit1 || Number(deposit1) < 1) e.deposit1 = 'Nhập tiền cọc lần 1';
         if (!depositDate) e.depositDate = 'Chọn ngày đặt cọc';
         if (!customerName.trim()) e.customerName = 'Nhập tên khách hàng';
         if (!customerPhone.trim()) e.customerPhone = 'Nhập số điện thoại';
-        if (!leadSource) e.leadSource = 'Chọn nguồn khách';
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -233,9 +239,7 @@ export default function CreateProjectPage() {
                 roomCode: roomCode || undefined,
                 rentalPrice: rentalPrice ? Number(rentalPrice) : undefined,
                 depositPrice: depositPrice ? Number(depositPrice) : undefined,
-                rentalInfo: rentalInfo || undefined,
-                contractStartAt: contractStartAt ? new Date(contractStartAt).toISOString() : undefined,
-                contractEndAt: contractEndAt ? new Date(contractEndAt).toISOString() : undefined,
+                contractDurationMonths: contractDuration || undefined,
                 leadSource: leadSource || undefined,
                 deposit1: Number(deposit1),
                 deposit2: deposit2 ? Number(deposit2) : undefined,
@@ -303,11 +307,11 @@ export default function CreateProjectPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
                         <Section title="Cụm thông tin phòng" />
 
-                        <Field label="Mã phòng">
+                        <Field label="Mã phòng" required error={errors.roomCode}>
                             <Input placeholder="VD: P101" value={roomCode} onChange={e => setRoomCode(e.target.value)} />
                         </Field>
 
-                        <Field label="Mã dự án">
+                        <Field label="Mã dự án" required error={errors.houseNumber}>
                             <Input placeholder="VD: 163/8 BQL" value={houseNumber} onChange={e => setHouseNumber(e.target.value)} />
                         </Field>
 
@@ -353,20 +357,19 @@ export default function CreateProjectPage() {
                             />
                         </Field>
 
-                        <Field label="Khu vực (Team)">
+                        <Field label="Khu vực (Team)" required error={errors.teamId}>
                             <Select
                                 value={teamId || undefined}
                                 onChange={v => setTeamId(v ?? '')}
                                 placeholder={managedBranchId ? 'Chọn team theo chi nhánh' : 'Chọn khu vực'}
                                 style={{ width: '100%' }}
-                                allowClear
                                 showSearch
                                 filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                 options={filteredTeams.map(t => ({ value: t.id, label: t.name }))}
                             />
                         </Field>
 
-                        <Field label="Giá thuê (VNĐ)">
+                        <Field label="Giá thuê (VNĐ)" required error={errors.rentalPrice}>
                             <InputNumber
                                 min={0}
                                 placeholder="VD: 5000000"
@@ -384,7 +387,7 @@ export default function CreateProjectPage() {
                             />
                         </Field>
 
-                        <Field label="Giá đặt cọc phòng (VNĐ)">
+                        <Field label="Giá đặt cọc phòng (VNĐ)" required error={errors.depositPrice}>
                             <InputNumber
                                 min={0}
                                 placeholder="VD: 2000000"
@@ -399,16 +402,17 @@ export default function CreateProjectPage() {
                             />
                         </Field>
 
-                        <Field label="Thông tin thêm (Phòng)">
-                            <Input placeholder="VD: Phòng có ban công..." value={rentalInfo} onChange={e => setRentalInfo(e.target.value)} />
-                        </Field>
-
-                        <Field label="Ngày bắt đầu HĐ">
-                            <DatePicker style={dateInputStyle} format="DD/MM/YYYY" value={contractStartAt ? dayjs(contractStartAt) : null} onChange={(d) => setContractStartAt(d ? d.format('YYYY-MM-DD') : '')} />
-                        </Field>
-
-                        <Field label="Ngày kết thúc HĐ">
-                            <DatePicker style={dateInputStyle} format="DD/MM/YYYY" value={contractEndAt ? dayjs(contractEndAt) : null} onChange={(d) => setContractEndAt(d ? d.format('YYYY-MM-DD') : '')} />
+                        <Field label="Hạn hợp đồng" required error={errors.contractDuration}>
+                            <InputNumber
+                                min={1}
+                                max={36}
+                                step={1}
+                                placeholder="VD: 12"
+                                value={contractDuration}
+                                onChange={v => setContractDuration(v)}
+                                suffix="tháng"
+                                style={{ width: '100%' }}
+                            />
                         </Field>
 
                         <Field label="Nguồn khách" required error={errors.leadSource}>
@@ -528,11 +532,11 @@ export default function CreateProjectPage() {
                                 </thead>
                                 <tbody style={{ borderTop: '1px solid #f0f0f0' }}>
                                     {[
-                                        { role: 'm nhỏ', roleColor: '#E8890C', value: mId, onChange: handleMChange, rate: rates.mRate, rateColor: '#E8890C', leader: mLeader },
-                                        { role: 'M lớn 1', roleColor: '#1A2B5A', value: m1Id, onChange: handleM1Change, rate: rates.m1Rate, rateColor: '#1A2B5A', leader: m1Leader },
-                                        { role: 'M lớn 2', roleColor: '#1A2B5A', value: m2Id, onChange: handleM2Change, rate: rates.m2Rate, rateColor: '#1A2B5A', leader: m2Leader },
-                                        { role: 'S1', roleColor: '#16a34a', value: s1Id, onChange: handleS1Change, rate: rates.s1Rate, rateColor: '#16a34a', leader: s1Leader },
-                                        { role: 'S2', roleColor: '#16a34a', value: s2Id, onChange: handleS2Change, rate: rates.s2Rate, rateColor: '#16a34a', leader: s2Leader },
+                                        { role: 'm nhỏ', roleColor: '#E8890C', value: mId, onChange: handleMChange, rate: rates.mRate, rateColor: '#E8890C', leader: mLeader, disabled: false },
+                                        { role: 'M lớn 1', roleColor: '#1A2B5A', value: m1Id, onChange: handleM1Change, rate: rates.m1Rate, rateColor: '#1A2B5A', leader: m1Leader, disabled: false },
+                                        { role: 'M lớn 2', roleColor: '#1A2B5A', value: m2Id, onChange: handleM2Change, rate: rates.m2Rate, rateColor: '#1A2B5A', leader: m2Leader, disabled: !m1Id },
+                                        { role: 'S1', roleColor: '#16a34a', value: s1Id, onChange: handleS1Change, rate: rates.s1Rate, rateColor: '#16a34a', leader: s1Leader, disabled: false },
+                                        { role: 'S2', roleColor: '#16a34a', value: s2Id, onChange: handleS2Change, rate: rates.s2Rate, rateColor: '#16a34a', leader: s2Leader, disabled: !s1Id },
                                     ].map((row, i) => (
                                         <tr key={row.role} style={{ borderBottom: '1px solid #f0f0f0' }}>
                                             <td style={{ padding: '8px 12px', fontWeight: 500, color: row.roleColor }}>{row.role}</td>
@@ -540,9 +544,10 @@ export default function CreateProjectPage() {
                                                 <Select
                                                     value={row.value || undefined}
                                                     onChange={v => row.onChange(v ?? '')}
-                                                    placeholder="Chọn nhân viên"
+                                                    placeholder={row.disabled ? 'Điền trước' : 'Chọn nhân viên'}
                                                     style={{ width: '100%', fontSize: 12 }}
                                                     allowClear
+                                                    disabled={row.disabled}
                                                     options={[{ value: '', label: 'Không chọn' }, ...empOptions]}
                                                     showSearch
                                                     size="small"

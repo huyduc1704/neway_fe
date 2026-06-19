@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Layout, Menu, ConfigProvider, Spin } from 'antd';
 import {
-    DashboardOutlined, BarChartOutlined, ProjectOutlined,
+    BarChartOutlined, ProjectOutlined,
     SettingOutlined, CalculatorOutlined, HomeOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import { useUser } from '@/context/UserContext';
@@ -70,7 +70,7 @@ const MENU_CONFIG = [
             { key: '/dashboard/he-thong/chi-nhanh', label: <Link href="/dashboard/he-thong/chi-nhanh">Chi nhánh</Link>, permission: 'BRANCH_VIEW' },
 { key: '/dashboard/he-thong/quan-ly-khu-vuc', label: <Link href="/dashboard/he-thong/quan-ly-khu-vuc">Khu vực</Link>, permission: 'REGION_VIEW' },
             { key: '/dashboard/he-thong/doi-nhom', label: <Link href="/dashboard/he-thong/doi-nhom">Đội/Nhóm</Link>, permission: 'TEAM_VIEW' },
-            { key: '/dashboard/he-thong/nguon-khach', label: <Link href="/dashboard/he-thong/nguon-khach">Nguồn khách</Link>, permission: 'EMPLOYEE_VIEW' },
+            { key: '/dashboard/he-thong/nguon-khach', label: <Link href="/dashboard/he-thong/nguon-khach">Nguồn khách</Link>, permission: 'LEAD_SOURCE_VIEW' },
         ],
     },
 ];
