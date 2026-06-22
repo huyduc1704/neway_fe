@@ -43,6 +43,7 @@ const MENU_CONFIG = [
         children: [
             { key: '/dashboard/tinh-luong/ky-luong', label: <Link href="/dashboard/tinh-luong/ky-luong">Kỳ lương</Link>, permission: 'PAYROLL_VIEW' },
             { key: '/dashboard/tinh-luong/bang-luong', label: <Link href="/dashboard/tinh-luong/bang-luong">Bảng lương</Link>, permission: 'PAYROLL_VIEW' },
+            { key: '/dashboard/tinh-luong/yeu-cau-chinh-sua', label: <Link href="/dashboard/tinh-luong/yeu-cau-chinh-sua">Yêu cầu chỉnh sửa</Link>, permission: 'EDIT_REQUEST_VIEW' },
         ],
     },
     {

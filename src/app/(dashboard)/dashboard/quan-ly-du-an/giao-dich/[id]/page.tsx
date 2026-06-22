@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle, Upload as UploadIcon, ExternalLink, AlertTriangle } from 'lucide-react';
 import api from '@/lib/api';
-import { Button, Input, Select, Tag, InputNumber, Checkbox, Spin, Card, Row, Col, Descriptions, Typography, Space, Divider, Upload, DatePicker, Table, Modal, Tooltip } from 'antd';
+import { Button, Input, Select, Tag, InputNumber, Checkbox, Spin, Card, Row, Col, Descriptions, Typography, Space, Divider, Upload, DatePicker, Table, Modal, Tooltip, Alert } from 'antd';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
@@ -16,6 +16,8 @@ interface TransactionDetail {
     transactionCode: string;
     status: string;
     collectionStatus: string;
+    payrollPeriodId: string | null;
+    payrollPeriod: { id: string; code: string; isLocked: boolean } | null;
     accountantConfirmed: boolean;
     accountantConfirmedAt: string | null;
     accountantConfirmedBy: { fullName: string } | null;
@@ -87,6 +89,11 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
     const [manualActualRevenue, setManualActualRevenue] = useState<number | null>(null);
     const [collectionStatus, setCollectionStatus] = useState('NOT_COLLECTED');
     const [note, setNote] = useState('');
+
+    /* edit request */
+    const [editReqModal, setEditReqModal] = useState(false);
+    const [editReqReason, setEditReqReason] = useState('');
+    const [submittingEditReq, setSubmittingEditReq] = useState(false);
 
     /* ── Fetch ── */
     const fetchTx = useCallback(async () => {
@@ -195,6 +202,23 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
         });
     };
 
+    /* ── Tạo yêu cầu chỉnh sửa ── */
+    const handleSubmitEditReq = async () => {
+        if (!editReqReason.trim()) { toast.error('Vui lòng nhập lý do'); return; }
+        if (!tx?.project?.id) return;
+        setSubmittingEditReq(true);
+        try {
+            await api.post(`/edit-requests/projects/${tx.project.id}`, { reason: editReqReason });
+            toast.success('Đã gửi yêu cầu chỉnh sửa, chờ kế toán duyệt');
+            setEditReqModal(false);
+            setEditReqReason('');
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Thao tác thất bại');
+        } finally {
+            setSubmittingEditReq(false);
+        }
+    };
+
     /* ── Upload ảnh ── */
     const handleImageUpload = async (file: File) => {
         setUploadingImg(true);
@@ -222,6 +246,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
     if (!tx) return null;
 
     const isLocked = tx.accountantConfirmed || tx.status === 'SUCCESS';
+    const isPayrollLocked = !!(tx.payrollPeriodId && tx.payrollPeriod?.isLocked);
 
     return (
         <div className="space-y-4 pb-8" style={{ padding: '0 24px', backgroundColor: '#f0f2f5', minHeight: '100vh', paddingTop: '24px' }}>
@@ -266,6 +291,23 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                     </Space>
                 </Col>
             </Row>
+
+            {isPayrollLocked && (
+                <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                    message={`Giao dịch này đang thuộc kỳ lương "${tx.payrollPeriod?.code}" đã khoá`}
+                    description={
+                        <Space style={{ marginTop: 4 }}>
+                            <span>Không thể chỉnh sửa trực tiếp. Cần tạo yêu cầu để kế toán duyệt.</span>
+                            <Button size="small" onClick={() => setEditReqModal(true)}>
+                                Tạo yêu cầu chỉnh sửa
+                            </Button>
+                        </Space>
+                    }
+                />
+            )}
 
             <Row gutter={[24, 24]}>
                 {/* ── Cột trái: Thông tin giao dịch ── */}
@@ -561,6 +603,28 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                     </Space>
                 </Col>
             </Row>
+
+            {/* Modal tạo yêu cầu chỉnh sửa */}
+            <Modal
+                open={editReqModal}
+                title="Tạo yêu cầu chỉnh sửa"
+                onOk={handleSubmitEditReq}
+                onCancel={() => { setEditReqModal(false); setEditReqReason(''); }}
+                okText="Gửi yêu cầu"
+                okButtonProps={{ loading: submittingEditReq, style: { background: '#1A2B5A' } }}
+                cancelText="Huỷ"
+            >
+                <p style={{ color: '#6b7280', marginBottom: 12 }}>
+                    Giao dịch đang trong kỳ lương đã khoá. Vui lòng mô tả lý do cần chỉnh sửa để kế toán xét duyệt.
+                </p>
+                <div style={{ marginBottom: 4 }}>Lý do chỉnh sửa <span style={{ color: '#ef4444' }}>*</span></div>
+                <Input.TextArea
+                    rows={4}
+                    placeholder="Nhập lý do cần chỉnh sửa giao dịch..."
+                    value={editReqReason}
+                    onChange={e => setEditReqReason(e.target.value)}
+                />
+            </Modal>
         </div>
     );
 }

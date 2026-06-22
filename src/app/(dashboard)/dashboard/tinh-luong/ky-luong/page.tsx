@@ -131,9 +131,15 @@ export default function KyLuongPage() {
             ),
         },
         {
-            title: 'Thao tác', key: 'actions', width: 180, align: 'center',
+            title: 'Thao tác', key: 'actions', width: 220, align: 'center',
             render: (_, r) => (
                 <Space>
+                    {can('PAYROLL_EDIT') && !r.isLocked && (
+                        <Button size="small" style={{ fontSize: 12 }}
+                            onClick={() => router.push(`/dashboard/tinh-luong/ky-luong/${r.id}` as any)}>
+                            Gán GD
+                        </Button>
+                    )}
                     <Button size="small" style={{ color: '#E8890C', borderColor: '#E8890C', fontSize: 12 }}
                         onClick={() => router.push(`/dashboard/tinh-luong/bang-luong?periodId=${r.id}` as any)}>
                         <CalendarDays size={14} /> Bảng lương
