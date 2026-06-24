@@ -46,7 +46,14 @@ interface TransactionDetail {
     customer: { id: string; fullName: string; phone: string } | null;
     branch: { id: string; name: string } | null;
     team: { id: string; name: string } | null;
-    commissions: Array<{ role: { name: string }; amount: number }>;
+    commissions: Array<{
+        role: { name: string };
+        amount: number;
+        employee: {
+            employeeCode: string;
+            user: { fullName: string };
+        } | null;
+    }>;
 }
 
 /* ─── Constants ──────────────────────────────────────────── */
@@ -254,8 +261,8 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
             <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
                 <Col>
                     <Space size="middle" align="center">
-                        <Button 
-                            icon={<ArrowLeft className="h-4 w-4" />} 
+                        <Button
+                            icon={<ArrowLeft className="h-4 w-4" />}
                             onClick={() => router.back()}
                         >
                             Quay lại
@@ -313,7 +320,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                 {/* ── Cột trái: Thông tin giao dịch ── */}
                 <Col xs={24} md={12}>
                     <Space direction="vertical" size="large" style={{ display: 'flex' }}>
-                        
+
                         {/* Thông tin cơ bản */}
                         <Card title={<span style={{ color: '#E8890C' }}>Thông tin cơ bản</span>} bordered={false}>
                             <Descriptions column={1} bordered size="small" labelStyle={{ width: '160px', backgroundColor: '#fff7e6', color: '#E8890C', fontWeight: 500 }}>
@@ -379,7 +386,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                                 )}
 
                                 <Divider style={{ margin: '8px 0' }} />
-                                
+
                                 <Row justify="space-between">
                                     <Col><Text strong>Tổng tiền cọc</Text></Col>
                                     <Col><Text strong style={{ color: '#E8890C', fontSize: '16px' }}>{fmtCurrency(totalDeposit || null)}</Text></Col>
@@ -417,16 +424,16 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                 {/* ── Cột phải: Nghiệp vụ ── */}
                 <Col xs={24} md={12}>
                     <Space direction="vertical" size="large" style={{ display: 'flex' }}>
-                        
+
                         {/* Tình trạng & Ngày GD */}
                         <Card title={<span style={{ color: '#E8890C' }}>Tình trạng giao dịch</span>} bordered={false}>
                             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                                 <div>
                                     <div style={{ marginBottom: 4 }}>Tình trạng</div>
-                                    <Select 
+                                    <Select
                                         style={{ width: '100%' }}
-                                        value={status} 
-                                        onChange={setStatus} 
+                                        value={status}
+                                        onChange={setStatus}
                                         disabled={isLocked}
                                         options={STATUS_OPTIONS}
                                     />
@@ -434,8 +441,8 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
 
                                 <div>
                                     <div style={{ marginBottom: 4 }}>Ngày GDTC / GDHC</div>
-                                    <DatePicker 
-                                        showTime 
+                                    <DatePicker
+                                        showTime
                                         format="DD/MM/YYYY HH:mm"
                                         style={{ width: '100%' }}
                                         value={transactedAt ? dayjs(transactedAt) : null}
@@ -464,9 +471,9 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
 
                                 <div>
                                     <div style={{ marginBottom: 4 }}>Trạng thái thu</div>
-                                    <Select 
+                                    <Select
                                         style={{ width: '100%' }}
-                                        value={collectionStatus} 
+                                        value={collectionStatus}
                                         onChange={setCollectionStatus}
                                         options={[
                                             { value: 'NOT_COLLECTED', label: 'Chưa thu' },
@@ -576,6 +583,25 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                                         size="small"
                                         rowKey={(_r, i) => String(i)}
                                     >
+                                        <Table.Column
+                                            title="Mã NV"
+                                            key="empCode"
+                                            width={110}
+                                            render={(_: any, r: any) =>
+                                                r.employee?.employeeCode
+                                                    ? <Text style={{ fontWeight: 500 }}>{r.employee.employeeCode}</Text>
+                                                    : <Text type='secondary'>-</Text>
+                                            }
+                                        />
+                                        <Table.Column
+                                            title="Tên nhân viên"
+                                            key="empName"
+                                            render={(_: any, r: any) =>
+                                                r.employee?.user?.fullName
+                                                    ? <Text>{r.employee.user.fullName}</Text>
+                                                    : <Text type="secondary">—</Text>
+                                            }
+                                        />
                                         <Table.Column title="Vai trò" dataIndex={['role', 'name']} key="role" render={(val: string) => fmtRole(val)} />
                                         <Table.Column
                                             title="Số tiền"

@@ -1,5 +1,5 @@
 'use client';
-import { use, useEffect, useState, useCallback } from 'react';
+import { use, useEffect, useState, useCallback, useRef } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
@@ -85,6 +85,8 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
 
     /* lookup data */
     const [employees,   setEmployees]   = useState<Employee[]>([]);
+    const [empOptions,  setEmpOptions]  = useState<{ value: string; label: string }[]>([]);
+    const [empLoading,  setEmpLoading]  = useState(false);
     const [allBranches, setAllBranches] = useState<Branch[]>([]);
     const [allTeams,    setAllTeams]    = useState<Team[]>([]);
     const [leadSources, setLeadSources] = useState<{ value: string; label: string }[]>([]);
@@ -145,6 +147,31 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
 
     const [projectCode, setProjectCode] = useState('');
 
+    /* ── Server-side employee search (debounced 300ms) ── */
+    const empSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleEmpSearch = useCallback((keyword: string) => {
+        if (empSearchTimer.current) clearTimeout(empSearchTimer.current);
+        if (!keyword || keyword.trim().length < 1) {
+            setEmpOptions(employees.map(em => ({
+                value: em.id,
+                label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})`,
+            })));
+            return;
+        }
+        setEmpLoading(true);
+        empSearchTimer.current = setTimeout(async () => {
+            try {
+                const { data } = await api.get('/employees', { params: { search: keyword.trim(), limit: 20 } });
+                const list: Employee[] = data?.data ?? [];
+                setEmpOptions(list.map(em => ({
+                    value: em.id,
+                    label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})`,
+                })));
+            } catch { }
+            finally { setEmpLoading(false); }
+        }, 300);
+    }, [employees]);
+
     /* ── Auto-load leader when employee selected ── */
     const getLeaderName = useCallback(async (empId: string): Promise<string> => {
         if (!empId) return '';
@@ -165,7 +192,12 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         ]).then(([b, t, e, pRes, ls]) => {
             setAllBranches(b.data?.data ?? []);
             setAllTeams(t.data?.data ?? []);
-            setEmployees(e.data?.data ?? []);
+            const empList: Employee[] = e.data?.data ?? [];
+            setEmployees(empList);
+            setEmpOptions(empList.map(em => ({
+                value: em.id,
+                label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})`,
+            })));
             const sources = (Array.isArray(ls.data) ? ls.data : ls.data?.data ?? []);
             setLeadSources(sources.map((s: { code: string; label: string }) => ({ value: s.code, label: s.label })));
             
@@ -198,7 +230,6 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             }
 
             if (p.staffSlot) {
-                const empList: Employee[] = e.data?.data ?? [];
                 // Build reverse map: EmployeeProfile.id → User.id (for backward compat)
                 const profileToUserId = new Map(
                     empList.filter(em => em.employeeProfile?.id).map(em => [em.employeeProfile!.id!, em.id])
@@ -345,7 +376,6 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         }
     };
 
-    const empOptions = employees.map(em => ({ value: em.id, label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})` }));
     const toProfileId = (userId: string) => employees.find(e => e.id === userId)?.employeeProfile?.id ?? userId;
     const dateInputStyle: React.CSSProperties = { height: 32, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 };
 
@@ -614,16 +644,17 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                                                 <Select
                                                     value={row.value || undefined}
                                                     onChange={v => row.onChange(v ?? '')}
-                                                    placeholder={row.disabled ? 'Điền trước' : 'Chọn nhân viên'}
+                                                    placeholder={row.disabled ? 'Điền trước' : 'Gõ tên để tìm...'}
                                                     style={{ width: '100%', fontSize: 12 }}
                                                     allowClear
                                                     disabled={row.disabled}
                                                     options={[{ value: '', label: 'Không chọn' }, ...empOptions]}
                                                     showSearch
+                                                    filterOption={false}
+                                                    onSearch={handleEmpSearch}
+                                                    loading={empLoading}
+                                                    notFoundContent={empLoading ? 'Đang tìm...' : 'Gõ tên để tìm nhân viên'}
                                                     size="small"
-                                                    filterOption={(input, option) =>
-                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                    }
                                                 />
                                             </td>
                                             <td style={{ padding: '8px 12px', textAlign: 'center' }}>

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
@@ -76,7 +76,8 @@ export default function CreateProjectPage() {
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     /* lookup data */
-    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [empOptions, setEmpOptions] = useState<{ value: string; label: string }[]>([]);
+    const [empLoading, setEmpLoading] = useState(false);
     const [allBranches, setAllBranches] = useState<Branch[]>([]);
     const [allTeams, setAllTeams] = useState<Team[]>([]);
     const [leadSources, setLeadSources] = useState<{ value: string; label: string }[]>([]);
@@ -150,15 +151,32 @@ export default function CreateProjectPage() {
         Promise.all([
             api.get('/branches', { params: { limit: 200 } }),
             api.get('/teams', { params: { limit: 200 } }),
-            api.get('/employees', { params: { limit: 500 } }),
             api.get('/lead-sources'),
-        ]).then(([b, t, e, ls]) => {
+        ]).then(([b, t, ls]) => {
             setAllBranches(b.data?.data ?? []);
             setAllTeams(t.data?.data ?? []);
-            setEmployees(e.data?.data ?? []);
             const sources = (Array.isArray(ls.data) ? ls.data : ls.data?.data ?? []);
             setLeadSources(sources.map((s: { code: string; label: string }) => ({ value: s.code, label: s.label })));
         }).catch(() => { });
+    }, []);
+
+    /* ── Server-side employee search (debounced 300ms) ── */
+    const empSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleEmpSearch = useCallback((keyword: string) => {
+        if (empSearchTimer.current) clearTimeout(empSearchTimer.current);
+        if (!keyword || keyword.trim().length < 1) { setEmpOptions([]); return; }
+        setEmpLoading(true);
+        empSearchTimer.current = setTimeout(async () => {
+            try {
+                const { data } = await api.get('/employees', { params: { search: keyword.trim(), limit: 20 } });
+                const list: Employee[] = data?.data ?? [];
+                setEmpOptions(list.map(em => ({
+                    value: em.id,
+                    label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})`,
+                })));
+            } catch { }
+            finally { setEmpLoading(false); }
+        }, 300);
     }, []);
 
     /* ── Auto-load leader when employee selected ── */
@@ -224,11 +242,11 @@ export default function CreateProjectPage() {
         setLoading(true);
         try {
             const staffSlot: Record<string, string | number | undefined> = {};
-            if (mId) { staffSlot.mEmployeeId = toProfileId(mId); staffSlot.mRate = rates.mRate; }
-            if (m1Id) { staffSlot.m1EmployeeId = toProfileId(m1Id); staffSlot.m1Rate = rates.m1Rate; }
-            if (m2Id) { staffSlot.m2EmployeeId = toProfileId(m2Id); staffSlot.m2Rate = rates.m2Rate; }
-            if (s1Id) { staffSlot.s1EmployeeId = toProfileId(s1Id); staffSlot.s1Rate = rates.s1Rate; }
-            if (s2Id) { staffSlot.s2EmployeeId = toProfileId(s2Id); staffSlot.s2Rate = rates.s2Rate; }
+            if (mId) { staffSlot.mEmployeeId = mId; staffSlot.mRate = rates.mRate; }
+            if (m1Id) { staffSlot.m1EmployeeId = m1Id; staffSlot.m1Rate = rates.m1Rate; }
+            if (m2Id) { staffSlot.m2EmployeeId = m2Id; staffSlot.m2Rate = rates.m2Rate; }
+            if (s1Id) { staffSlot.s1EmployeeId = s1Id; staffSlot.s1Rate = rates.s1Rate; }
+            if (s2Id) { staffSlot.s2EmployeeId = s2Id; staffSlot.s2Rate = rates.s2Rate; }
 
             const payload: Record<string, unknown> = {
                 ward,
@@ -273,8 +291,6 @@ export default function CreateProjectPage() {
         }
     };
 
-    const empOptions = employees.map(em => ({ value: em.id, label: `${em.fullName} (${em.employeeProfile?.employeeCode || em.code || 'N/A'})` }));
-    const toProfileId = (userId: string) => employees.find(e => e.id === userId)?.employeeProfile?.id ?? userId;
     const dateInputStyle: React.CSSProperties = { height: 32, width: '100%', padding: '0 12px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 };
 
     return (
@@ -544,12 +560,16 @@ export default function CreateProjectPage() {
                                                 <Select
                                                     value={row.value || undefined}
                                                     onChange={v => row.onChange(v ?? '')}
-                                                    placeholder={row.disabled ? 'Điền trước' : 'Chọn nhân viên'}
+                                                    placeholder={row.disabled ? 'Điền trước' : 'Gõ tên để tìm...'}
                                                     style={{ width: '100%', fontSize: 12 }}
                                                     allowClear
                                                     disabled={row.disabled}
                                                     options={[{ value: '', label: 'Không chọn' }, ...empOptions]}
                                                     showSearch
+                                                    filterOption={false}
+                                                    onSearch={handleEmpSearch}
+                                                    loading={empLoading}
+                                                    notFoundContent={empLoading ? 'Đang tìm...' : 'Gõ tên để tìm nhân viên'}
                                                     size="small"
                                                 />
                                             </td>
