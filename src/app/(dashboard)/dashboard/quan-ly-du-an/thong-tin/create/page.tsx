@@ -17,8 +17,8 @@ const { Title } = Typography;
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { id?: string; employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
-interface Branch { id: string; name: string; wards: string[]; }
-interface Team { id: string; name: string; branch?: { id: string; name: string }; }
+interface Branch { id: string; name: string; wards: string[]; region?: { id: string; name: string } | null; }
+interface Region { id: string; name: string; }
 
 /* ─── Rate auto-calc logic ───────────────────────────────── */
 function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean, hasS2: boolean) {
@@ -79,7 +79,7 @@ export default function CreateProjectPage() {
     const [empOptions, setEmpOptions] = useState<{ value: string; label: string }[]>([]);
     const [empLoading, setEmpLoading] = useState(false);
     const [allBranches, setAllBranches] = useState<Branch[]>([]);
-    const [allTeams, setAllTeams] = useState<Team[]>([]);
+    const [allRegions, setAllRegions] = useState<Region[]>([]);
     const [leadSources, setLeadSources] = useState<{ value: string; label: string }[]>([]);
 
     /* province/ward API */
@@ -104,14 +104,12 @@ export default function CreateProjectPage() {
     const [province, setProvince] = useState('');
     const [ward, setWard] = useState('');
     const [managedBranchId, setManagedBranchId] = useState('');
-    const [teamId, setTeamId] = useState('');
+    const [regionId, setRegionId] = useState('');
 
-    const filteredBranches = ward
-        ? allBranches.filter(b => b.wards.some(w => w.toLowerCase() === ward.toLowerCase()))
-        : allBranches;
-    const filteredTeams = managedBranchId
-        ? allTeams.filter(t => t.branch?.id === managedBranchId)
-        : [];
+    const filteredBranches = allBranches.filter(b =>
+        (regionId ? b.region?.id === regionId : true) &&
+        (ward ? b.wards.some(w => w.toLowerCase() === ward.toLowerCase()) : true)
+    );
 
     const [rentalPrice, setRentalPrice] = useState('');
     const [depositPrice, setDepositPrice] = useState('');
@@ -150,11 +148,11 @@ export default function CreateProjectPage() {
     useEffect(() => {
         Promise.all([
             api.get('/branches', { params: { limit: 200 } }),
-            api.get('/teams', { params: { limit: 200 } }),
+            api.get('/regions', { params: { limit: 200 } }),
             api.get('/lead-sources'),
-        ]).then(([b, t, ls]) => {
+        ]).then(([b, r, ls]) => {
             setAllBranches(b.data?.data ?? []);
-            setAllTeams(t.data?.data ?? []);
+            setAllRegions(r.data?.data ?? []);
             const sources = (Array.isArray(ls.data) ? ls.data : ls.data?.data ?? []);
             setLeadSources(sources.map((s: { code: string; label: string }) => ({ value: s.code, label: s.label })));
         }).catch(() => { });
@@ -222,7 +220,6 @@ export default function CreateProjectPage() {
         if (!ward.trim()) e.ward = 'Nhập phường/xã';
         if (!province) e.province = 'Chọn tỉnh/thành phố';
         if (!managedBranchId) e.managedBranchId = 'Chọn chi nhánh';
-        if (!teamId) e.teamId = 'Chọn khu vực';
         if (!rentalPrice) e.rentalPrice = 'Nhập giá thuê';
         if (!depositPrice) e.depositPrice = 'Nhập giá đặt cọc';
         if (!contractDuration) e.contractDuration = 'Nhập hạn hợp đồng';
@@ -252,7 +249,6 @@ export default function CreateProjectPage() {
                 ward,
                 province,
                 managedBranchId,
-                teamId: teamId || undefined,
                 houseNumber: houseNumber || undefined,
                 roomCode: roomCode || undefined,
                 rentalPrice: rentalPrice ? Number(rentalPrice) : undefined,
@@ -353,7 +349,7 @@ export default function CreateProjectPage() {
                         <Field label="Phường / Xã" required error={errors.ward}>
                             <WardAutoComplete
                                 value={ward}
-                                onChange={v => { setWard(v); setManagedBranchId(''); setTeamId(''); }}
+                                onChange={v => { setWard(v); setManagedBranchId(''); }}
                                 wardOptions={wardOptions}
                                 loading={wardsLoading}
                                 placeholder={wardsLoading ? 'Đang tải...' : selectedProvinceCode ? 'Chọn hoặc nhập phường/xã' : 'Chọn thành phố trước'}
@@ -361,27 +357,28 @@ export default function CreateProjectPage() {
                             />
                         </Field>
 
+                        <Field label="Khu vực" error={errors.regionId}>
+                            <Select
+                                value={regionId || undefined}
+                                onChange={v => { setRegionId(v ?? ''); setManagedBranchId(''); }}
+                                placeholder="Chọn khu vực"
+                                style={{ width: '100%' }}
+                                showSearch
+                                allowClear
+                                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                options={allRegions.map(r => ({ value: r.id, label: r.name }))}
+                            />
+                        </Field>
+
                         <Field label="Chi nhánh quản lý" required error={errors.managedBranchId}>
                             <Select
                                 value={managedBranchId || undefined}
-                                onChange={v => { setManagedBranchId(v ?? ''); setTeamId(''); }}
-                                placeholder={ward ? 'Chọn chi nhánh theo phường' : 'Chọn chi nhánh'}
+                                onChange={v => setManagedBranchId(v ?? '')}
+                                placeholder={regionId ? 'Chọn chi nhánh theo khu vực' : ward ? 'Chọn chi nhánh theo phường' : 'Chọn chi nhánh'}
                                 style={{ width: '100%' }}
                                 showSearch
                                 filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                 options={filteredBranches.map(b => ({ value: b.id, label: b.name }))}
-                            />
-                        </Field>
-
-                        <Field label="Khu vực (Team)" required error={errors.teamId}>
-                            <Select
-                                value={teamId || undefined}
-                                onChange={v => setTeamId(v ?? '')}
-                                placeholder={managedBranchId ? 'Chọn team theo chi nhánh' : 'Chọn khu vực'}
-                                style={{ width: '100%' }}
-                                showSearch
-                                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                options={filteredTeams.map(t => ({ value: t.id, label: t.name }))}
                             />
                         </Field>
 
