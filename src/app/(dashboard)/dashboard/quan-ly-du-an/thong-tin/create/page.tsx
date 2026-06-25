@@ -97,6 +97,11 @@ export default function CreateProjectPage() {
     const [m2Leader, setM2Leader] = useState('');
     const [s1Leader, setS1Leader] = useState('');
     const [s2Leader, setS2Leader] = useState('');
+    const [mLeaderRate, setMLeaderRate] = useState(0);
+    const [m1LeaderRate, setM1LeaderRate] = useState(0);
+    const [m2LeaderRate, setM2LeaderRate] = useState(0);
+    const [s1LeaderRate, setS1LeaderRate] = useState(0);
+    const [s2LeaderRate, setS2LeaderRate] = useState(0);
 
     /* ── Cụm thông tin phòng ── */
     const [roomCode, setRoomCode] = useState('');
@@ -182,7 +187,7 @@ export default function CreateProjectPage() {
         if (!empId) return '';
         try {
             const { data } = await api.get(`/employees/${empId}`);
-            return data?.employeeProfile?.team?.leader?.fullName ?? data?.team?.leader?.fullName ?? data?.team?.leaderName ?? '';
+            return data?.employeeProfile?.team?.leader?.user?.fullName ?? '';
         } catch { return ''; }
     }, []);
 
@@ -239,11 +244,11 @@ export default function CreateProjectPage() {
         setLoading(true);
         try {
             const staffSlot: Record<string, string | number | undefined> = {};
-            if (mId) { staffSlot.mEmployeeId = mId; staffSlot.mRate = rates.mRate; }
-            if (m1Id) { staffSlot.m1EmployeeId = m1Id; staffSlot.m1Rate = rates.m1Rate; }
-            if (m2Id) { staffSlot.m2EmployeeId = m2Id; staffSlot.m2Rate = rates.m2Rate; }
-            if (s1Id) { staffSlot.s1EmployeeId = s1Id; staffSlot.s1Rate = rates.s1Rate; }
-            if (s2Id) { staffSlot.s2EmployeeId = s2Id; staffSlot.s2Rate = rates.s2Rate; }
+            if (mId) { staffSlot.mEmployeeId = mId; staffSlot.mRate = rates.mRate; staffSlot.mLeaderRate = mLeaderRate || undefined; }
+            if (m1Id) { staffSlot.m1EmployeeId = m1Id; staffSlot.m1Rate = rates.m1Rate; staffSlot.m1LeaderRate = m1LeaderRate || undefined; }
+            if (m2Id) { staffSlot.m2EmployeeId = m2Id; staffSlot.m2Rate = rates.m2Rate; staffSlot.m2LeaderRate = m2LeaderRate || undefined; }
+            if (s1Id) { staffSlot.s1EmployeeId = s1Id; staffSlot.s1Rate = rates.s1Rate; staffSlot.s1LeaderRate = s1LeaderRate || undefined; }
+            if (s2Id) { staffSlot.s2EmployeeId = s2Id; staffSlot.s2Rate = rates.s2Rate; staffSlot.s2LeaderRate = s2LeaderRate || undefined; }
 
             const payload: Record<string, unknown> = {
                 ward,
@@ -357,6 +362,18 @@ export default function CreateProjectPage() {
                             />
                         </Field>
 
+                        <Field label="Chi nhánh" required error={errors.managedBranchId}>
+                            <Select
+                                value={managedBranchId || undefined}
+                                onChange={v => setManagedBranchId(v ?? '')}
+                                placeholder={regionId ? 'Chọn chi nhánh theo khu vực' : ward ? 'Chọn chi nhánh theo phường' : 'Chọn chi nhánh'}
+                                style={{ width: '100%' }}
+                                showSearch
+                                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                options={filteredBranches.map(b => ({ value: b.id, label: b.name }))}
+                            />
+                        </Field>
+
                         <Field label="Khu vực" error={errors.regionId}>
                             <Select
                                 value={regionId || undefined}
@@ -367,18 +384,6 @@ export default function CreateProjectPage() {
                                 allowClear
                                 filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                 options={allRegions.map(r => ({ value: r.id, label: r.name }))}
-                            />
-                        </Field>
-
-                        <Field label="Chi nhánh quản lý" required error={errors.managedBranchId}>
-                            <Select
-                                value={managedBranchId || undefined}
-                                onChange={v => setManagedBranchId(v ?? '')}
-                                placeholder={regionId ? 'Chọn chi nhánh theo khu vực' : ward ? 'Chọn chi nhánh theo phường' : 'Chọn chi nhánh'}
-                                style={{ width: '100%' }}
-                                showSearch
-                                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                options={filteredBranches.map(b => ({ value: b.id, label: b.name }))}
                             />
                         </Field>
 
@@ -545,12 +550,12 @@ export default function CreateProjectPage() {
                                 </thead>
                                 <tbody style={{ borderTop: '1px solid #f0f0f0' }}>
                                     {[
-                                        { role: 'm nhỏ', roleColor: '#E8890C', value: mId, onChange: handleMChange, rate: rates.mRate, rateColor: '#E8890C', leader: mLeader, disabled: false },
-                                        { role: 'M lớn 1', roleColor: '#1A2B5A', value: m1Id, onChange: handleM1Change, rate: rates.m1Rate, rateColor: '#1A2B5A', leader: m1Leader, disabled: false },
-                                        { role: 'M lớn 2', roleColor: '#1A2B5A', value: m2Id, onChange: handleM2Change, rate: rates.m2Rate, rateColor: '#1A2B5A', leader: m2Leader, disabled: !m1Id },
-                                        { role: 'S1', roleColor: '#16a34a', value: s1Id, onChange: handleS1Change, rate: rates.s1Rate, rateColor: '#16a34a', leader: s1Leader, disabled: false },
-                                        { role: 'S2', roleColor: '#16a34a', value: s2Id, onChange: handleS2Change, rate: rates.s2Rate, rateColor: '#16a34a', leader: s2Leader, disabled: !s1Id },
-                                    ].map((row, i) => (
+                                        { role: 'm nhỏ', roleColor: '#E8890C', value: mId, onChange: handleMChange, rate: rates.mRate, rateColor: '#E8890C', leader: mLeader, leaderRate: mLeaderRate, onLeaderRateChange: setMLeaderRate, disabled: false },
+                                        { role: 'M lớn 1', roleColor: '#1A2B5A', value: m1Id, onChange: handleM1Change, rate: rates.m1Rate, rateColor: '#1A2B5A', leader: m1Leader, leaderRate: m1LeaderRate, onLeaderRateChange: setM1LeaderRate, disabled: false },
+                                        { role: 'M lớn 2', roleColor: '#1A2B5A', value: m2Id, onChange: handleM2Change, rate: rates.m2Rate, rateColor: '#1A2B5A', leader: m2Leader, leaderRate: m2LeaderRate, onLeaderRateChange: setM2LeaderRate, disabled: !m1Id },
+                                        { role: 'S1', roleColor: '#16a34a', value: s1Id, onChange: handleS1Change, rate: rates.s1Rate, rateColor: '#16a34a', leader: s1Leader, leaderRate: s1LeaderRate, onLeaderRateChange: setS1LeaderRate, disabled: false },
+                                        { role: 'S2', roleColor: '#16a34a', value: s2Id, onChange: handleS2Change, rate: rates.s2Rate, rateColor: '#16a34a', leader: s2Leader, leaderRate: s2LeaderRate, onLeaderRateChange: setS2LeaderRate, disabled: !s1Id },
+                                    ].map((row) => (
                                         <tr key={row.role} style={{ borderBottom: '1px solid #f0f0f0' }}>
                                             <td style={{ padding: '8px 12px', fontWeight: 500, color: row.roleColor }}>{row.role}</td>
                                             <td style={{ padding: '8px 12px' }}>
@@ -576,7 +581,18 @@ export default function CreateProjectPage() {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{row.leader || '—'}</td>
-                                            <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#9ca3af' }}>Auto</td>
+                                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                                <InputNumber
+                                                    value={row.leaderRate ? +(row.leaderRate * 100).toFixed(2) : 0}
+                                                    onChange={v => row.onLeaderRateChange(v ? v / 100 : 0)}
+                                                    min={0} max={100} step={1}
+                                                    disabled={!row.leader}
+                                                    formatter={v => `${v}%`}
+                                                    parser={v => Number(v?.replace('%', '') || '0') as any}
+                                                    size="small"
+                                                    style={{ width: 80 }}
+                                                />
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
