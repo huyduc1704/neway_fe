@@ -10,6 +10,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useProvinceWard } from '@/hooks/useProvinceWard';
 import WardAutoComplete from '@/components/WardAutoComplete';
+import { MiddlewareNotFoundError } from 'next/dist/shared/lib/utils';
 
 const { Title } = Typography;
 
@@ -37,6 +38,8 @@ function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean
         else if (hasS1) { rates.s1Rate = 0.5; }
     }
     return rates;
+
+
 }
 
 /* ─── Field row helper ───────────────────────────────────── */
@@ -92,6 +95,11 @@ export default function CreateProjectPage() {
     const [s1Id, setS1Id] = useState('');
     const [s2Id, setS2Id] = useState('');
     const rates = calcRates(!!mId, !!m1Id, !!m2Id, !!s1Id, !!s2Id);
+    useEffect(() => { if (mId) setMLeaderRate(rates.mRate); }, [rates.mRate, mId]);
+    useEffect(() => { if (m1Id) setM1LeaderRate(rates.m1Rate); }, [rates.m1Rate, m1Id]);
+    useEffect(() => { if (m2Id) setM2LeaderRate(rates.m2Rate); }, [rates.m2Rate, m2Id]);
+    useEffect(() => { if (s1Id) setS1LeaderRate(rates.s1Rate); }, [rates.s1Rate, s1Id]);
+    useEffect(() => { if (s2Id) setS2LeaderRate(rates.s2Rate); }, [rates.s2Rate, s2Id]);
     const [mLeader, setMLeader] = useState('');
     const [m1Leader, setM1Leader] = useState('');
     const [m2Leader, setM2Leader] = useState('');
@@ -115,6 +123,16 @@ export default function CreateProjectPage() {
         (regionId ? b.region?.id === regionId : true) &&
         (ward ? b.wards.some(w => w.toLowerCase() === ward.toLowerCase()) : true)
     );
+    useEffect(() => {
+        if (!ward || !allBranches.length) return;
+        const matches = allBranches.filter(b =>
+            b.wards.some(w => w.toLowerCase() === ward.toLowerCase())
+        );
+        if (matches.length === 1) {
+            setManagedBranchId(matches[0].id);
+            if (matches[0].region?.id) setRegionId(matches[0].region.id);
+        }
+    }, [ward, allBranches]);
 
     const [rentalPrice, setRentalPrice] = useState('');
     const [depositPrice, setDepositPrice] = useState('');
@@ -183,38 +201,38 @@ export default function CreateProjectPage() {
     }, []);
 
     /* ── Auto-load leader when employee selected ── */
-    const getLeaderName = useCallback(async (empId: string): Promise<string> => {
+    const getLeaderCode = useCallback(async (empId: string): Promise<string> => {
         if (!empId) return '';
         try {
             const { data } = await api.get(`/employees/${empId}`);
-            return data?.employeeProfile?.team?.leader?.user?.fullName ?? '';
+            return data?.employeeProfile?.team?.leader?.employeeCode ?? '';
         } catch { return ''; }
     }, []);
 
     const handleMChange = async (id: string) => {
         setMId(id); setM1Id(''); setM2Id('');
         setM1Leader(''); setM2Leader('');
-        setMLeader(id ? await getLeaderName(id) : '');
+        setMLeader(id ? await getLeaderCode(id) : '');
     };
     const handleM1Change = async (id: string) => {
         setM1Id(id); setMId('');
         setMLeader('');
         if (!id) { setM2Id(''); setM2Leader(''); }
-        setM1Leader(id ? await getLeaderName(id) : '');
+        setM1Leader(id ? await getLeaderCode(id) : '');
     };
     const handleM2Change = async (id: string) => {
         setM2Id(id); setMId('');
         setMLeader('');
-        setM2Leader(id ? await getLeaderName(id) : '');
+        setM2Leader(id ? await getLeaderCode(id) : '');
     };
     const handleS1Change = async (id: string) => {
         setS1Id(id);
         if (!id) { setS2Id(''); setS2Leader(''); }
-        setS1Leader(id ? await getLeaderName(id) : '');
+        setS1Leader(id ? await getLeaderCode(id) : '');
     };
     const handleS2Change = async (id: string) => {
         setS2Id(id);
-        setS2Leader(id ? await getLeaderName(id) : '');
+        setS2Leader(id ? await getLeaderCode(id) : '');
     };
 
     /* ── Validation ── */

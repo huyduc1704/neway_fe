@@ -23,8 +23,8 @@ const STATUS_OPTIONS = [
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface Employee { id: string; code?: string; fullName: string; employeeProfile?: { id?: string; employeeCode?: string; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null } | null; team?: { leaderId?: string; leader?: { id: string; fullName: string } } | null; }
-interface Branch   { id: string; name: string; wards: string[]; region?: { id: string; name: string } | null; }
-interface Region   { id: string; name: string; }
+interface Branch { id: string; name: string; wards: string[]; region?: { id: string; name: string } | null; }
+interface Region { id: string; name: string; }
 
 /* ─── Rate auto-calc logic ───────────────────────────────── */
 function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean, hasS2: boolean) {
@@ -32,15 +32,15 @@ function calcRates(hasM: boolean, hasM1: boolean, hasM2: boolean, hasS1: boolean
     if (hasM) {
         rates.mRate = 0.3;
         if (hasS1 && hasS2) { rates.s1Rate = 0.35; rates.s2Rate = 0.35; }
-        else if (hasS1)     { rates.s1Rate = 0.7; }
+        else if (hasS1) { rates.s1Rate = 0.7; }
     } else if (hasM1 && hasM2) {
         rates.m1Rate = 0.25; rates.m2Rate = 0.25;
         if (hasS1 && hasS2) { rates.s1Rate = 0.25; rates.s2Rate = 0.25; }
-        else if (hasS1)     { rates.s1Rate = 0.5; }
+        else if (hasS1) { rates.s1Rate = 0.5; }
     } else if (hasM1) {
         rates.m1Rate = 0.5;
         if (hasS1 && hasS2) { rates.s1Rate = 0.25; rates.s2Rate = 0.25; }
-        else if (hasS1)     { rates.s1Rate = 0.5; }
+        else if (hasS1) { rates.s1Rate = 0.5; }
     }
     return rates;
 }
@@ -84,69 +84,84 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     /* lookup data */
-    const [employees,   setEmployees]   = useState<Employee[]>([]);
-    const [empOptions,  setEmpOptions]  = useState<{ value: string; label: string }[]>([]);
-    const [empLoading,  setEmpLoading]  = useState(false);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [empOptions, setEmpOptions] = useState<{ value: string; label: string }[]>([]);
+    const [empLoading, setEmpLoading] = useState(false);
     const [allBranches, setAllBranches] = useState<Branch[]>([]);
-    const [allRegions,  setAllRegions]  = useState<Region[]>([]);
+    const [allRegions, setAllRegions] = useState<Region[]>([]);
     const [leadSources, setLeadSources] = useState<{ value: string; label: string }[]>([]);
 
     /* province/ward API */
     const { provinceOptions, wardOptions, provincesLoading, wardsLoading, selectedProvinceCode, onProvinceChange, preloadForEdit } = useProvinceWard();
 
     /* ── Cụm nhân sự ── */
-    const [mId,  setMId]  = useState('');
+    const [mId, setMId] = useState('');
     const [m1Id, setM1Id] = useState('');
     const [m2Id, setM2Id] = useState('');
     const [s1Id, setS1Id] = useState('');
     const [s2Id, setS2Id] = useState('');
     const rates = calcRates(!!mId, !!m1Id, !!m2Id, !!s1Id, !!s2Id);
-    const [mLeader,  setMLeader]  = useState('');
+    useEffect(() => { if (mId) setMLeaderRate(rates.mRate); }, [rates.mRate, mId]);
+    useEffect(() => { if (m1Id) setM1LeaderRate(rates.m1Rate); }, [rates.m1Rate, m1Id]);
+    useEffect(() => { if (m2Id) setM2LeaderRate(rates.m2Rate); }, [rates.m2Rate, m2Id]);
+    useEffect(() => { if (s1Id) setS1LeaderRate(rates.s1Rate); }, [rates.s1Rate, s1Id]);
+    useEffect(() => { if (s2Id) setS2LeaderRate(rates.s2Rate); }, [rates.s2Rate, s2Id]);
+    const [mLeader, setMLeader] = useState('');
     const [m1Leader, setM1Leader] = useState('');
     const [m2Leader, setM2Leader] = useState('');
     const [s1Leader, setS1Leader] = useState('');
     const [s2Leader, setS2Leader] = useState('');
-    const [mLeaderRate,  setMLeaderRate]  = useState(0);
+    const [mLeaderRate, setMLeaderRate] = useState(0);
     const [m1LeaderRate, setM1LeaderRate] = useState(0);
     const [m2LeaderRate, setM2LeaderRate] = useState(0);
     const [s1LeaderRate, setS1LeaderRate] = useState(0);
     const [s2LeaderRate, setS2LeaderRate] = useState(0);
 
     /* ── Cụm thông tin phòng ── */
-    const [status,         setStatus]          = useState('');
-    const [province,       setProvince]        = useState('');
-    const [ward,           setWard]            = useState('');
+    const [status, setStatus] = useState('');
+    const [province, setProvince] = useState('');
+    const [ward, setWard] = useState('');
     const [managedBranchId, setManagedBranchId] = useState('');
-    const [regionId,        setRegionId]        = useState('');
+    const [regionId, setRegionId] = useState('');
 
     const filteredBranches = allBranches.filter(b =>
         (regionId ? b.region?.id === regionId : true) &&
         (ward ? b.wards.some(w => w.toLowerCase() === ward.toLowerCase()) : true)
     );
+    useEffect(() => {
+        if (!ward || !allBranches.length) return;
+        const matches = allBranches.filter(b =>
+            b.wards.some(w => w.toLowerCase() === ward.toLowerCase())
+        );
+        if (matches.length === 1) {
+            setManagedBranchId(matches[0].id);
+            if (matches[0].region?.id) setRegionId(matches[0].region.id);
+        }
+    }, [ward, allBranches]);
 
-    const [roomCode,       setRoomCode]        = useState('');
-    const [houseNumber,    setHouseNumber]     = useState('');
-    const [rentalPrice,    setRentalPrice]     = useState('');
-    const [depositPrice,   setDepositPrice]    = useState('');
+    const [roomCode, setRoomCode] = useState('');
+    const [houseNumber, setHouseNumber] = useState('');
+    const [rentalPrice, setRentalPrice] = useState('');
+    const [depositPrice, setDepositPrice] = useState('');
     const [contractDuration, setContractDuration] = useState<number | null>(null);
-    const [leadSource,     setLeadSource]       = useState('');
-    const [contractFile,   setContractFile]     = useState<File | null>(null);
+    const [leadSource, setLeadSource] = useState('');
+    const [contractFile, setContractFile] = useState<File | null>(null);
 
     /* ── Cụm ngày cọc ── */
-    const [deposit1,     setDeposit1]     = useState('');
-    const [deposit2,     setDeposit2]     = useState('');
+    const [deposit1, setDeposit1] = useState('');
+    const [deposit2, setDeposit2] = useState('');
     const [deposit2Date, setDeposit2Date] = useState('');
-    const [checkInDate,  setCheckInDate]  = useState('');
+    const [checkInDate, setCheckInDate] = useState('');
 
     /* ── Cụm doanh thu ── */
     const [estimatedCommissionPercent, setEstimatedCommissionPercent] = useState('');
-    const [customerSupport,            setCustomerSupport]            = useState('');
+    const [customerSupport, setCustomerSupport] = useState('');
 
     /* ── Cụm thông tin dự án ── */
-    const [depositDate,    setDepositDate]    = useState('');
-    const [customerName,   setCustomerName]   = useState('');
-    const [customerPhone,  setCustomerPhone]  = useState('');
-    const [note,           setNote]           = useState('');
+    const [depositDate, setDepositDate] = useState('');
+    const [customerName, setCustomerName] = useState('');
+    const [customerPhone, setCustomerPhone] = useState('');
+    const [note, setNote] = useState('');
 
     const [projectCode, setProjectCode] = useState('');
 
@@ -176,20 +191,22 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     }, [employees]);
 
     /* ── Auto-load leader when employee selected ── */
-    const getLeaderName = useCallback(async (empId: string): Promise<string> => {
+    const getLeaderCode = useCallback(async (empId: string): Promise<string> => {
         if (!empId) return '';
         try {
             const { data } = await api.get(`/employees/${empId}`);
-            return data?.employeeProfile?.team?.leader?.user?.fullName ?? '';
-        } catch { return ''; }
+            return data?.employeeProfile?.team?.leader?.employeeCode ?? '';
+        } catch {
+            return '';
+        }
     }, []);
 
     /* ── Load lookups and Project ── */
     useEffect(() => {
         Promise.all([
-            api.get('/branches',     { params: { limit: 200 } }),
-            api.get('/regions',      { params: { limit: 200 } }),
-            api.get('/employees',    { params: { limit: 500 } }),
+            api.get('/branches', { params: { limit: 200 } }),
+            api.get('/regions', { params: { limit: 200 } }),
+            api.get('/employees', { params: { limit: 500 } }),
             api.get(`/projects/${id}`),
             api.get('/lead-sources'),
         ]).then(([b, rg, e, pRes, ls]) => {
@@ -203,7 +220,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             })));
             const sources = (Array.isArray(ls.data) ? ls.data : ls.data?.data ?? []);
             setLeadSources(sources.map((s: { code: string; label: string }) => ({ value: s.code, label: s.label })));
-            
+
             const p = pRes.data;
             setProjectCode(p.code);
             setStatus(p.status || 'DRAFT');
@@ -242,7 +259,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                 );
                 const toUserId = (id?: string) => (id ? profileToUserId.get(id) ?? id : '');
 
-                const mUserId  = toUserId(p.staffSlot.mEmployeeId);
+                const mUserId = toUserId(p.staffSlot.mEmployeeId);
                 const m1UserId = toUserId(p.staffSlot.m1EmployeeId);
                 const m2UserId = toUserId(p.staffSlot.m2EmployeeId);
                 const s1UserId = toUserId(p.staffSlot.s1EmployeeId);
@@ -254,11 +271,11 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                 setS1Id(s1UserId);
                 setS2Id(s2UserId);
 
-                if (mUserId)  getLeaderName(mUserId).then(setMLeader);
-                if (m1UserId) getLeaderName(m1UserId).then(setM1Leader);
-                if (m2UserId) getLeaderName(m2UserId).then(setM2Leader);
-                if (s1UserId) getLeaderName(s1UserId).then(setS1Leader);
-                if (s2UserId) getLeaderName(s2UserId).then(setS2Leader);
+                if (mUserId) getLeaderCode(mUserId).then(setMLeader);
+                if (m1UserId) getLeaderCode(m1UserId).then(setM1Leader);
+                if (m2UserId) getLeaderCode(m2UserId).then(setM2Leader);
+                if (s1UserId) getLeaderCode(s1UserId).then(setS1Leader);
+                if (s2UserId) getLeaderCode(s2UserId).then(setS2Leader);
 
                 setMLeaderRate(p.staffSlot.mLeaderRate ? Number(p.staffSlot.mLeaderRate) : 0);
                 setM1LeaderRate(p.staffSlot.m1LeaderRate ? Number(p.staffSlot.m1LeaderRate) : 0);
@@ -271,32 +288,32 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         }).finally(() => {
             setInitLoading(false);
         });
-    }, [id, getLeaderName]);
+    }, [id, getLeaderCode]);
 
     const handleMChange = async (id: string) => {
         setMId(id); setM1Id(''); setM2Id('');
         setM1Leader(''); setM2Leader('');
-        setMLeader(id ? await getLeaderName(id) : '');
+        setMLeader(id ? await getLeaderCode(id) : '');
     };
     const handleM1Change = async (id: string) => {
         setM1Id(id); setMId('');
         setMLeader('');
         if (!id) { setM2Id(''); setM2Leader(''); }
-        setM1Leader(id ? await getLeaderName(id) : '');
+        setM1Leader(id ? await getLeaderCode(id) : '');
     };
     const handleM2Change = async (id: string) => {
         setM2Id(id); setMId('');
         setMLeader('');
-        setM2Leader(id ? await getLeaderName(id) : '');
+        setM2Leader(id ? await getLeaderCode(id) : '');
     };
     const handleS1Change = async (id: string) => {
         setS1Id(id);
         if (!id) { setS2Id(''); setS2Leader(''); }
-        setS1Leader(id ? await getLeaderName(id) : '');
+        setS1Leader(id ? await getLeaderCode(id) : '');
     };
     const handleS2Change = async (id: string) => {
         setS2Id(id);
-        setS2Leader(id ? await getLeaderName(id) : '');
+        setS2Leader(id ? await getLeaderCode(id) : '');
     };
 
     /* Pre-load wards when province + provinceOptions are both ready (edit mode) */
@@ -304,7 +321,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         if (province && provinceOptions.length > 0) {
             preloadForEdit(province);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [province, provinceOptions.length]);
 
     /* ── Validation ── */
@@ -312,17 +329,17 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         const e: Record<string, string> = {};
         if (!roomCode.trim()) e.roomCode = 'Nhập mã phòng';
         if (!houseNumber.trim()) e.houseNumber = 'Nhập mã dự án';
-        if (!ward.trim())           e.ward = 'Nhập phường/xã';
-        if (!province)              e.province = 'Chọn tỉnh/thành phố';
-        if (!managedBranchId)       e.managedBranchId = 'Chọn chi nhánh';
-        if (!rentalPrice)           e.rentalPrice = 'Nhập giá thuê';
-        if (!depositPrice)          e.depositPrice = 'Nhập giá đặt cọc';
-        if (!contractDuration)      e.contractDuration = 'Nhập hạn hợp đồng';
-        if (!leadSource)            e.leadSource = 'Chọn nguồn khách';
+        if (!ward.trim()) e.ward = 'Nhập phường/xã';
+        if (!province) e.province = 'Chọn tỉnh/thành phố';
+        if (!managedBranchId) e.managedBranchId = 'Chọn chi nhánh';
+        if (!rentalPrice) e.rentalPrice = 'Nhập giá thuê';
+        if (!depositPrice) e.depositPrice = 'Nhập giá đặt cọc';
+        if (!contractDuration) e.contractDuration = 'Nhập hạn hợp đồng';
+        if (!leadSource) e.leadSource = 'Chọn nguồn khách';
         if (!deposit1 || Number(deposit1) < 1) e.deposit1 = 'Nhập tiền cọc lần 1';
-        if (!depositDate)           e.depositDate = 'Chọn ngày đặt cọc';
-        if (!customerName.trim())   e.customerName = 'Nhập tên khách hàng';
-        if (!customerPhone.trim())  e.customerPhone = 'Nhập số điện thoại';
+        if (!depositDate) e.depositDate = 'Chọn ngày đặt cọc';
+        if (!customerName.trim()) e.customerName = 'Nhập tên khách hàng';
+        if (!customerPhone.trim()) e.customerPhone = 'Nhập số điện thoại';
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -337,35 +354,34 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         setLoading(true);
         try {
             const staffSlot: Record<string, string | number | undefined | null> = {};
-            if (mId)  { staffSlot.mEmployeeId  = toProfileId(mId);  staffSlot.mRate  = rates.mRate;  staffSlot.mLeaderRate  = mLeaderRate  || null; } else { staffSlot.mEmployeeId  = null; staffSlot.mRate  = null; staffSlot.mLeaderId  = null; staffSlot.mLeaderRate  = null; }
+            if (mId) { staffSlot.mEmployeeId = toProfileId(mId); staffSlot.mRate = rates.mRate; staffSlot.mLeaderRate = mLeaderRate || null; } else { staffSlot.mEmployeeId = null; staffSlot.mRate = null; staffSlot.mLeaderId = null; staffSlot.mLeaderRate = null; }
             if (m1Id) { staffSlot.m1EmployeeId = toProfileId(m1Id); staffSlot.m1Rate = rates.m1Rate; staffSlot.m1LeaderRate = m1LeaderRate || null; } else { staffSlot.m1EmployeeId = null; staffSlot.m1Rate = null; staffSlot.m1LeaderId = null; staffSlot.m1LeaderRate = null; }
             if (m2Id) { staffSlot.m2EmployeeId = toProfileId(m2Id); staffSlot.m2Rate = rates.m2Rate; staffSlot.m2LeaderRate = m2LeaderRate || null; } else { staffSlot.m2EmployeeId = null; staffSlot.m2Rate = null; staffSlot.m2LeaderId = null; staffSlot.m2LeaderRate = null; }
             if (s1Id) { staffSlot.s1EmployeeId = toProfileId(s1Id); staffSlot.s1Rate = rates.s1Rate; staffSlot.s1LeaderRate = s1LeaderRate || null; } else { staffSlot.s1EmployeeId = null; staffSlot.s1Rate = null; staffSlot.s1LeaderId = null; staffSlot.s1LeaderRate = null; }
-            if (s2Id) { staffSlot.s2EmployeeId = toProfileId(s2Id); staffSlot.s2Rate = rates.s2Rate; } else { staffSlot.s2EmployeeId = null; staffSlot.s2Rate = null; staffSlot.s2LeaderId = null; staffSlot.s2LeaderRate = null; }
+            if (s2Id) { staffSlot.s2EmployeeId = toProfileId(s2Id); staffSlot.s2Rate = rates.s2Rate; staffSlot.s2LeaderRate = s2LeaderRate || null; } else { staffSlot.s2EmployeeId = null; staffSlot.s2Rate = null; staffSlot.s2LeaderId = null; staffSlot.s2LeaderRate = null; }
 
             const payload: Record<string, unknown> = {
                 status,
                 ward,
                 province,
                 managedBranchId,
-                teamId:           null,
-                roomCode:         roomCode || undefined,
-                houseNumber:      houseNumber || undefined,
-                rentalPrice:      rentalPrice ? Number(rentalPrice) : undefined,
-                depositPrice:     depositPrice ? Number(depositPrice) : undefined,
+                roomCode: roomCode || undefined,
+                houseNumber: houseNumber || undefined,
+                rentalPrice: rentalPrice ? Number(rentalPrice) : undefined,
+                depositPrice: depositPrice ? Number(depositPrice) : undefined,
                 contractDurationMonths: contractDuration || null,
-                leadSource:       leadSource || null,
-                deposit1:         Number(deposit1),
-                deposit2:         deposit2 ? Number(deposit2) : null,
-                deposit2Date:     deposit2Date ? new Date(deposit2Date).toISOString() : null,
-                checkInDate:      checkInDate ? new Date(checkInDate).toISOString() : null,
-                depositDate:      new Date(depositDate).toISOString(),
+                leadSource: leadSource || null,
+                deposit1: Number(deposit1),
+                deposit2: deposit2 ? Number(deposit2) : null,
+                deposit2Date: deposit2Date ? new Date(deposit2Date).toISOString() : null,
+                checkInDate: checkInDate ? new Date(checkInDate).toISOString() : null,
+                depositDate: new Date(depositDate).toISOString(),
                 customerName,
                 customerPhone,
                 estimatedCommissionPercent: estimatedCommissionPercent ? Number(estimatedCommissionPercent) : null,
-                customerSupport:  customerSupport ? Number(customerSupport) : null,
-                note:             note || null,
-                staffSlot:        staffSlot,
+                customerSupport: customerSupport ? Number(customerSupport) : null,
+                note: note || null,
+                staffSlot: staffSlot,
             };
 
             await api.patch(`/projects/${id}`, payload);

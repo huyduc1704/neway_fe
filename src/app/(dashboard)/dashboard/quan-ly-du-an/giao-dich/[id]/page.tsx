@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle, Upload as UploadIcon, ExternalLink, AlertTriang
 import api from '@/lib/api';
 import { Button, Input, Select, Tag, InputNumber, Checkbox, Spin, Card, Row, Col, Descriptions, Typography, Space, Divider, Upload, DatePicker, Table, Modal, Tooltip, Alert } from 'antd';
 import dayjs from 'dayjs';
+import { useUser } from '@/context/UserContext';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -80,6 +81,7 @@ const fmtDate = (v: string | null | undefined) => v ? dayjs(v).format('DD/MM/YYY
 export default function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
+    const { can } = useUser();
     const [tx, setTx] = useState<TransactionDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -447,7 +449,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
                                         style={{ width: '100%' }}
                                         value={transactedAt ? dayjs(transactedAt) : null}
                                         onChange={(date) => setTransactedAt(date ? date.toISOString() : '')}
-                                        disabled={isLocked}
+                                        disabled={isLocked || !can('TRANSACTION_UPDATE_DATE')}
                                         placeholder="Chọn ngày giờ"
                                     />
                                 </div>
