@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { Layout, Input, Badge, Avatar, Dropdown, Space, Typography } from 'antd';
 import { BellOutlined, UserOutlined, LogoutOutlined, DownOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
@@ -11,7 +12,11 @@ const { Text } = Typography;
 export default function AppHeader() {
     const router = useRouter();
     const { roleObjects } = useUser();
-    const user = authStorage.getUser();
+    const [user, setUser] = useState<ReturnType<typeof authStorage.getUser>>(null);
+
+    useEffect(() => {
+        setUser(authStorage.getUser());
+    }, []);
 
     const handleLogout = () => {
         authStorage.clear();

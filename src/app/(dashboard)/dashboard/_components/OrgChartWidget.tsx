@@ -1,214 +1,174 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { Card, Typography, message, Spin, Button, Space, Avatar, Drawer, List, Modal, Form, Input, Select, Tooltip } from 'antd';
-import { SaveOutlined, ReloadOutlined, EditOutlined, UserOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ReactFlow,
-    Controls,
-    Background,
-    applyNodeChanges,
-    applyEdgeChanges,
-    Node,
-    Edge,
-    NodeChange,
-    EdgeChange,
-    Connection,
-    MarkerType,
-    Handle,
-    Position,
-    NodeProps
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+    Card, Typography, message, Spin, Button, Space,
+    Avatar, Drawer, List, Modal, Form, Input, Select, Tooltip
+} from 'antd';
+import { SaveOutlined, ReloadOutlined, EditOutlined, UserOutlined } from '@ant-design/icons';
+import { Graph } from '@antv/g6';
 import api from '@/lib/api';
-import dagre from 'dagre';
 
 const { Text } = Typography;
 
-// --- Dagre Layout Setup ---
-const nodeWidth = 320;
-const nodeHeight = 120;
-
-const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ rankdir: direction, nodesep: 100, ranksep: 100 });
-
-    nodes.forEach((node) => {
-        dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-    });
-
-    edges.forEach((edge) => {
-        dagreGraph.setEdge(edge.source, edge.target);
-    });
-
-    dagre.layout(dagreGraph);
-
-    const newNodes = nodes.map((node) => {
-        const nodeWithPosition = dagreGraph.node(node.id);
-        const newNode = {
-            ...node,
-            position: {
-                x: nodeWithPosition.x - nodeWidth / 2,
-                y: nodeWithPosition.y - nodeHeight / 2,
-            },
-        };
-        return newNode;
-    });
-
-    return { nodes: newNodes, edges };
-};
-
-// --- Custom Nodes ---
-
-const RoleNode = ({ data }: any) => {
-    const users = data.users || [];
-    const displayUsers = users.slice(0, 5);
-    const hiddenCount = Math.max(0, users.length - 5);
-
-    return (
-        <div style={{
-            border: '2px solid #1A2B5A',
-            borderRadius: 8,
-            background: '#fff',
-            width: nodeWidth,
-            height: nodeHeight,
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-            textAlign: 'center',
-            cursor: 'pointer'
-        }} onClick={() => data.onRoleClick(data.rawRole)}>
-            <Handle type="target" position={Position.Top} style={{ width: 12, height: 12 }} />
-            <div style={{ background: '#1A2B5A', color: '#fff', padding: '12px', borderRadius: '6px 6px 0 0', fontWeight: 'bold', fontSize: 16 }}>
-                {data.name}
-            </div>
-            <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 8 }}>
-                <Text type="secondary" style={{ fontSize: 14 }}>{data.userCount} nhân sự</Text>
-                {users.length > 0 && (
-                    <Avatar.Group maxCount={5} size="small" maxStyle={{ color: '#f56a00', backgroundColor: '#fde3cf' }}>
-                        {displayUsers.map((u: any) => (
-                            <Tooltip title={u.user?.fullName} key={u.user?.id}>
-                                <Avatar src={u.user?.avatarUrl} icon={<UserOutlined />} />
-                            </Tooltip>
-                        ))}
-                        {hiddenCount > 0 && <Avatar>+{hiddenCount}</Avatar>}
-                    </Avatar.Group>
-                )}
-            </div>
-            <Handle type="source" position={Position.Bottom} style={{ width: 12, height: 12 }} />
-        </div>
-    );
-};
-
-const nodeTypes = {
-    role: RoleNode,
-};
+type PendingMove = { nodeId: string; newParentId: string | null };
 
 export default function OrgChartWidget() {
-    const [nodes, setNodes] = useState<Node[]>([]);
-    const [edges, setEdges] = useState<Edge[]>([]);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const graphRef = useRef<Graph | null>(null);
+    const rolesMapRef = useRef<Map<string, any>>(new Map());
+
     const [loading, setLoading] = useState(true);
     const [hasPermission, setHasPermission] = useState(false);
-    
-    // Batch move state
-    const [pendingMoves, setPendingMoves] = useState<{nodeId: string, newParentId: string | null}[]>([]);
+    const [pendingMoves, setPendingMoves] = useState<PendingMove[]>([]);
 
-    // Drawer and Modal State
     const [selectedRole, setSelectedRole] = useState<any>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEmp, setEditingEmp] = useState<any>(null);
     const [form] = Form.useForm();
-    
+
     const [roles, setRoles] = useState<any[]>([]);
     const [branches, setBranches] = useState<any[]>([]);
 
-    const fetchData = async () => {
+    const buildGraph = useCallback((fetchedRoles: any[], canManage: boolean) => {
+        if (!containerRef.current) return;
+
+        graphRef.current?.destroy();
+        graphRef.current = null;
+
+        const nodes = fetchedRoles.map(role => ({
+            id: role.id,
+            data: { name: role.name, userCount: role._count?.users || 0 },
+            style: {
+                size: [220, 70] as [number, number],
+                labelText: `${role.name}\n(${role._count?.users || 0} nhân sự)`,
+            }
+        }));
+
+        const edges = fetchedRoles
+            .filter(r => r.parentRoleId)
+            .map(r => ({
+                id: `e-${r.parentRoleId}-${r.id}`,
+                source: r.parentRoleId,
+                target: r.id,
+            }));
+
+        const behaviors: any[] = ['zoom-canvas', 'drag-canvas'];
+        if (canManage) {
+            // Kéo từ node này sang node kia để tạo quan hệ cha-con mới
+            behaviors.push({ type: 'create-edge', trigger: 'drag' });
+        }
+
+        const graph = new Graph({
+            container: containerRef.current,
+            autoFit: 'view',
+            data: { nodes, edges },
+            layout: {
+                type: 'antv-dagre',
+                rankdir: 'TB',
+                nodesep: 60,
+                ranksep: 80,
+                controlPoints: true,
+            },
+            node: {
+                type: 'rect',
+                style: {
+                    fill: '#1A2B5A',
+                    stroke: '#1A2B5A',
+                    radius: 8,
+                    labelFill: '#ffffff',
+                    labelFontSize: 13,
+                    labelFontWeight: 'bold',
+                    labelPlacement: 'center',
+                    cursor: 'pointer',
+                    ports: [{ placement: 'top' }, { placement: 'bottom' }, { placement: 'left' }, { placement: 'right' }],
+                },
+            },
+            edge: {
+                type: 'polyline',
+                style: {
+                    stroke: '#94a3b8',
+                    lineWidth: 2,
+                    endArrow: true,
+                    endArrowSize: 8,
+                    radius: 8,
+                    router: { type: 'orth' },
+                },
+            },
+            behaviors,
+        });
+
+        // Click node → mở Drawer
+        // G6 v5 dùng e.itemId; nếu không có thì fallback e.target?.id
+        graph.on('node:click', (e: any) => {
+            const nodeId = e.itemId ?? e.target?.id;
+            const role = rolesMapRef.current.get(nodeId);
+            if (role) {
+                setSelectedRole(role);
+                setIsDrawerOpen(true);
+            }
+        });
+
+        // Sau khi user kéo tạo edge mới → ghi nhận pending move
+        // Nếu event không fire, thử các tên khác: 'after:createedge', 'edge:created', 'afterAddItem'
+        graph.on('aftercreateedge', (e: any) => {
+            const source = e.edge?.source ?? e.edge?.getSource?.()?.getID?.();
+            const target = e.edge?.target ?? e.edge?.getTarget?.()?.getID?.();
+            if (!source || !target || source === target) return;
+
+            setPendingMoves(prev => {
+                const rest = prev.filter(m => m.nodeId !== target);
+                return [...rest, { nodeId: target, newParentId: source }];
+            });
+        });
+
+        graph.render();
+        graphRef.current = graph;
+    }, []);
+
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setPendingMoves([]);
         try {
             const [meRes, orgRes] = await Promise.all([
                 api.get('/auth/me'),
-                api.get('/organizations/org-chart')
+                api.get('/organizations/org-chart'),
             ]);
-            
-            const perms = meRes.data.permissions || [];
+
+            const perms: string[] = meRes.data.permissions || [];
             const canManage = perms.includes('MANAGE_ORG_CHART');
             setHasPermission(canManage);
 
-            const fetchedRoles = orgRes.data.roles || [];
-            const fetchedBranches = orgRes.data.branches || [];
-            
+            const fetchedRoles: any[] = orgRes.data.roles || [];
+            const fetchedBranches: any[] = orgRes.data.branches || [];
+
             setRoles(fetchedRoles);
             setBranches(fetchedBranches);
+            rolesMapRef.current = new Map(fetchedRoles.map(r => [r.id, r]));
 
-            // Cập nhật lại selectedRole nếu Drawer đang mở
-            if (selectedRole) {
-                const updatedRole = fetchedRoles.find((r: any) => r.id === selectedRole.id);
-                if (updatedRole) setSelectedRole(updatedRole);
-            }
-
-            const newNodes: Node[] = [];
-            const newEdges: Edge[] = [];
-
-            fetchedRoles.forEach((role: any) => {
-                newNodes.push({
-                    id: role.id,
-                    type: 'role',
-                    position: { x: 0, y: 0 },
-                    data: { 
-                        name: role.name,
-                        userCount: role._count?.users || 0,
-                        users: role.users || [],
-                        rawRole: role,
-                        onRoleClick: handleRoleClick
-                    }
-                });
-
-                if (role.parentRoleId) {
-                    newEdges.push({
-                        id: `e-${role.parentRoleId}-${role.id}`,
-                        source: role.parentRoleId,
-                        target: role.id,
-                        markerEnd: { type: MarkerType.ArrowClosed }
-                    });
-                }
-            });
-
-            const layouted = getLayoutedElements(newNodes, newEdges);
-            setNodes(layouted.nodes);
-            setEdges(layouted.edges);
-        } catch (error) {
-            console.error('Failed to load org chart', error);
+            buildGraph(fetchedRoles, canManage);
+        } catch {
+            message.error('Không thể tải sơ đồ tổ chức');
         } finally {
             setLoading(false);
         }
-    };
+    }, [buildGraph]);
 
     useEffect(() => {
         fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchData]);
 
-    const handleRoleClick = (role: any) => {
-        setSelectedRole(role);
-        setIsDrawerOpen(true);
-    };
+    // Cleanup khi unmount
+    useEffect(() => () => { graphRef.current?.destroy(); }, []);
 
     const handleEditEmp = (empUser: any) => {
         const empProfile = empUser.user?.employeeProfile;
         if (!empProfile) return;
-        setEditingEmp({
-            id: empProfile.id,
-            fullName: empUser.user?.fullName,
-            title: empProfile.title,
-            branchId: empProfile.branchId,
-            roleId: selectedRole?.id
-        });
+        setEditingEmp({ id: empProfile.id, fullName: empUser.user?.fullName });
         form.setFieldsValue({
             title: empProfile.title,
             branchId: empProfile.branchId,
-            roleId: selectedRole?.id
+            roleId: selectedRole?.id,
         });
         setIsModalOpen(true);
     };
@@ -220,51 +180,10 @@ export default function OrgChartWidget() {
             message.success('Đã cập nhật thông tin nhân sự');
             setIsModalOpen(false);
             fetchData();
-        } catch (error) {
-            console.error(error);
+        } catch {
+            // validation error handled by antd form
         }
     };
-
-    const onNodesChange = useCallback((changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
-    const onEdgesChange = useCallback((changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
-
-    const onConnect = useCallback((params: Connection) => {
-        if (!hasPermission) {
-            message.warning('Bạn không có quyền thay đổi cấu trúc bộ máy');
-            return;
-        }
-
-        const sourceNode = nodes.find(n => n.id === params.source);
-        const targetNode = nodes.find(n => n.id === params.target);
-        if (!sourceNode || !targetNode) return;
-
-        // Prevent cyclic or self connections
-        if (params.source === params.target) return;
-
-        // Remove any existing edge that targets the same node (a role can only have 1 parent)
-        const filteredEdges = edges.filter(e => e.target !== params.target);
-        
-        const newEdge = {
-            id: `e-${params.source}-${params.target}`,
-            source: params.source,
-            target: params.target,
-            markerEnd: { type: MarkerType.ArrowClosed }
-        };
-        const newEdges = [...filteredEdges, newEdge];
-
-        // Apply dagre layout again to reorganize the graph visually
-        const layouted = getLayoutedElements(nodes, newEdges);
-        setNodes(layouted.nodes);
-        setEdges(layouted.edges);
-
-        // Record the pending move
-        setPendingMoves(prev => {
-            // Remove any existing pending move for this target
-            const rest = prev.filter(m => m.nodeId !== params.target);
-            return [...rest, { nodeId: params.target, newParentId: params.source }];
-        });
-
-    }, [nodes, edges, hasPermission]);
 
     const handleSaveChanges = async () => {
         try {
@@ -278,8 +197,8 @@ export default function OrgChartWidget() {
     };
 
     return (
-        <Card 
-            title="Cấu trúc Chức vụ (Role Hierarchy)" 
+        <Card
+            title="Cấu trúc Chức vụ"
             extra={
                 <Space>
                     <Button icon={<ReloadOutlined />} onClick={fetchData}>Làm mới</Button>
@@ -290,28 +209,22 @@ export default function OrgChartWidget() {
                     )}
                 </Space>
             }
-            style={{ height: '100%', display: 'flex', flexDirection: 'column' }} 
+            style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
             styles={{ body: { flex: 1, padding: 0, position: 'relative' } }}
         >
-            {loading && nodes.length === 0 ? (
-                <div style={{ padding: 64, textAlign: 'center' }}><Spin /></div>
-            ) : (
-                <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    nodeTypes={nodeTypes}
-                    fitView
-                    nodesDraggable={hasPermission}
-                    nodesConnectable={hasPermission}
-                    attributionPosition="bottom-right"
-                >
-                    <Controls />
-                    <Background color="#ccc" gap={16} />
-                </ReactFlow>
-            )}
+            {/* Container luôn render để containerRef.current không null khi buildGraph được gọi */}
+            <div style={{ position: 'relative', width: '100%', height: 600 }}>
+                {loading && (
+                    <div style={{
+                        position: 'absolute', inset: 0, zIndex: 10,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(255,255,255,0.75)',
+                    }}>
+                        <Spin />
+                    </div>
+                )}
+                <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+            </div>
 
             <Drawer
                 title={`Danh sách: ${selectedRole?.name}`}
@@ -359,12 +272,16 @@ export default function OrgChartWidget() {
                     </Form.Item>
                     <Form.Item name="roleId" label="Vai trò hệ thống (Role)">
                         <Select placeholder="Chọn Role hệ thống" showSearch optionFilterProp="children">
-                            {roles.map(r => <Select.Option key={r.id} value={r.id}>{r.name} ({r.code})</Select.Option>)}
+                            {roles.map(r => (
+                                <Select.Option key={r.id} value={r.id}>{r.name} ({r.code})</Select.Option>
+                            ))}
                         </Select>
                     </Form.Item>
                     <Form.Item name="branchId" label="Thuộc chi nhánh">
                         <Select placeholder="Chọn chi nhánh" allowClear showSearch optionFilterProp="children">
-                            {branches.map(b => <Select.Option key={b.id} value={b.id}>{b.name}</Select.Option>)}
+                            {branches.map(b => (
+                                <Select.Option key={b.id} value={b.id}>{b.name}</Select.Option>
+                            ))}
                         </Select>
                     </Form.Item>
                 </Form>
