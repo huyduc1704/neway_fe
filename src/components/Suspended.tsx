@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { Result, Button } from 'antd';
 import { StopOutlined, PhoneOutlined } from '@ant-design/icons';
