@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import { Toaster } from 'sonner';
 import './globals.css';
-import Suspended from '@/components/Suspended';
+// import Suspended from '@/components/Suspended';
 
 dayjs.locale('vi');
 
@@ -28,7 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }}
           >
             {/* HỆ THỐNG TẠM NGƯNG - BLOCKED ACCESS */}
-            <Suspended />
+            {/* <Suspended /> */}
+            {children}
             <Toaster position="top-right" richColors />
           </ConfigProvider>
         </AntdRegistry>
