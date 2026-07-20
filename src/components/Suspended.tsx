@@ -7,7 +7,7 @@ import { StopOutlined, PhoneOutlined } from '@ant-design/icons';
 export default function Suspended() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div 
+      <div
         className="bg-white rounded-2xl shadow-xl max-w-lg w-full text-center border border-red-100"
         style={{ padding: '25px' }}
       >
