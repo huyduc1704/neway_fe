@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Select, Form, Card, Typography } from 'antd';
+import { Button, Input, Select, Form, Card, Modal, Typography } from 'antd';
 import api from '@/lib/api';
 import dayjs from 'dayjs';
 
@@ -93,15 +93,23 @@ export default function ProjectForm({ mode, projectId }: Props) {
         }
     };
 
-    const handleDelete = async () => {
-        if (!window.confirm('Xoá dự án này?')) return;
-        try {
-            await api.delete(`/projects/${projectId}`);
-            message.success('Đã xoá dự án');
-            router.push('/dashboard/he-thong/danh-muc-du-an' as any);
-        } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
-        }
+    const handleDelete = () => {
+        Modal.confirm({
+            title: 'Xoá dự án này?',
+            content: 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/projects/${projectId}`);
+                    message.success('Đã xoá dự án');
+                    router.push('/dashboard/he-thong/danh-muc-du-an' as any);
+                } catch (err: any) {
+                    message.error(err?.response?.data?.message || 'Thao tác thất bại');
+                }
+            },
+        });
     };
 
     if (loading) {

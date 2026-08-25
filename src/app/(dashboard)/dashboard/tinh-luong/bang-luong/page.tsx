@@ -4,14 +4,14 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { message } from 'antd';
 import {
     Calculator, Download, ChevronRight, Pencil, FileText,
-    RefreshCw, Lock, TrendingUp, DollarSign, Receipt, Users
+    RefreshCw, Lock, TrendingUp, DollarSign, Receipt, Users, Trash2
 } from 'lucide-react';
 import api from '@/lib/api';
 import { downloadExport } from '@/lib/export';
 import { formatCurrency } from '@/lib/utils';
 import {
     Button, Select, Tag, Table, Card, Modal, Form, Typography, Space,
-    Statistic, Row, Col, Checkbox, Input, Spin
+    Statistic, Row, Col, Checkbox, Input, Spin, Popconfirm
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CalculatorOutlined, DownloadOutlined, EditOutlined, FileTextOutlined, LockOutlined } from '@ant-design/icons';
@@ -213,6 +213,14 @@ function BangLuongContent() {
         finally { setBreakdownSaving(false); }
     };
 
+    const handleDeleteLine = async (lineId: string, fullName: string) => {
+        try {
+            await api.delete(`/payroll/lines/${lineId}`);
+            message.success(`Đã xoá bảng lương của ${fullName}`);
+            fetchLines();
+        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    };
+
     const handleExport = async (format: 'excel' | 'pdf', groupBy: string) => {
         try {
             await downloadExport(`/payroll/periods/${periodId}/export`, { groupBy, format }, `bang-luong-${groupBy.toLowerCase()}`);
@@ -280,7 +288,7 @@ function BangLuongContent() {
             render: (_, r) => <span style={{ fontWeight: 700, color: '#E8890C', fontSize: 15 }}>{formatCurrency(Number(r.finalNetIncome))}</span>,
         },
         {
-            title: '', key: 'actions', width: 100, align: 'center',
+            title: '', key: 'actions', width: 120, align: 'center',
             render: (_, r) => (
                 <Space size={4}>
                     {!period?.isLocked && (
@@ -289,6 +297,18 @@ function BangLuongContent() {
                     )}
                     <Button type="text" size="small" icon={<FileTextOutlined />} title="Chi tiết lương"
                         onClick={() => openBreakdown(r.id)} style={{ color: '#6b7280' }} />
+                    {!period?.isLocked && (
+                        <Popconfirm
+                            title={`Xoá bảng lương của ${r.employee.user.fullName}?`}
+                            onConfirm={() => handleDeleteLine(r.id, r.employee.user.fullName)}
+                            okText="Xoá"
+                            cancelText="Huỷ"
+                            okButtonProps={{ danger: true }}
+                        >
+                            <Button type="text" size="small" icon={<Trash2 size={14} />} title="Xoá"
+                                style={{ color: '#ef4444' }} />
+                        </Popconfirm>
+                    )}
                 </Space>
             ),
         },

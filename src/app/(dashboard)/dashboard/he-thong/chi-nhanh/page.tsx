@@ -173,22 +173,36 @@ export default function ChiNhanhPage() {
         } finally { setSaving(false); }
     };
 
-    const handleDeactivate = async (id: string, name: string) => {
-        if (!window.confirm(`Vô hiệu hoá chi nhánh "${name}"?`)) return;
-        try {
-            await api.patch(`/branches/${id}/deactivate`);
-            message.success('Đã vô hiệu hoá chi nhánh');
-            fetchBranches();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDeactivate = (id: string, name: string) => {
+        Modal.confirm({
+            title: `Vô hiệu hoá chi nhánh "${name}"?`,
+            okText: 'Vô hiệu hoá',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.patch(`/branches/${id}/deactivate`);
+                    message.success('Đã vô hiệu hoá chi nhánh');
+                    fetchBranches();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!window.confirm(`Xoá chi nhánh "${name}"? Thao tác không thể hoàn tác.`)) return;
-        try {
-            await api.delete(`/branches/${id}`);
-            message.success('Đã xoá chi nhánh');
-            fetchBranches();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDelete = (id: string, name: string) => {
+        Modal.confirm({
+            title: `Xoá chi nhánh "${name}"?`,
+            content: 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/branches/${id}`);
+                    message.success('Đã xoá chi nhánh');
+                    fetchBranches();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
     const columns: ColumnsType<Branch> = [

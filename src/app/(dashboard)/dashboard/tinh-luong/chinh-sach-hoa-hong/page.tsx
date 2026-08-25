@@ -120,22 +120,36 @@ export default function ChinhSachHoaHongPage() {
         } finally { setSaving(false); }
     };
 
-    const handleDeactivate = async (id: string, name: string) => {
-        if (!window.confirm(`Vô hiệu hoá chính sách "${name}"?`)) return;
-        try {
-            await api.patch(`/commission-policies/${id}/deactivate`);
-            message.success('Đã vô hiệu hoá chính sách');
-            fetchPolicies();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDeactivate = (id: string, name: string) => {
+        Modal.confirm({
+            title: `Vô hiệu hoá chính sách "${name}"?`,
+            okText: 'Vô hiệu hoá',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.patch(`/commission-policies/${id}/deactivate`);
+                    message.success('Đã vô hiệu hoá chính sách');
+                    fetchPolicies();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!window.confirm(`Xoá chính sách "${name}"?`)) return;
-        try {
-            await api.delete(`/commission-policies/${id}`);
-            message.success('Đã xoá chính sách');
-            fetchPolicies();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDelete = (id: string, name: string) => {
+        Modal.confirm({
+            title: `Xoá chính sách "${name}"?`,
+            content: 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/commission-policies/${id}`);
+                    message.success('Đã xoá chính sách');
+                    fetchPolicies();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
     const formatValue = (p: Policy) => {

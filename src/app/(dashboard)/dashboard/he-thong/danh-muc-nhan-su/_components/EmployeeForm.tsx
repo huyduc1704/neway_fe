@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Form, Input, Select, Button, Card, Typography, Row, Col,
+    Form, Input, Select, Button, Card, Modal, Typography, Row, Col,
     DatePicker, Checkbox, Upload, Avatar, message, Divider, Spin, Tag,
 } from 'antd';
 import { UserOutlined, UploadOutlined, ArrowLeftOutlined } from '@ant-design/icons';
@@ -211,15 +211,23 @@ export default function EmployeeForm({ mode, userId }: Props) {
         }
     };
 
-    const handleDelete = async () => {
-        if (!window.confirm('Xác nhận xoá nhân sự này?')) return;
-        try {
-            await api.delete(`/employees/${userId}`);
-            message.success('Đã xoá nhân sự');
-            router.push('/dashboard/he-thong/danh-muc-nhan-su');
-        } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Xoá thất bại');
-        }
+    const handleDelete = () => {
+        Modal.confirm({
+            title: 'Xoá nhân sự này?',
+            content: 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/employees/${userId}`);
+                    message.success('Đã xoá nhân sự');
+                    router.push('/dashboard/he-thong/danh-muc-nhan-su');
+                } catch (err: any) {
+                    message.error(err?.response?.data?.message || 'Xoá thất bại');
+                }
+            },
+        });
     };
 
     if (loading) {

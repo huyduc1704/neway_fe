@@ -81,13 +81,21 @@ export default function QuanLyKhuVucPage() {
         } finally { setSaving(false); }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm('Xoá khu vực này? Hành động không thể hoàn tác.')) return;
-        try {
-            await api.delete(`/regions/${id}`);
-            message.success('Đã xoá khu vực');
-            fetchRegions();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDelete = (id: string) => {
+        Modal.confirm({
+            title: 'Xoá khu vực này?',
+            content: 'Hành động không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/regions/${id}`);
+                    message.success('Đã xoá khu vực');
+                    fetchRegions();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
     const toggleBranch = (id: string) => {

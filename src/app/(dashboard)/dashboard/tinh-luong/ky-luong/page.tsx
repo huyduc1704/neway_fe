@@ -79,23 +79,40 @@ export default function KyLuongPage() {
         } finally { setSaving(false); }
     };
 
-    const handleLock = async (p: PayrollPeriod) => {
+    const handleLock = (p: PayrollPeriod) => {
         const action = p.isLocked ? 'Mở khoá' : 'Khoá';
-        if (!window.confirm(`${action} kỳ lương "${p.code}"?`)) return;
-        try {
-            await api.post(`/payroll/periods/${p.id}/${p.isLocked ? 'unlock' : 'lock'}`);
-            message.success(`${action} kỳ lương thành công`);
-            fetchPeriods();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+        Modal.confirm({
+            title: `${action} kỳ lương "${p.code}"?`,
+            okText: action,
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.post(`/payroll/periods/${p.id}/${p.isLocked ? 'unlock' : 'lock'}`);
+                    message.success(`${action} kỳ lương thành công`);
+                    fetchPeriods();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
-    const handleDelete = async (p: PayrollPeriod) => {
-        if (!window.confirm(`Xoá kỳ lương "${p.code}"? Thao tác không thể hoàn tác.`)) return;
-        try {
-            await api.delete(`/payroll/periods/${p.id}`);
-            message.success('Đã xoá kỳ lương');
-            fetchPeriods();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDelete = (p: PayrollPeriod) => {
+        const hasLines = p._count.payrollLines > 0;
+        Modal.confirm({
+            title: `Xoá kỳ lương "${p.code}"?`,
+            content: hasLines
+                ? `Sẽ xoá luôn ${p._count.payrollLines} bảng lương liên quan. Thao tác không thể hoàn tác.`
+                : 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/payroll/periods/${p.id}`);
+                    message.success('Đã xoá kỳ lương');
+                    fetchPeriods();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
     const periodStart = Form.useWatch('periodStart', form);
@@ -154,7 +171,7 @@ export default function KyLuongPage() {
                             {r.isLocked ? <LockOpen size={16} /> : <Lock size={16} />}
                         </button>
                     )}
-                    {can('PAYROLL_DELETE') && !r.isLocked && r._count.payrollLines === 0 && (
+                    {can('PAYROLL_DELETE') && !r.isLocked && (
                         <button title="Xoá" style={{ padding: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }} onClick={() => handleDelete(r)}>
                             <Trash2 size={16} />
                         </button>

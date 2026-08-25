@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2 } from 'lucide-react';
-import { Button, Input, Tag, Table, Card, Typography, Space, message as antMessage } from 'antd';
+import { Button, Input, Tag, Table, Card, Modal, Typography, Space, message as antMessage } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
@@ -48,15 +48,23 @@ export default function DanhMucKhachHangPage() {
 
     useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm('Xoá khách hàng này?')) return;
-        try {
-            await api.delete(`/customers/${id}`);
-            message.success('Đã xoá khách hàng');
-            fetchCustomers();
-        } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
-        }
+    const handleDelete = (id: string) => {
+        Modal.confirm({
+            title: 'Xoá khách hàng này?',
+            content: 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/customers/${id}`);
+                    message.success('Đã xoá khách hàng');
+                    fetchCustomers();
+                } catch (err: any) {
+                    message.error(err?.response?.data?.message || 'Thao tác thất bại');
+                }
+            },
+        });
     };
 
     const columns: ColumnsType<Customer> = [

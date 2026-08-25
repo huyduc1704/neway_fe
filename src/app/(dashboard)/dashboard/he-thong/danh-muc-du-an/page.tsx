@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2 } from 'lucide-react';
-import { Button, Input, Select, Tag, Table, Card, Typography, Space } from 'antd';
+import { Button, Input, Select, Tag, Table, Card, Modal, Typography, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '@/lib/api';
@@ -73,15 +73,23 @@ export default function DanhMucDuAnPage() {
         api.get('/branches', { params: { limit: 100 } }).then(({ data }) => setBranches(data.data)).catch(() => {});
     }, []);
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm('Xoá dự án này?')) return;
-        try {
-            await api.delete(`/projects/${id}`);
-            message.success('Đã xoá dự án');
-            fetchProjects();
-        } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
-        }
+    const handleDelete = (id: string) => {
+        Modal.confirm({
+            title: 'Xoá dự án này?',
+            content: 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/projects/${id}`);
+                    message.success('Đã xoá dự án');
+                    fetchProjects();
+                } catch (err: any) {
+                    message.error(err?.response?.data?.message || 'Thao tác thất bại');
+                }
+            },
+        });
     };
 
     const columns: ColumnsType<Project> = [

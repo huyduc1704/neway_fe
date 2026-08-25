@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Select, Form, Card, Typography } from 'antd';
+import { Button, Input, Select, Form, Card, Modal, Typography } from 'antd';
 import api from '@/lib/api';
 
 const { Title } = Typography;
@@ -57,15 +57,23 @@ export default function CustomerForm({ mode, customerId }: Props) {
         }
     };
 
-    const handleDelete = async () => {
-        if (!window.confirm('Xoá khách hàng này?')) return;
-        try {
-            await api.delete(`/customers/${customerId}`);
-            message.success('Đã xoá khách hàng');
-            router.push('/dashboard/he-thong/danh-muc-khach-hang' as any);
-        } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Thao tác thất bại');
-        }
+    const handleDelete = () => {
+        Modal.confirm({
+            title: 'Xoá khách hàng này?',
+            content: 'Thao tác không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/customers/${customerId}`);
+                    message.success('Đã xoá khách hàng');
+                    router.push('/dashboard/he-thong/danh-muc-khach-hang' as any);
+                } catch (err: any) {
+                    message.error(err?.response?.data?.message || 'Thao tác thất bại');
+                }
+            },
+        });
     };
 
     if (loading) {

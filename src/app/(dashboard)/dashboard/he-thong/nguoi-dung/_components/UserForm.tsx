@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Select, Form, Card, Typography } from 'antd';
+import { Button, Input, Select, Form, Card, Modal, Typography } from 'antd';
 import api from '@/lib/api';
 
 const { Title } = Typography;
@@ -63,15 +63,21 @@ export default function UserForm({ mode, userId }: Props) {
         }
     };
 
-    const handleDelete = async () => {
-        if (!window.confirm('Vô hiệu hoá tài khoản này?')) return;
-        try {
-            await api.patch(`/users/${userId}/deactivate`);
-            message.success('Đã vô hiệu hoá tài khoản');
-            router.push('/dashboard/he-thong/nguoi-dung' as any);
-        } catch {
-            message.error('Thao tác thất bại');
-        }
+    const handleDelete = () => {
+        Modal.confirm({
+            title: 'Vô hiệu hoá tài khoản này?',
+            okText: 'Vô hiệu hoá',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.patch(`/users/${userId}/deactivate`);
+                    message.success('Đã vô hiệu hoá tài khoản');
+                    router.push('/dashboard/he-thong/nguoi-dung' as any);
+                } catch {
+                    message.error('Thao tác thất bại');
+                }
+            },
+        });
     };
 
     if (loading) {

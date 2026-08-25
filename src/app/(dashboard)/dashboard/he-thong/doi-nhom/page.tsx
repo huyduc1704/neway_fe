@@ -87,22 +87,36 @@ export default function DoiNhomPage() {
         } finally { setSaving(false); }
     };
 
-    const handleDeactivate = async (id: string, isActive: boolean) => {
-        if (!window.confirm(isActive ? 'Vô hiệu hoá đội/nhóm này?' : 'Kích hoạt lại đội/nhóm này?')) return;
-        try {
-            await api.patch(`/teams/${id}/deactivate`);
-            message.success('Đã cập nhật trạng thái');
-            fetchTeams();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDeactivate = (id: string, isActive: boolean) => {
+        Modal.confirm({
+            title: isActive ? 'Vô hiệu hoá đội/nhóm này?' : 'Kích hoạt lại đội/nhóm này?',
+            okText: isActive ? 'Vô hiệu hoá' : 'Kích hoạt',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.patch(`/teams/${id}/deactivate`);
+                    message.success('Đã cập nhật trạng thái');
+                    fetchTeams();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm('Xoá đội/nhóm này? Hành động không thể hoàn tác.')) return;
-        try {
-            await api.delete(`/teams/${id}`);
-            message.success('Đã xoá đội/nhóm');
-            fetchTeams();
-        } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+    const handleDelete = (id: string) => {
+        Modal.confirm({
+            title: 'Xoá đội/nhóm này?',
+            content: 'Hành động không thể hoàn tác.',
+            okText: 'Xoá',
+            okType: 'danger',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.delete(`/teams/${id}`);
+                    message.success('Đã xoá đội/nhóm');
+                    fetchTeams();
+                } catch (err: any) { message.error(err?.response?.data?.message || 'Thao tác thất bại'); }
+            },
+        });
     };
 
     const columns: ColumnsType<Team> = [

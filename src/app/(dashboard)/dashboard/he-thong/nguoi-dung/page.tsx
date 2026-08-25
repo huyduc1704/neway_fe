@@ -71,15 +71,21 @@ export default function NguoiDungPage() {
         }
     };
 
-    const handleDeactivate = async (id: string) => {
-        if (!window.confirm('Vô hiệu hoá tài khoản này?')) return;
-        try {
-            await api.patch(`/users/${id}/disable`);
-            message.success('Đã vô hiệu hoá tài khoản');
-            fetchUsers();
-        } catch {
-            message.error('Thao tác thất bại');
-        }
+    const handleDeactivate = (id: string) => {
+        Modal.confirm({
+            title: 'Vô hiệu hoá tài khoản này?',
+            okText: 'Vô hiệu hoá',
+            cancelText: 'Huỷ',
+            onOk: async () => {
+                try {
+                    await api.patch(`/users/${id}/disable`);
+                    message.success('Đã vô hiệu hoá tài khoản');
+                    fetchUsers();
+                } catch {
+                    message.error('Thao tác thất bại');
+                }
+            },
+        });
     };
 
     const openPwReset = (id: string, name: string) => {
